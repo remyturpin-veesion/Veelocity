@@ -1,9 +1,17 @@
 # Makefile
-.PHONY: dev down logs shell-backend test migrate lint format
+.PHONY: dev dev-local down logs shell-backend test migrate lint format db
 
-# Development
+# Development avec Docker
 dev:
 	docker-compose -f infra/docker/docker-compose.yml up -d
+
+# Development local (hot reload) - nécessite .env dans backend/
+dev-local:
+	cd backend && uv run uvicorn app.main:app --reload --port 8000
+
+# Démarrer juste PostgreSQL
+db:
+	docker-compose -f infra/docker/docker-compose.yml up -d postgres
 
 down:
 	docker-compose -f infra/docker/docker-compose.yml down
