@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # GitHub
     github_token: str | None = None
+    github_repos: str = ""  # Comma-separated: "owner/repo1,owner/repo2"
 
     # Linear
     linear_api_key: str | None = None
