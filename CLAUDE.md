@@ -36,7 +36,7 @@ veelocity/
 │   │   └── main.py
 │   ├── tests/
 │   ├── alembic/
-│   ├── requirements.txt
+│   ├── pyproject.toml
 │   └── Dockerfile
 ├── frontend/
 │   └── lib/
