@@ -113,9 +113,14 @@ class SyncService:
             existing = result.scalar_one_or_none()
             review_data = {**data, "pr_id": pr_id}
             review_data["submitted_at"] = _parse_datetime(review_data.get("submitted_at"))
-            if not existing:
+            if existing:
+                # Update existing review (state can change: PENDING -> APPROVED, etc.)
+                for key, value in review_data.items():
+                    if key != "github_id":
+                        setattr(existing, key, value)
+            else:
                 self._db.add(PRReview(**review_data))
-                count += 1
+            count += 1
         await self._db.flush()
         return count
 
@@ -128,9 +133,14 @@ class SyncService:
             existing = result.scalar_one_or_none()
             comment_data = {**data, "pr_id": pr_id}
             comment_data["created_at"] = _parse_datetime(comment_data.get("created_at"))
-            if not existing:
+            if existing:
+                # Update existing comment (body can be edited on GitHub)
+                for key, value in comment_data.items():
+                    if key != "github_id":
+                        setattr(existing, key, value)
+            else:
                 self._db.add(PRComment(**comment_data))
-                count += 1
+            count += 1
         await self._db.flush()
         return count
 
