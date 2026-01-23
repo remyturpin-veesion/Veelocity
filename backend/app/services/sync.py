@@ -7,6 +7,20 @@ from app.connectors.github import GitHubConnector
 from app.models.github import Commit, PRComment, PRReview, PullRequest, Repository
 
 
+def _parse_datetime(value: str | datetime | None) -> datetime | None:
+    """Parse datetime string to naive datetime (removes timezone info)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = value
+    # Convert to naive datetime (remove tzinfo) for TIMESTAMP WITHOUT TIME ZONE
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 class SyncService:
     """Orchestrates data sync from connectors to database."""
 
@@ -76,10 +90,9 @@ class SyncService:
             )
             pr = result.scalar_one_or_none()
             pr_data = {**data, "repo_id": repo_id}
-            # Parse datetime strings
+            # Parse datetime strings to naive datetime
             for field in ("created_at", "updated_at", "merged_at", "closed_at"):
-                if pr_data.get(field) and isinstance(pr_data[field], str):
-                    pr_data[field] = datetime.fromisoformat(pr_data[field].replace("Z", "+00:00"))
+                pr_data[field] = _parse_datetime(pr_data.get(field))
             if pr:
                 for key, value in pr_data.items():
                     if key != "github_id":
@@ -99,8 +112,7 @@ class SyncService:
             )
             existing = result.scalar_one_or_none()
             review_data = {**data, "pr_id": pr_id}
-            if review_data.get("submitted_at") and isinstance(review_data["submitted_at"], str):
-                review_data["submitted_at"] = datetime.fromisoformat(review_data["submitted_at"].replace("Z", "+00:00"))
+            review_data["submitted_at"] = _parse_datetime(review_data.get("submitted_at"))
             if not existing:
                 self._db.add(PRReview(**review_data))
                 count += 1
@@ -115,8 +127,7 @@ class SyncService:
             )
             existing = result.scalar_one_or_none()
             comment_data = {**data, "pr_id": pr_id}
-            if comment_data.get("created_at") and isinstance(comment_data["created_at"], str):
-                comment_data["created_at"] = datetime.fromisoformat(comment_data["created_at"].replace("Z", "+00:00"))
+            comment_data["created_at"] = _parse_datetime(comment_data.get("created_at"))
             if not existing:
                 self._db.add(PRComment(**comment_data))
                 count += 1
@@ -136,7 +147,7 @@ class SyncService:
                 "pr_id": pr_id,
                 "author_login": data["author_login"],
                 "message": data["message"],
-                "committed_at": datetime.fromisoformat(data["committed_at"].replace("Z", "+00:00")) if isinstance(data["committed_at"], str) else data["committed_at"],
+                "committed_at": _parse_datetime(data.get("committed_at")),
             }
             if not existing:
                 self._db.add(Commit(**commit_data))
