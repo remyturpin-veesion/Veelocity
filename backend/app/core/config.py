@@ -24,5 +24,9 @@ class Settings(BaseSettings):
     # Sync
     deployment_patterns: str = "deploy,release,publish"  # Comma-separated
 
+    # Pagination guard rails
+    pagination_default_limit: int = 20
+    pagination_max_limit: int = 100  # Hard limit, cannot be exceeded
+
 
 settings = Settings()
