@@ -1,5 +1,5 @@
 # Makefile
-.PHONY: dev down logs shell-backend test migrate
+.PHONY: dev down logs shell-backend test migrate lint format
 
 # Development
 dev:
@@ -16,17 +16,17 @@ shell-backend:
 
 # Backend
 test:
-	cd backend && pytest -v
+	cd backend && uv run pytest -v
 
 migrate:
-	cd backend && alembic upgrade head
+	cd backend && uv run alembic upgrade head
 
 migrate-create:
-	cd backend && alembic revision --autogenerate -m "$(name)"
+	cd backend && uv run alembic revision --autogenerate -m "$(name)"
 
 # Linting
 lint:
-	cd backend && ruff check app/
+	cd backend && uv run ruff check app/
 
 format:
-	cd backend && black app/
+	cd backend && uv run black app/

@@ -57,10 +57,9 @@ veelocity/
 ## Commandes Utiles
 
 ```bash
-# Backend
+# Backend (uv gère le venv et les dépendances automatiquement)
 cd backend
-uv pip install -r requirements.txt
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 
 # Frontend
 cd frontend

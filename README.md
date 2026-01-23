@@ -44,14 +44,8 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 git clone https://github.com/veesion-io/veelocity.git
 cd veelocity
 
-# Backend
-cd backend
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
-
 # Frontend
-cd ../frontend
+cd frontend
 flutter pub get
 
 # Lancer avec Docker (PostgreSQL + backend)
@@ -61,10 +55,9 @@ make dev
 ### Développement
 
 ```bash
-# Backend (avec hot reload)
+# Backend (avec hot reload) - uv gère le venv et les dépendances automatiquement
 cd backend
-source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 
 # Frontend (web)
 cd frontend
