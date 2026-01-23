@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veelocity}:${POSTGRES_PASSWORD:-veelocity}@postgres:5432/${POSTGRES_DB:-veelocity}
       DEBUG: ${DEBUG:-false}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPOS: ${GITHUB_REPOS:-}
       LINEAR_API_KEY: ${LINEAR_API_KEY:-}
       DEPLOYMENT_PATTERNS: ${DEPLOYMENT_PATTERNS:-deploy,release,publish}
     ports:
