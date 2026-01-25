@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_service.dart';
 import 'metrics_service.dart';
+import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../widgets/period_selector.dart';
@@ -56,4 +57,34 @@ final repositoriesProvider = FutureProvider<List<RepoOption>>((ref) async {
   final service = ref.read(apiServiceProvider);
   final repos = await service.getRepositories();
   return repos.map((r) => RepoOption(id: r['id'] as int, name: r['full_name'] as String)).toList();
+});
+
+/// Provider for fetching developers with filters.
+final developersProvider = FutureProvider<DevelopersResponse>((ref) async {
+  final service = ref.read(apiServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  final data = await service.getDevelopers(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+  return DevelopersResponse.fromJson(data);
+});
+
+/// Provider for fetching a specific developer's stats.
+final developerStatsProvider =
+    FutureProvider.family<DeveloperStats, String>((ref, login) async {
+  final service = ref.read(apiServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  final data = await service.getDeveloperStats(
+    login,
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+  return DeveloperStats.fromJson(data);
 });

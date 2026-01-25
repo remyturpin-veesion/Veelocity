@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/app_shell.dart';
 
 void main() {
   runApp(const ProviderScope(child: VeelocityApp()));
@@ -21,7 +21,7 @@ class VeelocityApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const DashboardScreen(),
+      home: const AppShell(),
     );
   }
 }

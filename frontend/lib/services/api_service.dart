@@ -43,4 +43,53 @@ class ApiService {
   Future<void> triggerSync() async {
     await _dio.post('/api/v1/connectors/sync');
   }
+
+  /// Get all developers with basic stats.
+  Future<Map<String, dynamic>> getDevelopers({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/developers',
+      queryParameters: queryParams,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Get detailed stats for a specific developer.
+  Future<Map<String, dynamic>> getDeveloperStats(
+    String login, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/developers/$login',
+      queryParameters: queryParams,
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
