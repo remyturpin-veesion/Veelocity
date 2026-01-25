@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "Veelocity"
     debug: bool = False
 
-    # Database
+    # Database (port 5433 matches docker-compose default)
     database_url: str = (
-        "postgresql+asyncpg://veelocity:veelocity@localhost:5432/veelocity"
+        "postgresql+asyncpg://veelocity:veelocity@localhost:5433/veelocity"
     )
 
     # GitHub
