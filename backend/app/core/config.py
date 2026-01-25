@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     pagination_default_limit: int = 20
     pagination_max_limit: int = 100  # Hard limit, cannot be exceeded
 
+    # Rate limiting for API calls
+    rate_limit_max_per_sync: int = 500  # Max API calls per sync session
+    rate_limit_max_per_hour: int = 4000  # Max API calls per hour (GitHub limit is 5000)
+    rate_limit_delay_ms: int = 100  # Delay between API calls in milliseconds
+
 
 settings = Settings()
 

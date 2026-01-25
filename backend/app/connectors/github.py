@@ -1,9 +1,13 @@
+import logging
 from datetime import datetime, timezone
 
 import httpx
 
 from app.connectors.base import BaseConnector
+from app.connectors.rate_limiter import RateLimitExceeded, get_rate_limiter
 from app.schemas.connector import SyncResult
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubConnector(BaseConnector):
@@ -22,6 +26,19 @@ class GitHubConnector(BaseConnector):
             },
             timeout=30.0,
         )
+        self._rate_limiter = get_rate_limiter()
+
+    async def _get(self, path: str, **kwargs) -> httpx.Response:
+        """Make a rate-limited GET request."""
+        await self._rate_limiter.acquire()
+        response = await self._client.get(path, **kwargs)
+        
+        # Log rate limit info from GitHub headers
+        remaining = response.headers.get("x-ratelimit-remaining")
+        if remaining and int(remaining) < 100:
+            logger.warning(f"GitHub API rate limit low: {remaining} remaining")
+        
+        return response
 
     @property
     def name(self) -> str:
@@ -31,13 +48,13 @@ class GitHubConnector(BaseConnector):
         return ["pr_review_time", "pr_merge_time", "throughput"]
 
     async def test_connection(self) -> bool:
-        response = await self._client.get("/user")
+        response = await self._client.get("/user")  # Don't rate limit test
         return response.status_code == 200
 
     async def fetch_repos(self) -> list[dict]:
         repos = []
         for repo_full_name in self._repos:
-            response = await self._client.get(f"/repos/{repo_full_name}")
+            response = await self._get(f"/repos/{repo_full_name}")
             if response.status_code == 200:
                 data = response.json()
                 repos.append({
@@ -70,10 +87,14 @@ class GitHubConnector(BaseConnector):
         while True:
             params = {"state": state, "per_page": per_page, "page": page, "sort": "updated", "direction": "desc"}
             
-            response = await self._client.get(
-                f"/repos/{repo_full_name}/pulls",
-                params=params,
-            )
+            try:
+                response = await self._get(
+                    f"/repos/{repo_full_name}/pulls",
+                    params=params,
+                )
+            except RateLimitExceeded as e:
+                logger.warning(f"Rate limit hit while fetching PRs: {e}")
+                break
             if response.status_code != 200:
                 break
             data = response.json()
@@ -130,9 +151,13 @@ class GitHubConnector(BaseConnector):
         return prs
 
     async def fetch_reviews(self, repo_full_name: str, pr_number: int) -> list[dict]:
-        response = await self._client.get(
-            f"/repos/{repo_full_name}/pulls/{pr_number}/reviews"
-        )
+        try:
+            response = await self._get(
+                f"/repos/{repo_full_name}/pulls/{pr_number}/reviews"
+            )
+        except RateLimitExceeded:
+            logger.warning(f"Rate limit hit fetching reviews for PR #{pr_number}")
+            return []
         if response.status_code != 200:
             return []
         return [
@@ -146,9 +171,13 @@ class GitHubConnector(BaseConnector):
         ]
 
     async def fetch_comments(self, repo_full_name: str, pr_number: int) -> list[dict]:
-        response = await self._client.get(
-            f"/repos/{repo_full_name}/pulls/{pr_number}/comments"
-        )
+        try:
+            response = await self._get(
+                f"/repos/{repo_full_name}/pulls/{pr_number}/comments"
+            )
+        except RateLimitExceeded:
+            logger.warning(f"Rate limit hit fetching comments for PR #{pr_number}")
+            return []
         if response.status_code != 200:
             return []
         return [
@@ -162,9 +191,13 @@ class GitHubConnector(BaseConnector):
         ]
 
     async def fetch_pr_commits(self, repo_full_name: str, pr_number: int) -> list[dict]:
-        response = await self._client.get(
-            f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
-        )
+        try:
+            response = await self._get(
+                f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
+            )
+        except RateLimitExceeded:
+            logger.warning(f"Rate limit hit fetching commits for PR #{pr_number}")
+            return []
         if response.status_code != 200:
             return []
         return [
@@ -181,12 +214,24 @@ class GitHubConnector(BaseConnector):
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []
+        
+        # Reset rate limiter for new sync session
+        self._rate_limiter.reset()
+        
         from app.services.sync import SyncService
         sync_service = SyncService(db, self)
         try:
             items_synced = await sync_service.sync_all()
+        except RateLimitExceeded as e:
+            errors.append(f"Rate limit exceeded: {e}")
+            logger.error(f"Sync stopped due to rate limit: {e}")
         except Exception as e:
             errors.append(str(e))
+        
+        # Log rate limiter stats
+        stats = self._rate_limiter.get_stats()
+        logger.info(f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}")
+        
         return SyncResult(
             connector_name=self.name,
             started_at=started_at,
@@ -204,12 +249,24 @@ class GitHubConnector(BaseConnector):
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []
+        
+        # Reset rate limiter for new sync session
+        self._rate_limiter.reset()
+        
         from app.services.sync import SyncService
         sync_service = SyncService(db, self)
         try:
             items_synced = await sync_service.sync_recent(since)
+        except RateLimitExceeded as e:
+            errors.append(f"Rate limit exceeded: {e}")
+            logger.error(f"Sync stopped due to rate limit: {e}")
         except Exception as e:
             errors.append(str(e))
+        
+        # Log rate limiter stats
+        stats = self._rate_limiter.get_stats()
+        logger.info(f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}")
+        
         return SyncResult(
             connector_name=self.name,
             started_at=started_at,
