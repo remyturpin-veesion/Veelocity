@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from sqlalchemy import select
@@ -5,6 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.github import GitHubConnector
 from app.models.github import Commit, PRComment, PRReview, PullRequest, Repository
+from app.services.sync_state import SyncStateService
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_datetime(value: str | datetime | None) -> datetime | None:
@@ -27,6 +31,7 @@ class SyncService:
     def __init__(self, db: AsyncSession, connector: GitHubConnector):
         self._db = db
         self._connector = connector
+        self._sync_state = SyncStateService(db)
 
     async def sync_all(self) -> int:
         """Full sync: repos, PRs, reviews, comments, commits."""
@@ -56,13 +61,73 @@ class SyncService:
                 commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
                 count += await self._upsert_commits(repo.id, pr.id, commits)
 
+        # Update sync state
+        await self._sync_state.update_last_full_sync(self._connector.name)
         await self._db.commit()
+        
+        logger.info(f"Full sync complete: {count} items")
         return count
 
-    async def sync_recent(self, since: datetime) -> int:
-        """Incremental sync - same as sync_all but filters by date."""
-        # For now, same as sync_all. Future: filter PRs by updated_at > since
-        return await self.sync_all()
+    async def sync_recent(self, since: datetime | None = None) -> int:
+        """
+        Incremental sync: only fetch PRs updated since last sync.
+        
+        If since is not provided, uses last_sync_at from database.
+        Falls back to full sync if no previous sync exists.
+        """
+        # Get last sync time if not provided
+        if since is None:
+            since = await self._sync_state.get_last_sync(self._connector.name)
+        
+        # If no previous sync, do full sync
+        if since is None:
+            logger.info("No previous sync found, performing full sync")
+            return await self.sync_all()
+        
+        logger.info(f"Incremental sync since {since}")
+        
+        count = 0
+        repos = await self._connector.fetch_repos()
+        count += await self._upsert_repos(repos)
+
+        for repo_data in repos:
+            repo = await self._get_repo_by_github_id(repo_data["github_id"])
+            if not repo:
+                continue
+
+            # Fetch only PRs updated since last sync
+            prs = await self._connector.fetch_pull_requests(
+                repo_data["full_name"], state="all", since=since
+            )
+            
+            if not prs:
+                logger.debug(f"No updated PRs in {repo_data['full_name']}")
+                continue
+                
+            logger.info(f"Found {len(prs)} updated PRs in {repo_data['full_name']}")
+            count += await self._upsert_prs(repo.id, prs)
+
+            # Only fetch reviews/comments/commits for updated PRs
+            for pr_data in prs:
+                pr = await self._get_pr_by_github_id(pr_data["github_id"])
+                if not pr:
+                    continue
+
+                reviews = await self._connector.fetch_reviews(repo_data["full_name"], pr_data["number"])
+                count += await self._upsert_reviews(pr.id, reviews)
+
+                comments = await self._connector.fetch_comments(repo_data["full_name"], pr_data["number"])
+                count += await self._upsert_comments(pr.id, comments)
+
+                commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
+                count += await self._upsert_commits(repo.id, pr.id, commits)
+
+        # Update sync state
+        await self._sync_state.update_last_sync(self._connector.name)
+        await self._db.commit()
+        
+        logger.info(f"Incremental sync complete: {count} items")
+        return count
 
     async def _upsert_repos(self, repos: list[dict]) -> int:
         count = 0

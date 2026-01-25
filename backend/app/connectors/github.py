@@ -49,21 +49,56 @@ class GitHubConnector(BaseConnector):
         return repos
 
     async def fetch_pull_requests(
-        self, repo_full_name: str, state: str = "all", per_page: int = 100
+        self,
+        repo_full_name: str,
+        state: str = "all",
+        per_page: int = 100,
+        since: datetime | None = None,
     ) -> list[dict]:
+        """
+        Fetch pull requests from a repository.
+        
+        Args:
+            repo_full_name: Repository full name (owner/repo)
+            state: PR state filter (all, open, closed)
+            per_page: Results per page
+            since: Only fetch PRs updated after this datetime (incremental sync)
+        """
         prs = []
         page = 1
+        
         while True:
+            params = {"state": state, "per_page": per_page, "page": page, "sort": "updated", "direction": "desc"}
+            
             response = await self._client.get(
                 f"/repos/{repo_full_name}/pulls",
-                params={"state": state, "per_page": per_page, "page": page},
+                params=params,
             )
             if response.status_code != 200:
                 break
             data = response.json()
             if not data:
                 break
+            
+            # Track if we've passed the since threshold
+            found_old_pr = False
+            
             for pr in data:
+                pr_updated_at = pr["updated_at"]
+                
+                # If we have a since filter, check if this PR is older
+                if since:
+                    from datetime import datetime as dt
+                    updated = dt.fromisoformat(pr_updated_at.replace("Z", "+00:00"))
+                    if since.tzinfo is None:
+                        since_aware = since.replace(tzinfo=updated.tzinfo)
+                    else:
+                        since_aware = since
+                    
+                    if updated < since_aware:
+                        found_old_pr = True
+                        continue  # Skip PRs not updated since last sync
+                
                 prs.append({
                     "github_id": pr["id"],
                     "number": pr["number"],
@@ -81,7 +116,17 @@ class GitHubConnector(BaseConnector):
                     "deletions": pr.get("deletions", 0),
                     "commits_count": pr.get("commits", 0),
                 })
+            
+            # If we found an old PR and have since filter, stop paginating
+            if found_old_pr and since:
+                break
+            
             page += 1
+            
+            # Safety limit to avoid infinite loops
+            if page > 50:
+                break
+                
         return prs
 
     async def fetch_reviews(self, repo_full_name: str, pr_number: int) -> list[dict]:
@@ -150,7 +195,12 @@ class GitHubConnector(BaseConnector):
             errors=errors,
         )
 
-    async def sync_recent(self, db, since: datetime) -> SyncResult:
+    async def sync_recent(self, db, since: datetime | None = None) -> SyncResult:
+        """
+        Incremental sync using last_sync_at from database.
+        
+        If since is provided, uses that. Otherwise uses stored last_sync_at.
+        """
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []

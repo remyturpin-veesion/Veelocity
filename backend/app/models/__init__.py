@@ -8,6 +8,7 @@ from app.models.github import (
     WorkflowRun,
 )
 from app.models.linear import LinearIssue, LinearTeam
+from app.models.sync import SyncState
 
 __all__ = [
     "Repository",
@@ -19,4 +20,5 @@ __all__ = [
     "WorkflowRun",
     "LinearTeam",
     "LinearIssue",
+    "SyncState",
 ]

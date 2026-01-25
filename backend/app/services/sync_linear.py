@@ -1,5 +1,6 @@
 """Sync service for Linear data."""
 
+import logging
 from datetime import datetime
 
 from sqlalchemy import select
@@ -7,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.linear import LinearConnector
 from app.models.linear import LinearIssue, LinearTeam
+from app.services.sync_state import SyncStateService
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_datetime(value: str | datetime | None) -> datetime | None:
@@ -28,6 +32,7 @@ class SyncLinearService:
     def __init__(self, db: AsyncSession, connector: LinearConnector):
         self._db = db
         self._connector = connector
+        self._sync_state = SyncStateService(db)
 
     async def sync_all(self) -> int:
         """Full sync of teams and issues."""
@@ -44,7 +49,33 @@ class SyncLinearService:
         issues = await self._connector.fetch_issues()
         count += await self._upsert_issues(issues, team_map)
 
+        await self._sync_state.update_last_full_sync(self._connector.name)
         await self._db.commit()
+        logger.info(f"Linear full sync: {count} items")
+        return count
+
+    async def sync_recent(self) -> int:
+        """
+        Incremental sync of Linear data.
+        
+        Linear GraphQL API supports updatedAt filter, but for simplicity
+        we fetch recent issues (limited to 100) and upsert.
+        """
+        count = 0
+
+        # Sync teams (lightweight)
+        teams = await self._connector.fetch_teams()
+        count += await self._upsert_teams(teams)
+
+        team_map = await self._build_team_map()
+
+        # Fetch recent issues (limited)
+        issues = await self._connector.fetch_issues(limit=100)
+        count += await self._upsert_issues(issues, team_map)
+
+        await self._sync_state.update_last_sync(self._connector.name)
+        await self._db.commit()
+        logger.info(f"Linear incremental sync: {count} items")
         return count
 
     async def _upsert_teams(self, teams: list[dict]) -> int:

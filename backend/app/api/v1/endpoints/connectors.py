@@ -43,32 +43,49 @@ async def get_connectors_status():
 
 
 @router.post("/sync", response_model=list[SyncResult])
-async def trigger_sync(db: AsyncSession = Depends(get_db)):
-    """Trigger full sync of all connectors."""
+async def trigger_sync(
+    full: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Trigger sync of all connectors.
+    
+    By default, performs incremental sync (only new/updated data).
+    Use ?full=true for a complete resync of all data.
+    """
     results = []
 
-    # Sync GitHub data (repos, PRs, reviews, comments, commits)
+    # Sync GitHub data
     github = create_github_connector()
     if github:
-        result = await github.sync_all(db)
+        if full:
+            result = await github.sync_all(db)
+        else:
+            result = await github.sync_recent(db)
         results.append(result)
         await github.close()
 
-    # Sync GitHub Actions data (workflows, runs)
+    # Sync GitHub Actions data
     github_actions = create_github_actions_connector()
     if github_actions:
-        result = await github_actions.sync_all(db)
+        if full:
+            result = await github_actions.sync_all(db)
+        else:
+            result = await github_actions.sync_recent(db)
         results.append(result)
         await github_actions.close()
 
-    # Sync Linear data (teams, issues)
+    # Sync Linear data
     linear = create_linear_connector()
     if linear:
-        result = await linear.sync_all(db)
+        if full:
+            result = await linear.sync_all(db)
+        else:
+            result = await linear.sync_recent(db)
         results.append(result)
         await linear.close()
 
-    # Link PRs to issues after all data is synced
+    # Link PRs to issues after sync
     linking_service = LinkingService(db)
     await linking_service.link_all_prs()
 
@@ -77,7 +94,26 @@ async def trigger_sync(db: AsyncSession = Depends(get_db)):
 
 @router.post("/link")
 async def trigger_linking(db: AsyncSession = Depends(get_db)):
-    """Trigger PR-to-issue linking without full sync."""
+    """Trigger PR-to-issue linking without sync."""
     linking_service = LinkingService(db)
     count = await linking_service.link_all_prs()
     return {"linked": count}
+
+
+@router.get("/sync-state")
+async def get_sync_state(db: AsyncSession = Depends(get_db)):
+    """Get last sync timestamps for all connectors."""
+    from sqlalchemy import select
+    from app.models.sync import SyncState
+
+    result = await db.execute(select(SyncState))
+    states = result.scalars().all()
+
+    return [
+        {
+            "connector": state.connector_name,
+            "last_sync_at": state.last_sync_at.isoformat() if state.last_sync_at else None,
+            "last_full_sync_at": state.last_full_sync_at.isoformat() if state.last_full_sync_at else None,
+        }
+        for state in states
+    ]

@@ -123,9 +123,27 @@ class GitHubActionsConnector(BaseConnector):
             errors=errors,
         )
 
-    async def sync_recent(self, db, since: datetime) -> SyncResult:
-        """Sync recent data. Currently same as sync_all with limited pages."""
-        return await self.sync_all(db)
+    async def sync_recent(self, db, since: datetime | None = None) -> SyncResult:
+        """Sync recent workflow runs only."""
+        started_at = datetime.now(timezone.utc)
+        items_synced = 0
+        errors = []
+
+        from app.services.sync_actions import SyncActionsService
+
+        sync_service = SyncActionsService(db, self)
+        try:
+            items_synced = await sync_service.sync_recent()
+        except Exception as e:
+            errors.append(str(e))
+
+        return SyncResult(
+            connector_name=self.name,
+            started_at=started_at,
+            completed_at=datetime.now(timezone.utc),
+            items_synced=items_synced,
+            errors=errors,
+        )
 
     async def close(self):
         """Close the HTTP client."""
