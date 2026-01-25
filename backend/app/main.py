@@ -19,8 +19,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="Developer analytics platform measuring DORA metrics",
-    version="0.3.0",
+    description="Developer analytics platform measuring DORA and development metrics",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
