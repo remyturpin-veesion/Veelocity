@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/sync_coverage.dart';
 import '../services/providers.dart';
+import '../widgets/data_coverage_card.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/period_selector.dart';
@@ -330,7 +332,63 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 32),
+
+          // Data Coverage Section
+          Text(
+            'Data Coverage',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sync status and repository data overview',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          const SizedBox(height: 16),
+          _buildDataCoverageSection(ref),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDataCoverageSection(WidgetRef ref) {
+    final coverageAsync = ref.watch(syncCoverageProvider);
+
+    return coverageAsync.when(
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (error, _) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 8),
+              Text(
+                'Failed to load coverage data',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: () => ref.invalidate(syncCoverageProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (coverage) => DataCoverageCard(
+        coverage: coverage,
+        onRefresh: () => ref.invalidate(syncCoverageProvider),
       ),
     );
   }

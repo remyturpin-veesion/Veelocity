@@ -92,4 +92,10 @@ class ApiService {
     );
     return response.data as Map<String, dynamic>;
   }
+
+  /// Get sync coverage data for all repositories.
+  Future<Map<String, dynamic>> getSyncCoverage() async {
+    final response = await _dio.get('/api/v1/sync/coverage');
+    return response.data as Map<String, dynamic>;
+  }
 }

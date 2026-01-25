@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import actions, connectors, developers, github, linear, metrics, repositories
+from app.api.v1.endpoints import actions, connectors, developers, github, linear, metrics, repositories, sync
 
 api_router = APIRouter()
 
@@ -11,6 +11,7 @@ api_router.include_router(linear.router)
 api_router.include_router(metrics.router)
 api_router.include_router(repositories.router)
 api_router.include_router(developers.router)
+api_router.include_router(sync.router)
 
 
 @api_router.get("/health")

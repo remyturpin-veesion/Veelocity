@@ -34,32 +34,27 @@ class SyncService:
         self._sync_state = SyncStateService(db)
 
     async def sync_all(self) -> int:
-        """Full sync: repos, PRs, reviews, comments, commits."""
+        """
+        Full sync: repos, PRs, reviews, comments, commits.
+        
+        Continues even if one repo fails - isolates errors per repo.
+        """
         count = 0
         repos = await self._connector.fetch_repos()
         count += await self._upsert_repos(repos)
 
         for repo_data in repos:
-            repo = await self._get_repo_by_github_id(repo_data["github_id"])
-            if not repo:
+            try:
+                repo_count = await self._sync_single_repo(repo_data, since=None)
+                count += repo_count
+                logger.info(f"Synced {repo_data['full_name']}: {repo_count} items")
+                # Commit after each repo to avoid losing progress
+                await self._db.commit()
+            except Exception as e:
+                logger.error(f"Failed to sync {repo_data['full_name']}: {e}")
+                # Rollback failed repo but continue with others
+                await self._db.rollback()
                 continue
-
-            prs = await self._connector.fetch_pull_requests(repo_data["full_name"], state="all")
-            count += await self._upsert_prs(repo.id, prs)
-
-            for pr_data in prs:
-                pr = await self._get_pr_by_github_id(pr_data["github_id"])
-                if not pr:
-                    continue
-
-                reviews = await self._connector.fetch_reviews(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_reviews(pr.id, reviews)
-
-                comments = await self._connector.fetch_comments(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_comments(pr.id, comments)
-
-                commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_commits(repo.id, pr.id, commits)
 
         # Update sync state
         await self._sync_state.update_last_full_sync(self._connector.name)
@@ -68,12 +63,53 @@ class SyncService:
         logger.info(f"Full sync complete: {count} items")
         return count
 
+    async def _sync_single_repo(self, repo_data: dict, since: datetime | None) -> int:
+        """Sync a single repository - PRs, reviews, comments, commits."""
+        count = 0
+        
+        repo = await self._get_repo_by_github_id(repo_data["github_id"])
+        if not repo:
+            return 0
+
+        # Fetch PRs (with optional since filter for incremental sync)
+        if since:
+            prs = await self._connector.fetch_pull_requests(
+                repo_data["full_name"], state="all", since=since
+            )
+        else:
+            prs = await self._connector.fetch_pull_requests(
+                repo_data["full_name"], state="all"
+            )
+        
+        if not prs:
+            logger.debug(f"No PRs to sync for {repo_data['full_name']}")
+            return 0
+            
+        count += await self._upsert_prs(repo.id, prs)
+
+        for pr_data in prs:
+            pr = await self._get_pr_by_github_id(pr_data["github_id"])
+            if not pr:
+                continue
+
+            reviews = await self._connector.fetch_reviews(repo_data["full_name"], pr_data["number"])
+            count += await self._upsert_reviews(pr.id, reviews)
+
+            comments = await self._connector.fetch_comments(repo_data["full_name"], pr_data["number"])
+            count += await self._upsert_comments(pr.id, comments)
+
+            commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
+            count += await self._upsert_commits(repo.id, pr.id, commits)
+
+        return count
+
     async def sync_recent(self, since: datetime | None = None) -> int:
         """
         Incremental sync: only fetch PRs updated since last sync.
         
         If since is not provided, uses last_sync_at from database.
         Falls back to full sync if no previous sync exists.
+        Continues even if one repo fails.
         """
         # Get last sync time if not provided
         if since is None:
@@ -91,36 +127,17 @@ class SyncService:
         count += await self._upsert_repos(repos)
 
         for repo_data in repos:
-            repo = await self._get_repo_by_github_id(repo_data["github_id"])
-            if not repo:
+            try:
+                repo_count = await self._sync_single_repo(repo_data, since=since)
+                count += repo_count
+                if repo_count > 0:
+                    logger.info(f"Synced {repo_data['full_name']}: {repo_count} items")
+                # Commit after each repo
+                await self._db.commit()
+            except Exception as e:
+                logger.error(f"Failed to sync {repo_data['full_name']}: {e}")
+                await self._db.rollback()
                 continue
-
-            # Fetch only PRs updated since last sync
-            prs = await self._connector.fetch_pull_requests(
-                repo_data["full_name"], state="all", since=since
-            )
-            
-            if not prs:
-                logger.debug(f"No updated PRs in {repo_data['full_name']}")
-                continue
-                
-            logger.info(f"Found {len(prs)} updated PRs in {repo_data['full_name']}")
-            count += await self._upsert_prs(repo.id, prs)
-
-            # Only fetch reviews/comments/commits for updated PRs
-            for pr_data in prs:
-                pr = await self._get_pr_by_github_id(pr_data["github_id"])
-                if not pr:
-                    continue
-
-                reviews = await self._connector.fetch_reviews(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_reviews(pr.id, reviews)
-
-                comments = await self._connector.fetch_comments(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_comments(pr.id, comments)
-
-                commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
-                count += await self._upsert_commits(repo.id, pr.id, commits)
 
         # Update sync state
         await self._sync_state.update_last_sync(self._connector.name)

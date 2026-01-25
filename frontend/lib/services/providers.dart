@@ -4,6 +4,7 @@ import 'metrics_service.dart';
 import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/sync_coverage.dart';
 import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 
@@ -87,4 +88,11 @@ final developerStatsProvider =
     repoId: repo.id,
   );
   return DeveloperStats.fromJson(data);
+});
+
+/// Provider for fetching sync coverage data.
+final syncCoverageProvider = FutureProvider<SyncCoverage>((ref) async {
+  final service = ref.read(apiServiceProvider);
+  final data = await service.getSyncCoverage();
+  return SyncCoverage.fromJson(data);
 });
