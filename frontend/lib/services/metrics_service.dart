@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
 import '../core/config.dart';
+import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 
-/// Service for fetching DORA metrics from the API.
+/// Service for fetching DORA and development metrics from the API.
 class MetricsService {
   late final Dio _dio;
 
@@ -93,5 +94,34 @@ class MetricsService {
     );
 
     return LeadTimeForChanges.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get all development metrics.
+  Future<DevelopmentMetrics> getDevelopmentMetrics({
+    DateTime? startDate,
+    DateTime? endDate,
+    String period = 'week',
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'period': period,
+    };
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/development',
+      queryParameters: queryParams,
+    );
+
+    return DevelopmentMetrics.fromJson(response.data as Map<String, dynamic>);
   }
 }
