@@ -1,0 +1,115 @@
+"""Sync service for GitHub Actions data."""
+
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.connectors.github_actions import GitHubActionsConnector
+from app.models.github import Repository, Workflow, WorkflowRun
+
+
+def _parse_datetime(value: str | datetime | None) -> datetime | None:
+    """Parse datetime string to naive datetime."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = value
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
+class SyncActionsService:
+    """Orchestrates sync of GitHub Actions data."""
+
+    def __init__(self, db: AsyncSession, connector: GitHubActionsConnector):
+        self._db = db
+        self._connector = connector
+
+    async def sync_all(self) -> int:
+        """Full sync of workflows and runs."""
+        count = 0
+
+        # Get all repos from database
+        result = await self._db.execute(select(Repository))
+        repos = result.scalars().all()
+
+        for repo in repos:
+            workflows = await self._connector.fetch_workflows(repo.full_name)
+            count += await self._upsert_workflows(repo.id, workflows)
+
+            for wf_data in workflows:
+                workflow = await self._get_workflow_by_github_id(wf_data["github_id"])
+                if not workflow:
+                    continue
+
+                runs = await self._connector.fetch_workflow_runs(
+                    repo.full_name, wf_data["github_id"]
+                )
+                count += await self._upsert_runs(workflow.id, runs)
+
+        await self._db.commit()
+        return count
+
+    async def _upsert_workflows(self, repo_id: int, workflows: list[dict]) -> int:
+        """Insert or update workflows."""
+        count = 0
+        for data in workflows:
+            result = await self._db.execute(
+                select(Workflow).where(Workflow.github_id == data["github_id"])
+            )
+            existing = result.scalar_one_or_none()
+            wf_data = {**data, "repo_id": repo_id}
+
+            if existing:
+                for key, value in wf_data.items():
+                    if key != "github_id":
+                        setattr(existing, key, value)
+            else:
+                self._db.add(Workflow(**wf_data))
+            count += 1
+
+        await self._db.flush()
+        return count
+
+    async def _upsert_runs(self, workflow_id: int, runs: list[dict]) -> int:
+        """Insert or update workflow runs."""
+        count = 0
+        for data in runs:
+            result = await self._db.execute(
+                select(WorkflowRun).where(WorkflowRun.github_id == data["github_id"])
+            )
+            existing = result.scalar_one_or_none()
+
+            run_data = {
+                "github_id": data["github_id"],
+                "workflow_id": workflow_id,
+                "status": data["status"],
+                "conclusion": data.get("conclusion"),
+                "run_number": data["run_number"],
+                "head_sha": data["head_sha"],
+                "head_branch": data["head_branch"],
+                "started_at": _parse_datetime(data.get("started_at")),
+                "completed_at": _parse_datetime(data.get("completed_at")),
+            }
+
+            if existing:
+                for key, value in run_data.items():
+                    if key != "github_id":
+                        setattr(existing, key, value)
+            else:
+                self._db.add(WorkflowRun(**run_data))
+            count += 1
+
+        await self._db.flush()
+        return count
+
+    async def _get_workflow_by_github_id(self, github_id: int) -> Workflow | None:
+        """Get workflow by GitHub ID."""
+        result = await self._db.execute(
+            select(Workflow).where(Workflow.github_id == github_id)
+        )
+        return result.scalar_one_or_none()

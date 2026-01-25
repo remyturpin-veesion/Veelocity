@@ -19,6 +19,7 @@ class Repository(Base):
 
     pull_requests: Mapped[list["PullRequest"]] = relationship(back_populates="repository")
     commits: Mapped[list["Commit"]] = relationship(back_populates="repository")
+    workflows: Mapped[list["Workflow"]] = relationship(back_populates="repository")
 
 
 class PullRequest(Base):
@@ -87,3 +88,38 @@ class Commit(Base):
 
     repository: Mapped["Repository"] = relationship(back_populates="commits")
     pull_request: Mapped["PullRequest | None"] = relationship(back_populates="commits_rel")
+
+
+class Workflow(Base):
+    __tablename__ = "workflows"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id"))
+    name: Mapped[str] = mapped_column(String(255))
+    path: Mapped[str] = mapped_column(String(512))
+    state: Mapped[str] = mapped_column(String(50))  # active, disabled, etc.
+    is_deployment: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    repository: Mapped["Repository"] = relationship(back_populates="workflows")
+    runs: Mapped[list["WorkflowRun"]] = relationship(back_populates="workflow")
+
+
+class WorkflowRun(Base):
+    __tablename__ = "workflow_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"))
+    status: Mapped[str] = mapped_column(String(50))  # queued, in_progress, completed
+    conclusion: Mapped[str | None] = mapped_column(String(50), nullable=True)  # success, failure, cancelled
+    run_number: Mapped[int] = mapped_column(Integer)
+    head_sha: Mapped[str] = mapped_column(String(40), index=True)
+    head_branch: Mapped[str] = mapped_column(String(255))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    workflow: Mapped["Workflow"] = relationship(back_populates="runs")

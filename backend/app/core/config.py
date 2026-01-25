@@ -30,3 +30,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def is_deployment_workflow(name: str, path: str) -> bool:
+    """
+    Check if workflow name or path matches deployment patterns.
+    
+    Patterns are configured via DEPLOYMENT_PATTERNS env var.
+    Default patterns: deploy, release, publish
+    """
+    patterns = [p.strip().lower() for p in settings.deployment_patterns.split(",") if p.strip()]
+    name_lower = name.lower()
+    path_lower = path.lower()
+    return any(pattern in name_lower or pattern in path_lower for pattern in patterns)

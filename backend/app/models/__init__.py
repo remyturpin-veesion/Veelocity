@@ -1,3 +1,19 @@
-from app.models.github import Commit, PRComment, PRReview, PullRequest, Repository
+from app.models.github import (
+    Commit,
+    PRComment,
+    PRReview,
+    PullRequest,
+    Repository,
+    Workflow,
+    WorkflowRun,
+)
 
-__all__ = ["Repository", "PullRequest", "PRReview", "PRComment", "Commit"]
+__all__ = [
+    "Repository",
+    "PullRequest",
+    "PRReview",
+    "PRComment",
+    "Commit",
+    "Workflow",
+    "WorkflowRun",
+]
