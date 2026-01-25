@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.connectors.factory import create_github_actions_connector, create_github_connector
+from app.connectors.factory import (
+    create_github_actions_connector,
+    create_github_connector,
+    create_linear_connector,
+)
 from app.core.database import get_db
 from app.schemas.connector import ConnectorStatus, SyncResult
+from app.services.linking import LinkingService
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
@@ -27,6 +32,13 @@ async def get_connectors_status():
         statuses.append(ConnectorStatus(name="github_actions", connected=connected))
         await github_actions.close()
 
+    # Linear connector
+    linear = create_linear_connector()
+    if linear:
+        connected = await linear.test_connection()
+        statuses.append(ConnectorStatus(name="linear", connected=connected))
+        await linear.close()
+
     return statuses
 
 
@@ -49,4 +61,23 @@ async def trigger_sync(db: AsyncSession = Depends(get_db)):
         results.append(result)
         await github_actions.close()
 
+    # Sync Linear data (teams, issues)
+    linear = create_linear_connector()
+    if linear:
+        result = await linear.sync_all(db)
+        results.append(result)
+        await linear.close()
+
+    # Link PRs to issues after all data is synced
+    linking_service = LinkingService(db)
+    await linking_service.link_all_prs()
+
     return results
+
+
+@router.post("/link")
+async def trigger_linking(db: AsyncSession = Depends(get_db)):
+    """Trigger PR-to-issue linking without full sync."""
+    linking_service = LinkingService(db)
+    count = await linking_service.link_all_prs()
+    return {"linked": count}

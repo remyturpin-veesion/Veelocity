@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -89,3 +90,117 @@ async def get_lead_time(
 
     service = DORAMetricsService(db)
     return await service.get_lead_time_for_changes(start_date, end_date, repo_id)
+
+
+# ============================================================================
+# Development Metrics
+# ============================================================================
+
+
+@router.get("/development")
+async def get_development_metrics(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "week",
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all development metrics.
+
+    Includes PR review time, merge time, cycle time, and throughput.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+
+    pr_review_time = await service.get_pr_review_time(start_date, end_date, repo_id)
+    pr_merge_time = await service.get_pr_merge_time(start_date, end_date, repo_id)
+    cycle_time = await service.get_cycle_time(start_date, end_date)
+    throughput = await service.get_throughput(start_date, end_date, period, repo_id)
+
+    return {
+        "pr_review_time": pr_review_time,
+        "pr_merge_time": pr_merge_time,
+        "cycle_time": cycle_time,
+        "throughput": throughput,
+    }
+
+
+@router.get("/development/pr-review-time")
+async def get_pr_review_time(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get PR review time metric.
+
+    Measures time from PR opened to first review.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+    return await service.get_pr_review_time(start_date, end_date, repo_id)
+
+
+@router.get("/development/pr-merge-time")
+async def get_pr_merge_time(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get PR merge time metric.
+
+    Measures time from PR opened to merged.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+    return await service.get_pr_merge_time(start_date, end_date, repo_id)
+
+
+@router.get("/development/cycle-time")
+async def get_cycle_time(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get cycle time metric.
+
+    Measures time from issue started to linked PR merged.
+    Requires Linear integration and PR-issue linking.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+    return await service.get_cycle_time(start_date, end_date, team_id)
+
+
+@router.get("/development/throughput")
+async def get_throughput(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "week",
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get throughput metric.
+
+    Measures count of PRs merged per period.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+    return await service.get_throughput(start_date, end_date, period, repo_id)

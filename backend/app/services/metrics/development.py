@@ -1,0 +1,260 @@
+"""Development metrics calculation service."""
+
+from collections import Counter
+from datetime import datetime
+from typing import Literal
+
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.github import PRReview, PullRequest
+from app.models.linear import LinearIssue
+
+
+class DevelopmentMetricsService:
+    """Calculate development metrics from synced data."""
+
+    def __init__(self, db: AsyncSession):
+        self._db = db
+
+    async def get_pr_review_time(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        repo_id: int | None = None,
+    ) -> dict:
+        """
+        Calculate PR review time.
+        
+        Review time = time from PR opened to first review.
+        """
+        # Get PRs with their first review
+        query = (
+            select(
+                PullRequest.id,
+                PullRequest.created_at.label("pr_created"),
+                func.min(PRReview.submitted_at).label("first_review"),
+            )
+            .join(PRReview, PRReview.pr_id == PullRequest.id)
+            .where(
+                and_(
+                    PullRequest.created_at >= start_date,
+                    PullRequest.created_at <= end_date,
+                )
+            )
+            .group_by(PullRequest.id, PullRequest.created_at)
+        )
+
+        if repo_id:
+            query = query.where(PullRequest.repo_id == repo_id)
+
+        result = await self._db.execute(query)
+        rows = result.all()
+
+        review_times = []
+        for row in rows:
+            if row.first_review and row.pr_created:
+                delta = (row.first_review - row.pr_created).total_seconds()
+                review_times.append({
+                    "pr_id": row.id,
+                    "hours": round(delta / 3600, 2),
+                })
+
+        # Calculate statistics
+        if review_times:
+            times = [rt["hours"] for rt in review_times]
+            avg_hours = sum(times) / len(times)
+            sorted_times = sorted(times)
+            median_hours = sorted_times[len(sorted_times) // 2]
+        else:
+            avg_hours = 0
+            median_hours = 0
+
+        return {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "count": len(review_times),
+            "average_hours": round(avg_hours, 2),
+            "median_hours": round(median_hours, 2),
+        }
+
+    async def get_pr_merge_time(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        repo_id: int | None = None,
+    ) -> dict:
+        """
+        Calculate PR merge time.
+        
+        Merge time = time from PR opened to merged.
+        """
+        query = select(PullRequest).where(
+            and_(
+                PullRequest.created_at >= start_date,
+                PullRequest.created_at <= end_date,
+                PullRequest.merged_at.isnot(None),
+            )
+        )
+
+        if repo_id:
+            query = query.where(PullRequest.repo_id == repo_id)
+
+        result = await self._db.execute(query)
+        prs = result.scalars().all()
+
+        merge_times = []
+        for pr in prs:
+            if pr.merged_at and pr.created_at:
+                delta = (pr.merged_at - pr.created_at).total_seconds()
+                merge_times.append({
+                    "pr_id": pr.id,
+                    "hours": round(delta / 3600, 2),
+                })
+
+        # Calculate statistics
+        if merge_times:
+            times = [mt["hours"] for mt in merge_times]
+            avg_hours = sum(times) / len(times)
+            sorted_times = sorted(times)
+            median_hours = sorted_times[len(sorted_times) // 2]
+        else:
+            avg_hours = 0
+            median_hours = 0
+
+        return {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "count": len(merge_times),
+            "average_hours": round(avg_hours, 2),
+            "median_hours": round(median_hours, 2),
+        }
+
+    async def get_cycle_time(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        team_id: int | None = None,
+    ) -> dict:
+        """
+        Calculate cycle time.
+        
+        Cycle time = time from issue started to linked PR merged.
+        """
+        query = (
+            select(LinearIssue, PullRequest.merged_at)
+            .join(PullRequest, LinearIssue.linked_pr_id == PullRequest.id)
+            .where(
+                and_(
+                    LinearIssue.started_at.isnot(None),
+                    PullRequest.merged_at.isnot(None),
+                    PullRequest.merged_at >= start_date,
+                    PullRequest.merged_at <= end_date,
+                )
+            )
+        )
+
+        if team_id:
+            query = query.where(LinearIssue.team_id == team_id)
+
+        result = await self._db.execute(query)
+        rows = result.all()
+
+        cycle_times = []
+        for issue, merged_at in rows:
+            if issue.started_at and merged_at:
+                delta = (merged_at - issue.started_at).total_seconds()
+                cycle_times.append({
+                    "issue_id": issue.id,
+                    "identifier": issue.identifier,
+                    "hours": round(delta / 3600, 2),
+                })
+
+        # Calculate statistics
+        if cycle_times:
+            times = [ct["hours"] for ct in cycle_times]
+            avg_hours = sum(times) / len(times)
+            sorted_times = sorted(times)
+            median_hours = sorted_times[len(sorted_times) // 2]
+        else:
+            avg_hours = 0
+            median_hours = 0
+
+        return {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "count": len(cycle_times),
+            "average_hours": round(avg_hours, 2),
+            "median_hours": round(median_hours, 2),
+        }
+
+    async def get_throughput(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        period: Literal["day", "week", "month"] = "week",
+        repo_id: int | None = None,
+    ) -> dict:
+        """
+        Calculate throughput.
+        
+        Throughput = count of PRs merged per period.
+        """
+        query = select(PullRequest.merged_at).where(
+            and_(
+                PullRequest.merged_at >= start_date,
+                PullRequest.merged_at <= end_date,
+                PullRequest.merged_at.isnot(None),
+            )
+        )
+
+        if repo_id:
+            query = query.where(PullRequest.repo_id == repo_id)
+
+        result = await self._db.execute(query)
+        merged_dates = [row[0] for row in result.all() if row[0]]
+
+        # Group by period
+        grouped = self._group_by_period(merged_dates, period)
+
+        # Calculate average
+        total = len(merged_dates)
+        period_count = self._count_periods(start_date, end_date, period)
+        average = total / period_count if period_count > 0 else 0
+
+        return {
+            "period": period,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "data": grouped,
+            "total": total,
+            "average": round(average, 2),
+        }
+
+    def _group_by_period(
+        self, dates: list[datetime], period: Literal["day", "week", "month"]
+    ) -> list[dict]:
+        """Group dates by period and count."""
+
+        def get_period_key(dt: datetime) -> str:
+            if period == "day":
+                return dt.strftime("%Y-%m-%d")
+            elif period == "week":
+                return dt.strftime("%Y-W%W")
+            else:  # month
+                return dt.strftime("%Y-%m")
+
+        counts = Counter(get_period_key(dt) for dt in dates if dt)
+        return [{"period": k, "count": v} for k, v in sorted(counts.items())]
+
+    def _count_periods(
+        self, start: datetime, end: datetime, period: Literal["day", "week", "month"]
+    ) -> int:
+        """Count number of periods between two dates."""
+        delta = end - start
+        if period == "day":
+            return max(1, delta.days)
+        elif period == "week":
+            return max(1, delta.days // 7)
+        else:  # month
+            return max(1, delta.days // 30)
