@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import actions, connectors, github, linear, metrics
+from app.api.v1.endpoints import actions, connectors, github, linear, metrics, repositories
 
 api_router = APIRouter()
 
@@ -9,6 +9,7 @@ api_router.include_router(github.router)
 api_router.include_router(actions.router)
 api_router.include_router(linear.router)
 api_router.include_router(metrics.router)
+api_router.include_router(repositories.router)
 
 
 @api_router.get("/health")

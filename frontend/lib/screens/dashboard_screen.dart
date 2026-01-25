@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../services/providers.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/kpi_card.dart';
+import '../widgets/period_selector.dart';
+import '../widgets/repo_selector.dart';
+import '../widgets/skeleton_card.dart';
+import '../widgets/trend_chart.dart';
 
 /// Main dashboard screen showing DORA and development metrics.
 class DashboardScreen extends ConsumerWidget {
@@ -13,6 +18,9 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final doraAsync = ref.watch(doraMetricsProvider);
     final devAsync = ref.watch(developmentMetricsProvider);
+    final reposAsync = ref.watch(repositoriesProvider);
+    final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final selectedRepo = ref.watch(selectedRepoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -29,23 +37,76 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: doraAsync.when(
-        loading: () => const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading metrics...'),
-            ],
+      body: Column(
+        children: [
+          // Filters bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Period selector
+                PeriodSelector(
+                  selected: selectedPeriod,
+                  onChanged: (period) {
+                    ref.read(selectedPeriodProvider.notifier).state = period;
+                  },
+                ),
+                const SizedBox(width: 16),
+                // Repo selector
+                reposAsync.when(
+                  loading: () => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (repos) => RepoSelector(
+                    repos: repos,
+                    selected: selectedRepo,
+                    onChanged: (repo) {
+                      ref.read(selectedRepoProvider.notifier).state = repo;
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        error: (error, stack) => _buildErrorState(context, ref, error),
-        data: (doraMetrics) => devAsync.when(
-          loading: () => _buildDashboard(context, doraMetrics, null),
-          error: (_, __) => _buildDashboard(context, doraMetrics, null),
-          data: (devMetrics) => _buildDashboard(context, doraMetrics, devMetrics),
-        ),
+          // Main content
+          Expanded(
+            child: doraAsync.when(
+              loading: () => _buildLoadingState(),
+              error: (error, stack) => _buildErrorState(context, ref, error),
+              data: (doraMetrics) => devAsync.when(
+                loading: () => _buildDashboard(context, ref, doraMetrics, null),
+                error: (_, __) => _buildDashboard(context, ref, doraMetrics, null),
+                data: (devMetrics) =>
+                    _buildDashboard(context, ref, doraMetrics, devMetrics),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonGrid(count: 2),
+          SizedBox(height: 32),
+          SkeletonGrid(count: 4),
+        ],
       ),
     );
   }
@@ -77,7 +138,10 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => ref.invalidate(doraMetricsProvider),
+              onPressed: () {
+                ref.invalidate(doraMetricsProvider);
+                ref.invalidate(developmentMetricsProvider);
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
@@ -88,7 +152,13 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildDashboard(
-      BuildContext context, DORAMetrics dora, DevelopmentMetrics? dev) {
+    BuildContext context,
+    WidgetRef ref,
+    DORAMetrics dora,
+    DevelopmentMetrics? dev,
+  ) {
+    final selectedPeriod = ref.watch(selectedPeriodProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -103,7 +173,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Last 30 days performance',
+            'Last ${selectedPeriod.days} days performance',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
                 ),
@@ -146,6 +216,27 @@ class DashboardScreen extends ConsumerWidget {
               );
             },
           ),
+          const SizedBox(height: 32),
+
+          // Deployment Trend Chart
+          if (dora.deploymentFrequency.data.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TrendChart(
+                  title: 'Deployment Trend',
+                  data: dora.deploymentFrequency.data
+                      .map((d) => TrendDataPoint(
+                            label: d.period,
+                            value: d.count.toDouble(),
+                          ))
+                      .toList(),
+                  color: Colors.blue,
+                ),
+              ),
+            )
+          else
+            EmptyState.noDeployments(),
           const SizedBox(height: 32),
 
           // Development Metrics Section
@@ -219,25 +310,26 @@ class DashboardScreen extends ConsumerWidget {
               },
             )
           else
-            const Card(
+            const SkeletonGrid(count: 4),
+          const SizedBox(height: 32),
+
+          // Throughput Trend Chart
+          if (dev != null && dev.throughput.data.isNotEmpty)
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: Text('Loading development metrics...'),
+                padding: const EdgeInsets.all(16.0),
+                child: TrendChart(
+                  title: 'Throughput Trend',
+                  data: dev.throughput.data
+                      .map((d) => TrendDataPoint(
+                            label: d.period,
+                            value: d.count.toDouble(),
+                          ))
+                      .toList(),
+                  color: Colors.indigo,
                 ),
               ),
             ),
-          const SizedBox(height: 32),
-
-          // Deployments List
-          Text(
-            'Deployments by Period',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 12),
-          _buildDeploymentsList(context, dora.deploymentFrequency.data),
         ],
       ),
     );
@@ -253,78 +345,5 @@ class DashboardScreen extends ConsumerWidget {
     } else {
       return '${(hours / 24).toStringAsFixed(1)} days';
     }
-  }
-
-  Widget _buildDeploymentsList(BuildContext context, List<PeriodData> data) {
-    if (data.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.inbox,
-                  size: 48,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No deployments in this period',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: data.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final item = data[index];
-          return ListTile(
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 20,
-              ),
-            ),
-            title: Text(
-              item.period,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                '${item.count} deploys',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
   }
 }

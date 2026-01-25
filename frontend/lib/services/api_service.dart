@@ -31,4 +31,16 @@ class ApiService {
     final response = await _dio.post(path, data: data);
     return response.data as T;
   }
+
+  /// Get list of synced repositories.
+  Future<List<Map<String, dynamic>>> getRepositories() async {
+    final response = await _dio.get('/api/v1/repositories');
+    final data = response.data as Map<String, dynamic>;
+    return (data['items'] as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  /// Trigger sync of all connectors.
+  Future<void> triggerSync() async {
+    await _dio.post('/api/v1/connectors/sync');
+  }
 }
