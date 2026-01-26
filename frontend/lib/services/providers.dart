@@ -26,6 +26,11 @@ final selectedRepoProvider = StateProvider<RepoOption>((ref) {
   return RepoOption.all;
 });
 
+/// State provider for last refresh time.
+final lastRefreshTimeProvider = StateProvider<DateTime?>((ref) {
+  return null;
+});
+
 /// Provider for fetching DORA metrics with filters.
 final doraMetricsProvider = FutureProvider<DORAMetrics>((ref) async {
   final service = ref.read(metricsServiceProvider);

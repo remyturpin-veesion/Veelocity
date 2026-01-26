@@ -22,17 +22,45 @@ class _AppShellState extends ConsumerState<AppShell> {
     TeamScreen(),
   ];
 
+  String _formatLastRefresh(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inSeconds < 60) {
+      return 'à l\'instant';
+    } else if (diff.inMinutes < 60) {
+      return 'il y a ${diff.inMinutes} min';
+    } else {
+      final hours = time.hour.toString().padLeft(2, '0');
+      final minutes = time.minute.toString().padLeft(2, '0');
+      return '$hours:$minutes';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
     final selectedRepo = ref.watch(selectedRepoProvider);
     final reposAsync = ref.watch(repositoriesProvider);
+    final lastRefresh = ref.watch(lastRefreshTimeProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentIndex == 0 ? 'Veelocity Dashboard' : 'Team'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          if (lastRefresh != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: Text(
+                  _formatLastRefresh(lastRefresh),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
@@ -40,6 +68,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               ref.invalidate(doraMetricsProvider);
               ref.invalidate(developmentMetricsProvider);
               ref.invalidate(developersProvider);
+              ref.invalidate(syncCoverageProvider);
+              ref.read(lastRefreshTimeProvider.notifier).state = DateTime.now();
             },
           ),
         ],

@@ -129,6 +129,9 @@ class SyncService:
                 )
                 count += await self._upsert_commits(repo.id, pr.id, commits)
                 
+                # Mark PR as having details synced
+                pr.details_synced_at = datetime.utcnow()
+                
                 # Log progress every 50 PRs
                 if (i + 1) % 50 == 0:
                     logger.info(f"  {repo_data['full_name']}: {i + 1}/{len(prs)} PRs detailed")

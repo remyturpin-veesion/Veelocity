@@ -42,6 +42,7 @@ class PullRequest(Base):
     additions: Mapped[int] = mapped_column(Integer, default=0)
     deletions: Mapped[int] = mapped_column(Integer, default=0)
     commits_count: Mapped[int] = mapped_column(Integer, default=0)
+    details_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     repository: Mapped["Repository"] = relationship(back_populates="pull_requests")
     reviews: Mapped[list["PRReview"]] = relationship(back_populates="pull_request")
