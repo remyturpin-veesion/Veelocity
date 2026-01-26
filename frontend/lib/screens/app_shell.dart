@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/providers.dart';
+import '../services/theme_provider.dart';
 import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 import 'dashboard_screen.dart';
@@ -72,6 +73,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               ref.read(lastRefreshTimeProvider.notifier).state = DateTime.now();
             },
           ),
+          _ThemeModeButton(),
         ],
       ),
       body: Column(
@@ -143,6 +145,23 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Button to toggle between light and dark theme modes.
+class _ThemeModeButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
+    return IconButton(
+      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+      tooltip: isDark ? 'Mode clair' : 'Mode sombre',
+      onPressed: () {
+        ref.read(themeModeProvider.notifier).toggle();
+      },
     );
   }
 }

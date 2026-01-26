@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_colors.dart';
 import '../models/sync_coverage.dart';
 
 /// Card displaying sync coverage data for repositories.
@@ -78,7 +79,7 @@ class DataCoverageCard extends StatelessWidget {
               Text(
                 c.connectorName,
                 style: TextStyle(
-                  color: color.shade700,
+                  color: color.textVariant(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -86,7 +87,7 @@ class DataCoverageCard extends StatelessWidget {
               Text(
                 c.timeSinceSync,
                 style: TextStyle(
-                  color: color.shade700,
+                  color: color.textVariant(context),
                   fontSize: 12,
                 ),
               ),
@@ -133,18 +134,18 @@ class DataCoverageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.backgroundVariant(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: color.textVariant(context)),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
-              color: color.shade700,
+              color: color.textVariant(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -160,11 +161,17 @@ class DataCoverageCard extends StatelessWidget {
         alignment: Alignment.center,
         child: Column(
           children: [
-            Icon(Icons.folder_off, size: 48, color: Colors.grey[400]),
+            Icon(
+              Icons.folder_off,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 8),
             Text(
               'No repositories synced yet',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -202,11 +209,11 @@ class DataCoverageCard extends StatelessWidget {
                   repo.prDateRange,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
-              DataCell(_buildStatusIndicator(repo)),
+              DataCell(_buildStatusIndicator(context, repo)),
             ],
           );
         }).toList(),
@@ -214,53 +221,47 @@ class DataCoverageCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIndicator(RepositoryCoverage repo) {
+  Widget _buildStatusIndicator(BuildContext context, RepositoryCoverage repo) {
     switch (repo.status) {
       case SyncStatus.noData:
-        return _statusChip('No data', Colors.grey, Icons.remove_circle_outline);
+        return _statusChip(context, 'No data', Colors.grey, Icons.remove_circle_outline);
       case SyncStatus.incomplete:
         final pct = repo.completionPercent.toStringAsFixed(0);
         return _statusChip(
+          context,
           '$pct% (${repo.prsWithoutDetails} left)',
           Colors.blue,
           Icons.sync,
         );
       case SyncStatus.stale:
-        return _statusChip('Stale', Colors.orange, Icons.warning_amber);
+        return _statusChip(context, 'Stale', Colors.orange, Icons.warning_amber);
       case SyncStatus.upToDate:
-        return _statusChip('Up to date', Colors.green, Icons.check_circle);
+        return _statusChip(context, 'Up to date', Colors.green, Icons.check_circle);
     }
   }
 
-  Widget _statusChip(String label, Color color, IconData icon) {
+  Widget _statusChip(BuildContext context, String label, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.backgroundVariant(context),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: 14, color: color.textVariant(context)),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: color.shade700,
+              color: color.textVariant(context),
               fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
     );
-  }
-}
-
-extension on Color {
-  Color get shade700 {
-    final hsl = HSLColor.fromColor(this);
-    return hsl.withLightness((hsl.lightness - 0.2).clamp(0.0, 1.0)).toColor();
   }
 }
