@@ -4,12 +4,8 @@ import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../services/providers.dart';
 import '../widgets/data_coverage_card.dart';
-import '../widgets/empty_state.dart';
 import '../widgets/kpi_card.dart';
-import '../widgets/period_selector.dart';
-import '../widgets/repo_selector.dart';
 import '../widgets/skeleton_card.dart';
-import '../widgets/trend_chart.dart';
 import 'metrics/deployment_frequency_screen.dart';
 import 'metrics/lead_time_screen.dart';
 import 'metrics/pr_review_time_screen.dart';
@@ -25,81 +21,15 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final doraAsync = ref.watch(doraMetricsProvider);
     final devAsync = ref.watch(developmentMetricsProvider);
-    final reposAsync = ref.watch(repositoriesProvider);
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
-    final selectedRepo = ref.watch(selectedRepoProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Veelocity Dashboard'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh metrics',
-            onPressed: () {
-              ref.invalidate(doraMetricsProvider);
-              ref.invalidate(developmentMetricsProvider);
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Filters bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Period selector
-                PeriodSelector(
-                  selected: selectedPeriod,
-                  onChanged: (period) {
-                    ref.read(selectedPeriodProvider.notifier).state = period;
-                  },
-                ),
-                const SizedBox(width: 16),
-                // Repo selector
-                reposAsync.when(
-                  loading: () => const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (repos) => RepoSelector(
-                    repos: repos,
-                    selected: selectedRepo,
-                    onChanged: (repo) {
-                      ref.read(selectedRepoProvider.notifier).state = repo;
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Main content
-          Expanded(
-            child: doraAsync.when(
-              loading: () => _buildLoadingState(),
-              error: (error, stack) => _buildErrorState(context, ref, error),
-              data: (doraMetrics) => devAsync.when(
-                loading: () => _buildDashboard(context, ref, doraMetrics, null),
-                error: (_, __) => _buildDashboard(context, ref, doraMetrics, null),
-                data: (devMetrics) =>
-                    _buildDashboard(context, ref, doraMetrics, devMetrics),
-              ),
-            ),
-          ),
-        ],
+    return doraAsync.when(
+      loading: () => _buildLoadingState(),
+      error: (error, stack) => _buildErrorState(context, ref, error),
+      data: (doraMetrics) => devAsync.when(
+        loading: () => _buildDashboard(context, ref, doraMetrics, null),
+        error: (_, __) => _buildDashboard(context, ref, doraMetrics, null),
+        data: (devMetrics) =>
+            _buildDashboard(context, ref, doraMetrics, devMetrics),
       ),
     );
   }
@@ -237,27 +167,6 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
 
-          // Deployment Trend Chart
-          if (dora.deploymentFrequency.data.isNotEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TrendChart(
-                  title: 'Deployment Trend',
-                  data: dora.deploymentFrequency.data
-                      .map((d) => TrendDataPoint(
-                            label: d.period,
-                            value: d.count.toDouble(),
-                          ))
-                      .toList(),
-                  color: Colors.blue,
-                ),
-              ),
-            )
-          else
-            EmptyState.noDeployments(),
-          const SizedBox(height: 32),
-
           // Development Metrics Section
           Text(
             'Development Metrics',
@@ -354,25 +263,6 @@ class DashboardScreen extends ConsumerWidget {
             )
           else
             const SkeletonGrid(count: 4),
-          const SizedBox(height: 32),
-
-          // Throughput Trend Chart
-          if (dev != null && dev.throughput.data.isNotEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TrendChart(
-                  title: 'Throughput Trend',
-                  data: dev.throughput.data
-                      .map((d) => TrendDataPoint(
-                            label: d.period,
-                            value: d.count.toDouble(),
-                          ))
-                      .toList(),
-                  color: Colors.indigo,
-                ),
-              ),
-            ),
           const SizedBox(height: 32),
 
           // Data Coverage Section

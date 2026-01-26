@@ -4,8 +4,6 @@ import '../models/developer.dart';
 import '../services/providers.dart';
 import '../widgets/developer_card.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/period_selector.dart';
-import '../widgets/repo_selector.dart';
 import '../widgets/skeleton_card.dart';
 
 /// Team screen showing developer statistics.
@@ -15,72 +13,11 @@ class TeamScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final developersAsync = ref.watch(developersProvider);
-    final reposAsync = ref.watch(repositoriesProvider);
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
-    final selectedRepo = ref.watch(selectedRepoProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Team'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: () => ref.invalidate(developersProvider),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Filters bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                PeriodSelector(
-                  selected: selectedPeriod,
-                  onChanged: (period) {
-                    ref.read(selectedPeriodProvider.notifier).state = period;
-                  },
-                ),
-                const SizedBox(width: 16),
-                reposAsync.when(
-                  loading: () => const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (repos) => RepoSelector(
-                    repos: repos,
-                    selected: selectedRepo,
-                    onChanged: (repo) {
-                      ref.read(selectedRepoProvider.notifier).state = repo;
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: developersAsync.when(
-              loading: () => _buildLoadingState(),
-              error: (error, _) => _buildErrorState(context, ref, error),
-              data: (response) => _buildDevelopersList(context, ref, response),
-            ),
-          ),
-        ],
-      ),
+    return developersAsync.when(
+      loading: () => _buildLoadingState(),
+      error: (error, _) => _buildErrorState(context, ref, error),
+      data: (response) => _buildDevelopersList(context, ref, response),
     );
   }
 

@@ -9,9 +9,9 @@ import '../../widgets/repo_selector.dart';
 ///
 /// Provides a consistent layout with:
 /// - AppBar with metric name
+/// - Filters bar (period and repo)
 /// - Info section with description and calculation
 /// - Summary stats section
-/// - Filters (period and repo)
 /// - Custom content (chart, measurements table, etc.)
 class MetricDetailScreen extends ConsumerWidget {
   final MetricInfo metricInfo;
@@ -46,37 +46,68 @@ class MetricDetailScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Info Section
-            _MetricInfoCard(metricInfo: metricInfo),
-            const SizedBox(height: 24),
-
-            // Summary Stats
-            summaryBuilder(context, ref),
-            const SizedBox(height: 24),
-
-            // Filters
-            _FiltersSection(
-              selectedPeriod: selectedPeriod,
-              selectedRepo: selectedRepo,
-              reposAsync: reposAsync,
-              onPeriodChanged: (period) {
-                ref.read(selectedPeriodProvider.notifier).state = period;
-              },
-              onRepoChanged: (repo) {
-                ref.read(selectedRepoProvider.notifier).state = repo;
-              },
+      body: Column(
+        children: [
+          // Filters bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                ),
+              ),
             ),
-            const SizedBox(height: 24),
+            child: Row(
+              children: [
+                PeriodSelector(
+                  selected: selectedPeriod,
+                  onChanged: (period) {
+                    ref.read(selectedPeriodProvider.notifier).state = period;
+                  },
+                ),
+                const SizedBox(width: 16),
+                reposAsync.when(
+                  loading: () => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (repos) => RepoSelector(
+                    repos: repos,
+                    selected: selectedRepo,
+                    onChanged: (repo) {
+                      ref.read(selectedRepoProvider.notifier).state = repo;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Info Section
+                  _MetricInfoCard(metricInfo: metricInfo),
+                  const SizedBox(height: 24),
 
-            // Custom Content
-            contentBuilder(context, ref),
-          ],
-        ),
+                  // Summary Stats
+                  summaryBuilder(context, ref),
+                  const SizedBox(height: 24),
+
+                  // Custom Content
+                  contentBuilder(context, ref),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -270,61 +301,6 @@ class _TipsSection extends StatelessWidget {
                 ],
               ),
             )),
-      ],
-    );
-  }
-}
-
-class _FiltersSection extends StatelessWidget {
-  final TimePeriod selectedPeriod;
-  final RepoOption selectedRepo;
-  final AsyncValue<List<RepoOption>> reposAsync;
-  final ValueChanged<TimePeriod> onPeriodChanged;
-  final ValueChanged<RepoOption> onRepoChanged;
-
-  const _FiltersSection({
-    required this.selectedPeriod,
-    required this.selectedRepo,
-    required this.reposAsync,
-    required this.onPeriodChanged,
-    required this.onRepoChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Filters',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 16,
-          runSpacing: 12,
-          children: [
-            PeriodSelector(
-              selected: selectedPeriod,
-              onChanged: onPeriodChanged,
-            ),
-            reposAsync.when(
-              loading: () => const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (repos) => RepoSelector(
-                repos: repos,
-                selected: selectedRepo,
-                onChanged: onRepoChanged,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
