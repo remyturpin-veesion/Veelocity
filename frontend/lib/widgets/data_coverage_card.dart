@@ -239,7 +239,12 @@ class DataCoverageCard extends StatelessWidget {
       case SyncStatus.noData:
         return _statusChip('No data', Colors.grey, Icons.remove_circle_outline);
       case SyncStatus.incomplete:
-        return _statusChip('Syncing...', Colors.blue, Icons.sync);
+        final pct = repo.completionPercent.toStringAsFixed(0);
+        return _statusChip(
+          '$pct% (${repo.prsWithoutDetails} left)',
+          Colors.blue,
+          Icons.sync,
+        );
       case SyncStatus.stale:
         return _statusChip('Stale', Colors.orange, Icons.warning_amber);
       case SyncStatus.upToDate:

@@ -74,6 +74,8 @@ class RepositoryCoverage {
   final String name;
   final String fullName;
   final int pullRequests;
+  final int prsWithDetails;  // PRs that have commits fetched
+  final int prsWithoutDetails;  // PRs still missing details
   final int reviews;
   final int comments;
   final int commits;
@@ -91,6 +93,8 @@ class RepositoryCoverage {
     required this.name,
     required this.fullName,
     required this.pullRequests,
+    required this.prsWithDetails,
+    required this.prsWithoutDetails,
     required this.reviews,
     required this.comments,
     required this.commits,
@@ -110,6 +114,8 @@ class RepositoryCoverage {
       name: json['name'] as String,
       fullName: json['full_name'] as String,
       pullRequests: json['pull_requests'] as int,
+      prsWithDetails: json['prs_with_details'] as int,
+      prsWithoutDetails: json['prs_without_details'] as int,
       reviews: json['reviews'] as int,
       comments: json['comments'] as int,
       commits: json['commits'] as int,
@@ -162,11 +168,16 @@ class RepositoryCoverage {
     return DateTime.now().difference(newestPrDate!).inDays > 7;
   }
 
-  /// Returns true if details (commits/reviews) are missing.
-  /// A repo with PRs but no commits likely hasn't had details fetched.
-  bool get isMissingDetails {
-    if (pullRequests == 0) return false; // No PRs, nothing to fetch
-    return commits == 0 && reviews == 0;
+  /// Returns true if all PRs have their details fetched.
+  bool get isComplete => prsWithoutDetails == 0;
+
+  /// Returns true if details (commits/reviews) are missing for some PRs.
+  bool get isMissingDetails => prsWithoutDetails > 0;
+  
+  /// Progress percentage of detail fetching (0-100).
+  double get completionPercent {
+    if (pullRequests == 0) return 100.0;
+    return (prsWithDetails / pullRequests) * 100;
   }
 
   /// Returns the sync status.

@@ -70,6 +70,12 @@ async def run_sync():
     - Incremental sync for repos with existing data
     - Continues even if one repo/connector fails
     """
+    from app.connectors.rate_limiter import get_rate_limiter
+    
+    # Reset rate limiter at start of sync
+    rate_limiter = get_rate_limiter()
+    rate_limiter.reset()
+    
     async with async_session_maker() as db:
         total_items = 0
         total_errors = []
@@ -179,7 +185,7 @@ async def run_full_sync():
         logger.info(f"Full sync complete: {total_items} items (details will be filled gradually)")
 
 
-async def run_fill_details(batch_size: int = 50):
+async def run_fill_details(batch_size: int = 30):
     """
     Fill in missing details (reviews/comments/commits) for PRs.
     
@@ -187,23 +193,37 @@ async def run_fill_details(batch_size: int = 50):
     blocking the initial fast sync.
     
     Args:
-        batch_size: Number of PRs to process per run (default 50)
+        batch_size: Number of PRs to process per run (default 30 = ~90 API calls)
     """
+    from app.connectors.rate_limiter import get_rate_limiter
+    
     async with async_session_maker() as db:
-        from app.models.github import Commit, PRReview, PRComment
-        
         # Find PRs without commits (commits are fetched last, so if missing = needs details)
-        # Using LEFT JOIN to find PRs with no commits
         prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
         
+        # Select only the columns we need to avoid lazy loading issues
         prs_without_details = await db.execute(
-            select(PullRequest, Repository)
+            select(
+                PullRequest.id,
+                PullRequest.number,
+                Repository.id,
+                Repository.full_name,
+            )
             .join(Repository)
             .where(~PullRequest.id.in_(prs_with_commits))
             .order_by(PullRequest.updated_at.desc())
             .limit(batch_size)
         )
-        prs_to_process = prs_without_details.all()
+        # Extract values immediately to avoid lazy loading after commit
+        prs_to_process = [
+            {
+                "pr_id": row[0],
+                "pr_number": row[1],
+                "repo_id": row[2],
+                "repo_full_name": row[3],
+            }
+            for row in prs_without_details.all()
+        ]
         
         if not prs_to_process:
             logger.debug("No PRs need details filled")
@@ -225,35 +245,47 @@ async def run_fill_details(batch_size: int = 50):
         if not github:
             return
         
+        # Reset rate limiter for this batch
+        rate_limiter = get_rate_limiter()
+        rate_limiter.reset()
+        
         from app.services.sync import SyncService
         sync_service = SyncService(db, github)
         
         items_synced = 0
         prs_processed = 0
         
-        for pr, repo in prs_to_process:
+        for pr_data in prs_to_process:
+            pr_id = pr_data["pr_id"]
+            pr_number = pr_data["pr_number"]
+            repo_id = pr_data["repo_id"]
+            repo_full_name = pr_data["repo_full_name"]
+            
             try:
                 # Fetch all details for this PR
-                reviews = await github.fetch_reviews(repo.full_name, pr.number)
-                items_synced += await sync_service._upsert_reviews(pr.id, reviews)
+                reviews = await github.fetch_reviews(repo_full_name, pr_number)
+                items_synced += await sync_service._upsert_reviews(pr_id, reviews)
                 
-                comments = await github.fetch_comments(repo.full_name, pr.number)
-                items_synced += await sync_service._upsert_comments(pr.id, comments)
+                comments = await github.fetch_comments(repo_full_name, pr_number)
+                items_synced += await sync_service._upsert_comments(pr_id, comments)
                 
-                commits = await github.fetch_pr_commits(repo.full_name, pr.number)
-                items_synced += await sync_service._upsert_commits(repo.id, pr.id, commits)
+                commits = await github.fetch_pr_commits(repo_full_name, pr_number)
+                items_synced += await sync_service._upsert_commits(repo_id, pr_id, commits)
                 
                 prs_processed += 1
                 await db.commit()
             except Exception as e:
-                logger.warning(f"Failed to fill details for PR #{pr.number}: {e}")
+                logger.warning(f"Failed to fill details for PR #{pr_number}: {e}")
                 await db.rollback()
                 continue
         
         await github.close()
+        
+        stats = rate_limiter.get_stats()
         logger.info(
             f"Filled {items_synced} items for {prs_processed} PRs "
-            f"({total_remaining - prs_processed} still remaining)"
+            f"({total_remaining - prs_processed} still remaining, "
+            f"{stats['calls_made']} API calls)"
         )
 
 

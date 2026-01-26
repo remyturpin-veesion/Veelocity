@@ -30,6 +30,8 @@ class RepositoryCoverage(BaseModel):
     name: str
     full_name: str
     pull_requests: int
+    prs_with_details: int  # PRs that have commits fetched
+    prs_without_details: int  # PRs still missing details
     reviews: int
     comments: int
     commits: int
@@ -41,6 +43,11 @@ class RepositoryCoverage(BaseModel):
     newest_commit_date: datetime | None
     oldest_workflow_run_date: datetime | None
     newest_workflow_run_date: datetime | None
+    
+    @property
+    def is_complete(self) -> bool:
+        """True if all PRs have their details fetched."""
+        return self.prs_without_details == 0
 
 
 class ConnectorSyncState(BaseModel):
@@ -115,7 +122,7 @@ async def get_sync_status(
     Get sync status: how many PRs still need details.
     """
     from sqlalchemy import select, func
-    from app.models.github import Commit, PullRequest
+    from app.models.github import Commit, PullRequest, Repository
 
     # Count PRs with and without commits
     prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
@@ -132,13 +139,156 @@ async def get_sync_status(
     prs_with_details = total_prs - prs_without_details
     progress_pct = (prs_with_details / total_prs * 100) if total_prs > 0 else 100
     
+    # Get per-repo breakdown
+    repos_result = await db.execute(select(Repository))
+    repos = repos_result.scalars().all()
+    
+    repos_status = []
+    for repo in repos:
+        repo_prs_result = await db.execute(
+            select(func.count(PullRequest.id)).where(PullRequest.repo_id == repo.id)
+        )
+        repo_total = repo_prs_result.scalar() or 0
+        
+        repo_with_details_result = await db.execute(
+            select(func.count(PullRequest.id))
+            .where(PullRequest.repo_id == repo.id)
+            .where(PullRequest.id.in_(prs_with_commits))
+        )
+        repo_with_details = repo_with_details_result.scalar() or 0
+        
+        repos_status.append({
+            "name": repo.full_name,
+            "total_prs": repo_total,
+            "with_details": repo_with_details,
+            "without_details": repo_total - repo_with_details,
+        })
+    
     return {
         "total_prs": total_prs,
         "prs_with_details": prs_with_details,
         "prs_without_details": prs_without_details,
         "progress_percent": round(progress_pct, 1),
         "is_complete": prs_without_details == 0,
+        "repositories": repos_status,
     }
+
+
+@router.post("/fill-all")
+async def fill_all_details(
+    batch_size: int = 30,
+    max_batches: int = 200,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Fill details for ALL PRs that need them, processing in batches.
+    
+    Args:
+        batch_size: PRs to process per batch (default 30, = ~90 API calls)
+        max_batches: Maximum batches to run (default 200 = 6000 PRs max)
+    
+    This runs until all PRs have details or max_batches is reached.
+    Rate limiter is reset between batches to avoid hitting limits.
+    """
+    import logging
+    from sqlalchemy import select, func
+    from app.connectors.factory import create_github_connector
+    from app.connectors.rate_limiter import get_rate_limiter
+    from app.models.github import Commit, PullRequest, Repository
+    from app.services.sync import SyncService
+    
+    logger = logging.getLogger(__name__)
+    
+    total_items_synced = 0
+    total_prs_processed = 0
+    batches_run = 0
+    
+    try:
+        while batches_run < max_batches:
+            # Create fresh connector for each batch (resets rate limiter)
+            github = create_github_connector()
+            if not github:
+                return {"status": "error", "message": "GitHub connector not configured"}
+            
+            # Reset rate limiter for this batch
+            rate_limiter = get_rate_limiter()
+            rate_limiter.reset()
+            
+            # Find PRs without commits
+            prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
+            
+            prs_without_details = await db.execute(
+                select(PullRequest, Repository)
+                .join(Repository)
+                .where(~PullRequest.id.in_(prs_with_commits))
+                .order_by(PullRequest.updated_at.desc())
+                .limit(batch_size)
+            )
+            prs_to_process = prs_without_details.all()
+            
+            if not prs_to_process:
+                await github.close()
+                logger.info("All PRs have details - sync complete!")
+                break
+            
+            # Count remaining
+            remaining_result = await db.execute(
+                select(func.count(PullRequest.id))
+                .where(~PullRequest.id.in_(prs_with_commits))
+            )
+            remaining = remaining_result.scalar() or 0
+            
+            logger.info(f"Batch {batches_run + 1}: processing {len(prs_to_process)} PRs ({remaining} remaining)")
+            
+            sync_service = SyncService(db, github)
+            batch_prs = 0
+            
+            for pr, repo in prs_to_process:
+                try:
+                    reviews = await github.fetch_reviews(repo.full_name, pr.number)
+                    total_items_synced += await sync_service._upsert_reviews(pr.id, reviews)
+                    
+                    comments = await github.fetch_comments(repo.full_name, pr.number)
+                    total_items_synced += await sync_service._upsert_comments(pr.id, comments)
+                    
+                    commits = await github.fetch_pr_commits(repo.full_name, pr.number)
+                    total_items_synced += await sync_service._upsert_commits(repo.id, pr.id, commits)
+                    
+                    total_prs_processed += 1
+                    batch_prs += 1
+                except Exception as e:
+                    logger.warning(f"Failed PR #{pr.number}: {e}")
+                    continue
+            
+            await db.commit()
+            await github.close()
+            batches_run += 1
+            
+            stats = rate_limiter.get_stats()
+            logger.info(
+                f"Batch {batches_run} complete: {batch_prs} PRs, "
+                f"{stats['calls_made']} API calls"
+            )
+        
+        # Get final status
+        prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
+        remaining_result = await db.execute(
+            select(func.count(PullRequest.id))
+            .where(~PullRequest.id.in_(prs_with_commits))
+        )
+        still_remaining = remaining_result.scalar() or 0
+        
+        return {
+            "status": "success",
+            "message": "Fill complete" if still_remaining == 0 else f"Processed {max_batches} batches, {still_remaining} PRs remaining",
+            "batches_run": batches_run,
+            "prs_processed": total_prs_processed,
+            "items_synced": total_items_synced,
+            "prs_remaining": still_remaining,
+            "is_complete": still_remaining == 0,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "error_type": type(e).__name__}
 
 
 async def _get_github_and_repo(repo_name: str):
@@ -543,6 +693,13 @@ async def get_sync_coverage(
     total_commits = 0
     total_runs = 0
 
+    # Pre-compute PRs with commits (for is_complete check)
+    prs_with_commits_subq = (
+        select(Commit.pr_id)
+        .where(Commit.pr_id.isnot(None))
+        .distinct()
+    )
+    
     for repo in repos:
         # Count PRs and get date range
         pr_stats = await db.execute(
@@ -553,6 +710,15 @@ async def get_sync_coverage(
             ).where(PullRequest.repo_id == repo.id)
         )
         pr_count, oldest_pr, newest_pr = pr_stats.one()
+        
+        # Count PRs with details (have commits)
+        prs_with_details_result = await db.execute(
+            select(func.count(PullRequest.id))
+            .where(PullRequest.repo_id == repo.id)
+            .where(PullRequest.id.in_(prs_with_commits_subq))
+        )
+        prs_with_details = prs_with_details_result.scalar() or 0
+        prs_without_details = (pr_count or 0) - prs_with_details
 
         # Count reviews
         review_count_result = await db.execute(
@@ -607,6 +773,8 @@ async def get_sync_coverage(
                 name=repo.name,
                 full_name=repo.full_name,
                 pull_requests=pr_count or 0,
+                prs_with_details=prs_with_details,
+                prs_without_details=prs_without_details,
                 reviews=review_count,
                 comments=comment_count,
                 commits=commit_count or 0,
