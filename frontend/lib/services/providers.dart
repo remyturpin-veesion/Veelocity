@@ -96,3 +96,84 @@ final syncCoverageProvider = FutureProvider<SyncCoverage>((ref) async {
   final data = await service.getSyncCoverage();
   return SyncCoverage.fromJson(data);
 });
+
+// ============================================================================
+// Individual Metric Providers
+// ============================================================================
+
+/// Provider for fetching deployment frequency metric.
+final deploymentFrequencyProvider =
+    FutureProvider<DeploymentFrequency>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  return service.getDeploymentFrequency(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+});
+
+/// Provider for fetching lead time metric.
+final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  return service.getLeadTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+});
+
+/// Provider for fetching PR review time metric.
+final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  return service.getPRReviewTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+});
+
+/// Provider for fetching PR merge time metric.
+final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  return service.getPRMergeTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+});
+
+/// Provider for fetching cycle time metric.
+final cycleTimeProvider = FutureProvider<CycleTime>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getCycleTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+  );
+});
+
+/// Provider for fetching throughput metric.
+final throughputProvider = FutureProvider<Throughput>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repo = ref.watch(selectedRepoProvider);
+
+  return service.getThroughput(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repo.id,
+  );
+});

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
-import '../models/sync_coverage.dart';
 import '../services/providers.dart';
 import '../widgets/data_coverage_card.dart';
 import '../widgets/empty_state.dart';
@@ -11,6 +10,12 @@ import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 import '../widgets/skeleton_card.dart';
 import '../widgets/trend_chart.dart';
+import 'metrics/deployment_frequency_screen.dart';
+import 'metrics/lead_time_screen.dart';
+import 'metrics/pr_review_time_screen.dart';
+import 'metrics/pr_merge_time_screen.dart';
+import 'metrics/cycle_time_screen.dart';
+import 'metrics/throughput_screen.dart';
 
 /// Main dashboard screen showing DORA and development metrics.
 class DashboardScreen extends ConsumerWidget {
@@ -100,9 +105,9 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildLoadingState() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: const Column(
+    return const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SkeletonGrid(count: 2),
@@ -200,6 +205,12 @@ class DashboardScreen extends ConsumerWidget {
                           '${dora.deploymentFrequency.total} total deployments',
                       icon: Icons.rocket_launch,
                       color: Colors.blue,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DeploymentFrequencyScreen(),
+                        ),
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -212,6 +223,12 @@ class DashboardScreen extends ConsumerWidget {
                           'Median: ${_formatDuration(dora.leadTimeForChanges.medianHours)}',
                       icon: Icons.timer,
                       color: Colors.green,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LeadTimeScreen(),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -275,6 +292,12 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prReviewTime.count} PRs reviewed',
                         icon: Icons.rate_review,
                         color: Colors.orange,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PRReviewTimeScreen(),
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -285,6 +308,12 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prMergeTime.count} PRs merged',
                         icon: Icons.merge,
                         color: Colors.purple,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PRMergeTimeScreen(),
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -295,6 +324,12 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.cycleTime.count} issues completed',
                         icon: Icons.loop,
                         color: Colors.teal,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CycleTimeScreen(),
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -305,6 +340,12 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.throughput.total} PRs merged total',
                         icon: Icons.speed,
                         color: Colors.indigo,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ThroughputScreen(),
+                          ),
+                        ),
                       ),
                     ),
                   ],

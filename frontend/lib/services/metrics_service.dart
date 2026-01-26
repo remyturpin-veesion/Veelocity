@@ -54,6 +54,7 @@ class MetricsService {
     DateTime? startDate,
     DateTime? endDate,
     String period = 'week',
+    int? repoId,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
@@ -64,6 +65,9 @@ class MetricsService {
     }
     if (endDate != null) {
       queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
     }
 
     final response = await _dio.get(
@@ -78,6 +82,7 @@ class MetricsService {
   Future<LeadTimeForChanges> getLeadTime({
     DateTime? startDate,
     DateTime? endDate,
+    int? repoId,
   }) async {
     final queryParams = <String, dynamic>{};
 
@@ -86,6 +91,9 @@ class MetricsService {
     }
     if (endDate != null) {
       queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
     }
 
     final response = await _dio.get(
@@ -123,5 +131,112 @@ class MetricsService {
     );
 
     return DevelopmentMetrics.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get PR review time metric only.
+  Future<PRReviewTime> getPRReviewTime({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/development/pr-review-time',
+      queryParameters: queryParams,
+    );
+
+    return PRReviewTime.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get PR merge time metric only.
+  Future<PRMergeTime> getPRMergeTime({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/development/pr-merge-time',
+      queryParameters: queryParams,
+    );
+
+    return PRMergeTime.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get cycle time metric only.
+  Future<CycleTime> getCycleTime({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? teamId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (teamId != null) {
+      queryParams['team_id'] = teamId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/development/cycle-time',
+      queryParameters: queryParams,
+    );
+
+    return CycleTime.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get throughput metric only.
+  Future<Throughput> getThroughput({
+    DateTime? startDate,
+    DateTime? endDate,
+    String period = 'week',
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'period': period,
+    };
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/development/throughput',
+      queryParameters: queryParams,
+    );
+
+    return Throughput.fromJson(response.data as Map<String, dynamic>);
   }
 }
