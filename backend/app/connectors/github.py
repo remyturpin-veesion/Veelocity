@@ -33,12 +33,26 @@ class GitHubConnector(BaseConnector):
         await self._rate_limiter.acquire()
         response = await self._client.get(path, **kwargs)
         
-        # Log rate limit info from GitHub headers
-        remaining = response.headers.get("x-ratelimit-remaining")
-        if remaining and int(remaining) < 100:
-            logger.warning(f"GitHub API rate limit low: {remaining} remaining")
+        # Update rate limiter with GitHub's actual rate limit info
+        self._update_rate_limit_from_response(response)
         
         return response
+
+    def _update_rate_limit_from_response(self, response: httpx.Response) -> None:
+        """Extract and update rate limit info from GitHub response headers."""
+        remaining_str = response.headers.get("x-ratelimit-remaining")
+        reset_str = response.headers.get("x-ratelimit-reset")
+        limit_str = response.headers.get("x-ratelimit-limit")
+        
+        remaining = int(remaining_str) if remaining_str else None
+        reset_timestamp = int(reset_str) if reset_str else None
+        limit = int(limit_str) if limit_str else None
+        
+        self._rate_limiter.update_from_github_headers(remaining, reset_timestamp, limit)
+        
+        # Log when approaching limit (for visibility)
+        if remaining is not None and remaining < 100:
+            logger.warning(f"GitHub API rate limit low: {remaining} remaining")
 
     @property
     def name(self) -> str:
