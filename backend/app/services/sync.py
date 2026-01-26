@@ -33,9 +33,13 @@ class SyncService:
         self._connector = connector
         self._sync_state = SyncStateService(db)
 
-    async def sync_all(self) -> int:
+    async def sync_all(self, fetch_details: bool = False) -> int:
         """
-        Full sync: repos, PRs, reviews, comments, commits.
+        Full sync: repos and PRs. Details (reviews/comments/commits) are optional.
+        
+        Args:
+            fetch_details: If True, also fetch reviews/comments/commits (slow).
+                          If False, just fetch PRs (fast initial sync).
         
         Continues even if one repo fails - isolates errors per repo.
         """
@@ -45,7 +49,9 @@ class SyncService:
 
         for repo_data in repos:
             try:
-                repo_count = await self._sync_single_repo(repo_data, since=None)
+                repo_count = await self._sync_single_repo(
+                    repo_data, since=None, fetch_details=fetch_details
+                )
                 count += repo_count
                 logger.info(f"Synced {repo_data['full_name']}: {repo_count} items")
                 # Commit after each repo to avoid losing progress
@@ -63,8 +69,17 @@ class SyncService:
         logger.info(f"Full sync complete: {count} items")
         return count
 
-    async def _sync_single_repo(self, repo_data: dict, since: datetime | None) -> int:
-        """Sync a single repository - PRs, reviews, comments, commits."""
+    async def _sync_single_repo(
+        self, repo_data: dict, since: datetime | None, fetch_details: bool = True
+    ) -> int:
+        """
+        Sync a single repository.
+        
+        Args:
+            repo_data: Repository data from GitHub API
+            since: Only fetch PRs updated after this datetime
+            fetch_details: If True, fetch reviews/comments/commits for each PR
+        """
         count = 0
         
         repo = await self._get_repo_by_github_id(repo_data["github_id"])
@@ -86,20 +101,40 @@ class SyncService:
             return 0
             
         count += await self._upsert_prs(repo.id, prs)
+        logger.info(f"  {repo_data['full_name']}: {len(prs)} PRs")
 
-        for pr_data in prs:
+        # Only fetch details if requested (skip on initial fast sync)
+        if not fetch_details:
+            return count
+
+        # Fetch reviews/comments/commits for each PR
+        for i, pr_data in enumerate(prs):
             pr = await self._get_pr_by_github_id(pr_data["github_id"])
             if not pr:
                 continue
 
-            reviews = await self._connector.fetch_reviews(repo_data["full_name"], pr_data["number"])
-            count += await self._upsert_reviews(pr.id, reviews)
+            try:
+                reviews = await self._connector.fetch_reviews(
+                    repo_data["full_name"], pr_data["number"]
+                )
+                count += await self._upsert_reviews(pr.id, reviews)
 
-            comments = await self._connector.fetch_comments(repo_data["full_name"], pr_data["number"])
-            count += await self._upsert_comments(pr.id, comments)
+                comments = await self._connector.fetch_comments(
+                    repo_data["full_name"], pr_data["number"]
+                )
+                count += await self._upsert_comments(pr.id, comments)
 
-            commits = await self._connector.fetch_pr_commits(repo_data["full_name"], pr_data["number"])
-            count += await self._upsert_commits(repo.id, pr.id, commits)
+                commits = await self._connector.fetch_pr_commits(
+                    repo_data["full_name"], pr_data["number"]
+                )
+                count += await self._upsert_commits(repo.id, pr.id, commits)
+                
+                # Log progress every 50 PRs
+                if (i + 1) % 50 == 0:
+                    logger.info(f"  {repo_data['full_name']}: {i + 1}/{len(prs)} PRs detailed")
+            except Exception as e:
+                logger.warning(f"Failed to fetch details for PR #{pr_data['number']}: {e}")
+                continue
 
         return count
 

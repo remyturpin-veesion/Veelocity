@@ -162,7 +162,29 @@ class RepositoryCoverage {
     return DateTime.now().difference(newestPrDate!).inDays > 7;
   }
 
+  /// Returns true if details (commits/reviews) are missing.
+  /// A repo with PRs but no commits likely hasn't had details fetched.
+  bool get isMissingDetails {
+    if (pullRequests == 0) return false; // No PRs, nothing to fetch
+    return commits == 0 && reviews == 0;
+  }
+
+  /// Returns the sync status.
+  SyncStatus get status {
+    if (pullRequests == 0) return SyncStatus.noData;
+    if (isMissingDetails) return SyncStatus.incomplete;
+    if (isStale) return SyncStatus.stale;
+    return SyncStatus.upToDate;
+  }
+}
+
+enum SyncStatus {
+  noData,      // No PRs synced
+  incomplete,  // PRs synced but missing details (commits/reviews)
+  stale,       // Data older than 7 days
+  upToDate,    // Fully synced and recent
+}
+
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
-}

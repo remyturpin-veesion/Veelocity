@@ -10,7 +10,7 @@ from app.connectors.factory import (
     create_linear_connector,
 )
 from app.core.database import async_session_maker
-from app.models.github import PullRequest, Repository
+from app.models.github import Commit, PullRequest, Repository
 from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,9 @@ async def _sync_connector_safe(connector, db, method: str = "sync_recent"):
     
     try:
         if method == "sync_all":
-            result = await connector.sync_all(db)
+            result = await connector.sync_all(db, fetch_details=True)
+        elif method == "sync_all_fast":
+            result = await connector.sync_all(db, fetch_details=False)
         else:
             result = await connector.sync_recent(db)
         
@@ -64,8 +66,8 @@ async def run_sync():
     """
     Run smart sync for all configured connectors.
     
-    - Uses incremental sync for repos with existing data
-    - Detects repos with no data and triggers full sync for them
+    - Fast sync (PRs only) for repos without data
+    - Incremental sync for repos with existing data
     - Continues even if one repo/connector fails
     """
     async with async_session_maker() as db:
@@ -75,44 +77,38 @@ async def run_sync():
         # Check for repos that need full sync (no data yet)
         repos_needing_full_sync = await _get_repos_without_data(db)
         if repos_needing_full_sync:
-            logger.warning(
+            logger.info(
                 f"Found {len(repos_needing_full_sync)} repos without data: "
-                f"{repos_needing_full_sync}. Will do full sync for these."
+                f"{repos_needing_full_sync}. Running fast sync (PRs only)."
             )
 
         # GitHub connector (PRs, reviews, comments, commits)
         github = create_github_connector()
         if github:
-            # If any repo needs full sync, do full sync
+            # If any repo needs full sync, do fast sync (PRs only, no details)
             if repos_needing_full_sync:
-                logger.info("Running full GitHub sync due to repos without data")
-                items, errors = await _sync_connector_safe(github, db, "sync_all")
+                logger.info("Running fast GitHub sync (PRs only, no details)")
+                items, errors = await _sync_connector_safe(github, db, "sync_all_fast")
             else:
                 items, errors = await _sync_connector_safe(github, db, "sync_recent")
             total_items += items
             total_errors.extend(errors)
             logger.info(f"GitHub sync: {items} items, {len(errors)} errors")
 
-        # GitHub Actions connector (workflows, runs) - can run in parallel with Linear
+        # GitHub Actions and Linear in parallel
         github_actions = create_github_actions_connector()
         linear = create_linear_connector()
 
-        # Run GitHub Actions and Linear in parallel
         async def sync_actions():
             if not github_actions:
                 return 0, []
-            if repos_needing_full_sync:
-                return await _sync_connector_safe(github_actions, db, "sync_all")
             return await _sync_connector_safe(github_actions, db, "sync_recent")
 
         async def sync_linear():
             if not linear:
                 return 0, []
-            if repos_needing_full_sync:
-                return await _sync_connector_safe(linear, db, "sync_all")
             return await _sync_connector_safe(linear, db, "sync_recent")
 
-        # Execute in parallel
         results = await asyncio.gather(sync_actions(), sync_linear())
         
         for items, errors in results:
@@ -143,40 +139,127 @@ async def run_sync():
 
 async def run_full_sync():
     """
-    Run full sync for all connectors.
+    Run full sync for all connectors with pagination.
     
     Use this for initial sync or to recover from issues.
+    Processes PRs in batches to avoid timeouts.
     """
     async with async_session_maker() as db:
         total_items = 0
 
+        # GitHub - sync PRs first (fast)
         github = create_github_connector()
         if github:
-            result = await github.sync_all(db)
+            logger.info("Full sync: fetching all PRs...")
+            result = await github.sync_all(db, fetch_details=False)
             total_items += result.items_synced
             await github.close()
+            logger.info(f"Full sync: {result.items_synced} PRs synced")
 
+        # GitHub Actions
         github_actions = create_github_actions_connector()
         if github_actions:
             result = await github_actions.sync_all(db)
             total_items += result.items_synced
             await github_actions.close()
+            logger.info(f"Full sync: {result.items_synced} workflow runs synced")
 
+        # Linear
         linear = create_linear_connector()
         if linear:
             result = await linear.sync_all(db)
             total_items += result.items_synced
             await linear.close()
+            logger.info(f"Full sync: {result.items_synced} Linear items synced")
 
         # Link PRs to issues
         linking_service = LinkingService(db)
         await linking_service.link_all_prs()
 
-        logger.info(f"Full sync complete: {total_items} items")
+        logger.info(f"Full sync complete: {total_items} items (details will be filled gradually)")
+
+
+async def run_fill_details(batch_size: int = 50):
+    """
+    Fill in missing details (reviews/comments/commits) for PRs.
+    
+    This runs periodically to gradually complete PR data without
+    blocking the initial fast sync.
+    
+    Args:
+        batch_size: Number of PRs to process per run (default 50)
+    """
+    async with async_session_maker() as db:
+        from app.models.github import Commit, PRReview, PRComment
+        
+        # Find PRs without commits (commits are fetched last, so if missing = needs details)
+        # Using LEFT JOIN to find PRs with no commits
+        prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
+        
+        prs_without_details = await db.execute(
+            select(PullRequest, Repository)
+            .join(Repository)
+            .where(~PullRequest.id.in_(prs_with_commits))
+            .order_by(PullRequest.updated_at.desc())
+            .limit(batch_size)
+        )
+        prs_to_process = prs_without_details.all()
+        
+        if not prs_to_process:
+            logger.debug("No PRs need details filled")
+            return
+        
+        # Count total remaining
+        total_remaining_result = await db.execute(
+            select(func.count(PullRequest.id))
+            .where(~PullRequest.id.in_(prs_with_commits))
+        )
+        total_remaining = total_remaining_result.scalar() or 0
+        
+        logger.info(
+            f"Filling details for {len(prs_to_process)} PRs "
+            f"({total_remaining} total remaining)"
+        )
+        
+        github = create_github_connector()
+        if not github:
+            return
+        
+        from app.services.sync import SyncService
+        sync_service = SyncService(db, github)
+        
+        items_synced = 0
+        prs_processed = 0
+        
+        for pr, repo in prs_to_process:
+            try:
+                # Fetch all details for this PR
+                reviews = await github.fetch_reviews(repo.full_name, pr.number)
+                items_synced += await sync_service._upsert_reviews(pr.id, reviews)
+                
+                comments = await github.fetch_comments(repo.full_name, pr.number)
+                items_synced += await sync_service._upsert_comments(pr.id, comments)
+                
+                commits = await github.fetch_pr_commits(repo.full_name, pr.number)
+                items_synced += await sync_service._upsert_commits(repo.id, pr.id, commits)
+                
+                prs_processed += 1
+                await db.commit()
+            except Exception as e:
+                logger.warning(f"Failed to fill details for PR #{pr.number}: {e}")
+                await db.rollback()
+                continue
+        
+        await github.close()
+        logger.info(
+            f"Filled {items_synced} items for {prs_processed} PRs "
+            f"({total_remaining - prs_processed} still remaining)"
+        )
 
 
 def start_scheduler():
     """Start the periodic sync scheduler."""
+    # Main sync every hour
     scheduler.add_job(
         run_sync,
         "interval",
@@ -184,8 +267,18 @@ def start_scheduler():
         id="incremental_sync",
         replace_existing=True,
     )
+    
+    # Fill details every 10 minutes (gradual background processing)
+    scheduler.add_job(
+        run_fill_details,
+        "interval",
+        minutes=10,
+        id="fill_details",
+        replace_existing=True,
+    )
+    
     scheduler.start()
-    logger.info("Scheduler started: incremental sync every 1 hour")
+    logger.info("Scheduler started: sync every 1h, fill details every 10min")
 
 
 def stop_scheduler():

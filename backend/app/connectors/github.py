@@ -203,14 +203,24 @@ class GitHubConnector(BaseConnector):
         return [
             {
                 "sha": commit["sha"],
-                "author_login": commit.get("author", {}).get("login", commit["commit"]["author"]["name"]),
+                "author_login": (
+                    commit.get("author") or {}
+                ).get("login") or commit["commit"]["author"].get("name", "unknown"),
                 "message": commit["commit"]["message"],
                 "committed_at": commit["commit"]["author"]["date"],
             }
             for commit in response.json()
         ]
 
-    async def sync_all(self, db) -> SyncResult:
+    async def sync_all(self, db, fetch_details: bool = True) -> SyncResult:
+        """
+        Full sync of all repositories.
+        
+        Args:
+            db: Database session
+            fetch_details: If True, fetch reviews/comments/commits (slow).
+                          If False, just fetch PRs (fast initial sync).
+        """
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []
@@ -221,7 +231,7 @@ class GitHubConnector(BaseConnector):
         from app.services.sync import SyncService
         sync_service = SyncService(db, self)
         try:
-            items_synced = await sync_service.sync_all()
+            items_synced = await sync_service.sync_all(fetch_details=fetch_details)
         except RateLimitExceeded as e:
             errors.append(f"Rate limit exceeded: {e}")
             logger.error(f"Sync stopped due to rate limit: {e}")

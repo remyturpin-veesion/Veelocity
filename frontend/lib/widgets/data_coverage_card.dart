@@ -235,13 +235,16 @@ class DataCoverageCard extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator(RepositoryCoverage repo) {
-    if (repo.pullRequests == 0) {
-      return _statusChip('No data', Colors.grey, Icons.remove_circle_outline);
+    switch (repo.status) {
+      case SyncStatus.noData:
+        return _statusChip('No data', Colors.grey, Icons.remove_circle_outline);
+      case SyncStatus.incomplete:
+        return _statusChip('Syncing...', Colors.blue, Icons.sync);
+      case SyncStatus.stale:
+        return _statusChip('Stale', Colors.orange, Icons.warning_amber);
+      case SyncStatus.upToDate:
+        return _statusChip('Up to date', Colors.green, Icons.check_circle);
     }
-    if (repo.isStale) {
-      return _statusChip('Stale', Colors.orange, Icons.warning_amber);
-    }
-    return _statusChip('Up to date', Colors.green, Icons.check_circle);
   }
 
   Widget _statusChip(String label, Color color, IconData icon) {
