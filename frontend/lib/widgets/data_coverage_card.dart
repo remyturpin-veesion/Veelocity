@@ -20,26 +20,6 @@ class DataCoverageCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Data Coverage',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                if (onRefresh != null)
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Refresh',
-                    onPressed: onRefresh,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
             // Connector status
             _buildConnectorStatus(context),
             const SizedBox(height: 16),

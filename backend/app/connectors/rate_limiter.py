@@ -33,10 +33,20 @@ class RateLimiter:
     _hour_start: datetime = field(default_factory=datetime.utcnow, init=False)
     _hour_calls: int = field(default=0, init=False)
 
-    def reset(self) -> None:
-        """Reset call count for new sync session."""
+    def reset(self, full: bool = True) -> None:
+        """
+        Reset call count for new sync session.
+        
+        Args:
+            full: If True, also reset hourly counter. Default True for batch operations.
+        """
         self._call_count = 0
-        logger.debug("Rate limiter reset for new sync session")
+        if full:
+            self._hour_calls = 0
+            self._hour_start = datetime.utcnow()
+            logger.debug("Rate limiter fully reset (sync + hourly counters)")
+        else:
+            logger.debug("Rate limiter reset for new sync session (sync counter only)")
 
     def _check_hour_reset(self) -> None:
         """Reset hourly counter if hour has passed."""

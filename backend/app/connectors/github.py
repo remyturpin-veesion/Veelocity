@@ -153,10 +153,16 @@ class GitHubConnector(BaseConnector):
     async def fetch_reviews(self, repo_full_name: str, pr_number: int) -> list[dict]:
         try:
             response = await self._get(
-                f"/repos/{repo_full_name}/pulls/{pr_number}/reviews"
+                f"/repos/{repo_full_name}/pulls/{pr_number}/reviews",
+                params={"per_page": 100},
             )
-        except RateLimitExceeded:
-            logger.warning(f"Rate limit hit fetching reviews for PR #{pr_number}")
+        except RateLimitExceeded as e:
+            stats = self._rate_limiter.get_stats()
+            logger.warning(
+                f"Rate limit hit fetching reviews for PR #{pr_number}: {e} "
+                f"(sync: {stats['calls_made']}/{stats['max_per_sync']}, "
+                f"hourly: {stats['hourly_calls']}/{stats['max_per_hour']})"
+            )
             return []
         if response.status_code != 200:
             return []
@@ -173,10 +179,16 @@ class GitHubConnector(BaseConnector):
     async def fetch_comments(self, repo_full_name: str, pr_number: int) -> list[dict]:
         try:
             response = await self._get(
-                f"/repos/{repo_full_name}/pulls/{pr_number}/comments"
+                f"/repos/{repo_full_name}/pulls/{pr_number}/comments",
+                params={"per_page": 100},
             )
-        except RateLimitExceeded:
-            logger.warning(f"Rate limit hit fetching comments for PR #{pr_number}")
+        except RateLimitExceeded as e:
+            stats = self._rate_limiter.get_stats()
+            logger.warning(
+                f"Rate limit hit fetching comments for PR #{pr_number}: {e} "
+                f"(sync: {stats['calls_made']}/{stats['max_per_sync']}, "
+                f"hourly: {stats['hourly_calls']}/{stats['max_per_hour']})"
+            )
             return []
         if response.status_code != 200:
             return []
@@ -193,10 +205,16 @@ class GitHubConnector(BaseConnector):
     async def fetch_pr_commits(self, repo_full_name: str, pr_number: int) -> list[dict]:
         try:
             response = await self._get(
-                f"/repos/{repo_full_name}/pulls/{pr_number}/commits"
+                f"/repos/{repo_full_name}/pulls/{pr_number}/commits",
+                params={"per_page": 100},
             )
-        except RateLimitExceeded:
-            logger.warning(f"Rate limit hit fetching commits for PR #{pr_number}")
+        except RateLimitExceeded as e:
+            stats = self._rate_limiter.get_stats()
+            logger.warning(
+                f"Rate limit hit fetching commits for PR #{pr_number}: {e} "
+                f"(sync: {stats['calls_made']}/{stats['max_per_sync']}, "
+                f"hourly: {stats['hourly_calls']}/{stats['max_per_hour']})"
+            )
             return []
         if response.status_code != 200:
             return []

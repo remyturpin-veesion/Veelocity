@@ -98,7 +98,7 @@ async def trigger_fill_details(
     Trigger a batch of PR details sync (reviews, comments, commits).
     
     Args:
-        batch_size: Number of PRs to process (default 50)
+        batch_size: Number of PRs to process (default 100)
     
     Call this repeatedly to gradually fill all PR details.
     """
@@ -176,7 +176,7 @@ async def get_sync_status(
 
 @router.post("/fill-all")
 async def fill_all_details(
-    batch_size: int = 30,
+    batch_size: int = 100,
     max_batches: int = 200,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -184,7 +184,7 @@ async def fill_all_details(
     Fill details for ALL PRs that need them, processing in batches.
     
     Args:
-        batch_size: PRs to process per batch (default 30, = ~90 API calls)
+        batch_size: PRs to process per batch (default 100, = ~300 API calls)
         max_batches: Maximum batches to run (default 200 = 6000 PRs max)
     
     This runs until all PRs have details or max_batches is reached.

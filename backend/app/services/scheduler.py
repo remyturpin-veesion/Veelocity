@@ -185,7 +185,7 @@ async def run_full_sync():
         logger.info(f"Full sync complete: {total_items} items (details will be filled gradually)")
 
 
-async def run_fill_details(batch_size: int = 30):
+async def run_fill_details(batch_size: int = 100):
     """
     Fill in missing details (reviews/comments/commits) for PRs.
     
@@ -193,7 +193,7 @@ async def run_fill_details(batch_size: int = 30):
     blocking the initial fast sync.
     
     Args:
-        batch_size: Number of PRs to process per run (default 30 = ~90 API calls)
+        batch_size: Number of PRs to process per run (default 100 = ~300 API calls)
     """
     from app.connectors.rate_limiter import get_rate_limiter
     
