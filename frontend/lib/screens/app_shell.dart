@@ -166,14 +166,18 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _ThemeModeButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
+    // Watch the provider to rebuild when it changes
+    ref.watch(themeModeProvider);
+    // Use actual brightness to determine icon (handles system mode correctly)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return IconButton(
       icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
       tooltip: isDark ? 'Mode clair' : 'Mode sombre',
       onPressed: () {
-        ref.read(themeModeProvider.notifier).toggle();
+        // Toggle based on current actual appearance
+        final newMode = isDark ? ThemeMode.light : ThemeMode.dark;
+        ref.read(themeModeProvider.notifier).setThemeMode(newMode);
       },
     );
   }
