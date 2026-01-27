@@ -7,6 +7,7 @@ import '../../widgets/measurements_table.dart';
 import 'metric_detail_screen.dart';
 
 /// Detail screen for Cycle Time metric.
+/// Note: Cycle Time is based on Linear issues and doesn't support per-repo filtering.
 class CycleTimeScreen extends ConsumerWidget {
   const CycleTimeScreen({super.key});
 
@@ -31,6 +32,8 @@ class CycleTimeScreen extends ConsumerWidget {
           data: (data) => _buildContent(context, data),
         );
       },
+      // Cycle Time doesn't support per-repo filtering (it's based on Linear issues)
+      multiRepoChartBuilder: null,
     );
   }
 
@@ -178,7 +181,11 @@ class CycleTimeScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _PerformanceIndicator(
               averageHours: data.averageHours,
-              thresholds: const [24, 72, 168], // Elite: <1 day, Good: <3 days, Needs work: <1 week
+              thresholds: const [
+                24,
+                72,
+                168
+              ], // Elite: <1 day, Good: <3 days, Needs work: <1 week
             ),
           ],
         ),

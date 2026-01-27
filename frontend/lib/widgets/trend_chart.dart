@@ -94,7 +94,9 @@ class TrendChart extends StatelessWidget {
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 30,
-                    interval: data.length > 6 ? (data.length / 4).ceil().toDouble() : 1,
+                    interval: data.length > 6
+                        ? (data.length / 4).ceil().toDouble()
+                        : 1,
                     getTitlesWidget: (value, meta) {
                       final index = value.toInt();
                       if (index < 0 || index >= data.length) {

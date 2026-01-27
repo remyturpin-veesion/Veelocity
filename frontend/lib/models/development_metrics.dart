@@ -149,7 +149,8 @@ class DevelopmentMetrics {
       prMergeTime:
           PRMergeTime.fromJson(json['pr_merge_time'] as Map<String, dynamic>),
       cycleTime: CycleTime.fromJson(json['cycle_time'] as Map<String, dynamic>),
-      throughput: Throughput.fromJson(json['throughput'] as Map<String, dynamic>),
+      throughput:
+          Throughput.fromJson(json['throughput'] as Map<String, dynamic>),
     );
   }
 }

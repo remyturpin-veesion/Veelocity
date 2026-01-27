@@ -74,8 +74,8 @@ class RepositoryCoverage {
   final String name;
   final String fullName;
   final int pullRequests;
-  final int prsWithDetails;  // PRs that have commits fetched
-  final int prsWithoutDetails;  // PRs still missing details
+  final int prsWithDetails; // PRs that have commits fetched
+  final int prsWithoutDetails; // PRs still missing details
   final int reviews;
   final int comments;
   final int commits;
@@ -173,7 +173,7 @@ class RepositoryCoverage {
 
   /// Returns true if details (commits/reviews) are missing for some PRs.
   bool get isMissingDetails => prsWithoutDetails > 0;
-  
+
   /// Progress percentage of detail fetching (0-100).
   double get completionPercent {
     if (pullRequests == 0) return 100.0;
@@ -190,12 +190,12 @@ class RepositoryCoverage {
 }
 
 enum SyncStatus {
-  noData,      // No PRs synced
-  incomplete,  // PRs synced but missing details (commits/reviews)
-  stale,       // Data older than 7 days
-  upToDate,    // Fully synced and recent
+  noData, // No PRs synced
+  incomplete, // PRs synced but missing details (commits/reviews)
+  stale, // Data older than 7 days
+  upToDate, // Fully synced and recent
 }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
+String _formatDate(DateTime date) {
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}

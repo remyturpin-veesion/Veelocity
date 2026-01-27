@@ -135,7 +135,8 @@ class _MeasurementsTableState extends State<MeasurementsTable> {
     final displayItems = sortedItems.take(widget.maxItems).toList();
     final hasMore = widget.measurements.length > widget.maxItems;
     final availableOptions = _availableSortOptions;
-    final showSortDropdown = widget.enableSorting && availableOptions.length > 1;
+    final showSortDropdown =
+        widget.enableSorting && availableOptions.length > 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +172,8 @@ class _MeasurementsTableState extends State<MeasurementsTable> {
         const SizedBox(height: 12),
         Card(
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           clipBehavior: Clip.antiAlias,
           child: ListView.separated(
             shrinkWrap: true,
@@ -270,7 +272,8 @@ class _MeasurementTile extends StatelessWidget {
           ? Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (measurement.color ?? Colors.grey).withValues(alpha: 0.1),
+                color:
+                    (measurement.color ?? Colors.grey).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -284,7 +287,8 @@ class _MeasurementTile extends StatelessWidget {
         measurement.title,
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
-      subtitle: measurement.subtitle != null || (showTimestamp && measurement.timestamp != null)
+      subtitle: measurement.subtitle != null ||
+              (showTimestamp && measurement.timestamp != null)
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -346,7 +350,8 @@ class _EmptyMeasurements extends StatelessWidget {
         const SizedBox(height: 12),
         Card(
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Center(

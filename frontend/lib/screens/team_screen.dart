@@ -98,7 +98,8 @@ class TeamScreen extends ConsumerWidget {
                     width: cardWidth,
                     child: DeveloperCard(
                       developer: developer,
-                      onTap: () => _showDeveloperDetails(context, ref, developer),
+                      onTap: () =>
+                          _showDeveloperDetails(context, ref, developer),
                     ),
                   );
                 }).toList(),
@@ -156,9 +157,10 @@ class DeveloperDetailsSheet extends ConsumerWidget {
                   children: [
                     Text(
                       stats.login,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const Spacer(),
                     IconButton(
@@ -168,18 +170,27 @@ class DeveloperDetailsSheet extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildStatRow(context, 'PRs Created', stats.prsCreated.toString()),
-                _buildStatRow(context, 'PRs Merged', stats.prsMerged.toString()),
+                _buildStatRow(
+                    context, 'PRs Created', stats.prsCreated.toString()),
+                _buildStatRow(
+                    context, 'PRs Merged', stats.prsMerged.toString()),
                 _buildStatRow(context, 'PRs Open', stats.prsOpen.toString()),
                 const Divider(height: 32),
-                _buildStatRow(context, 'Lines Added', '+${stats.totalAdditions}'),
-                _buildStatRow(context, 'Lines Deleted', '-${stats.totalDeletions}'),
-                _buildStatRow(context, 'Avg Lines/PR', stats.avgLinesPerPr.toString()),
-                _buildStatRow(context, 'Avg Merge Time', _formatHours(stats.avgMergeHours)),
+                _buildStatRow(
+                    context, 'Lines Added', '+${stats.totalAdditions}'),
+                _buildStatRow(
+                    context, 'Lines Deleted', '-${stats.totalDeletions}'),
+                _buildStatRow(
+                    context, 'Avg Lines/PR', stats.avgLinesPerPr.toString()),
+                _buildStatRow(context, 'Avg Merge Time',
+                    _formatHours(stats.avgMergeHours)),
                 const Divider(height: 32),
-                _buildStatRow(context, 'Reviews Given', stats.reviewsGiven.toString()),
-                _buildStatRow(context, 'Comments Made', stats.commentsMade.toString()),
-                _buildStatRow(context, 'Commits Made', stats.commitsMade.toString()),
+                _buildStatRow(
+                    context, 'Reviews Given', stats.reviewsGiven.toString()),
+                _buildStatRow(
+                    context, 'Comments Made', stats.commentsMade.toString()),
+                _buildStatRow(
+                    context, 'Commits Made', stats.commitsMade.toString()),
               ],
             ),
           ),

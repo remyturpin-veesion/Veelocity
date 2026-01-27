@@ -4,6 +4,7 @@ import '../../models/metric_info.dart';
 import '../../services/providers.dart';
 import '../../widgets/metrics_side_nav.dart';
 import '../../widgets/period_selector.dart';
+import '../../widgets/repo_multi_selector.dart';
 import '../../widgets/repo_selector.dart';
 
 /// Base screen for displaying metric details.
@@ -13,12 +14,21 @@ import '../../widgets/repo_selector.dart';
 /// - AppBar with metric name
 /// - Filters bar (period and repo)
 /// - Info section with description and calculation
-/// - Summary stats section
-/// - Custom content (chart, measurements table, etc.)
+/// - Summary stats section (aggregated for all selected repos)
+/// - Multi-repo chart section (unified chart with one line per repo)
+/// - Bottom content section (e.g., measurements table)
 class MetricDetailScreen extends ConsumerWidget {
   final MetricInfo metricInfo;
   final Widget Function(BuildContext context, WidgetRef ref) summaryBuilder;
   final Widget Function(BuildContext context, WidgetRef ref) contentBuilder;
+
+  /// Builder for the unified multi-repo chart section.
+  /// Receives the list of selected repos to display.
+  final Widget Function(
+          BuildContext context, WidgetRef ref, List<RepoOption> repos)?
+      multiRepoChartBuilder;
+  final Widget Function(BuildContext context, WidgetRef ref)?
+      bottomContentBuilder;
   final VoidCallback? onRefresh;
 
   const MetricDetailScreen({
@@ -26,13 +36,15 @@ class MetricDetailScreen extends ConsumerWidget {
     required this.metricInfo,
     required this.summaryBuilder,
     required this.contentBuilder,
+    this.multiRepoChartBuilder,
+    this.bottomContentBuilder,
     this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
-    final selectedRepo = ref.watch(selectedRepoProvider);
+    final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
     final reposAsync = ref.watch(repositoriesProvider);
 
     return Scaffold(
@@ -85,12 +97,12 @@ class MetricDetailScreen extends ConsumerWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                         error: (_, __) => const SizedBox.shrink(),
-                        data: (repos) => RepoSelector(
+                        data: (repos) => RepoMultiSelector(
                           repos: repos,
-                          selected: selectedRepo,
-                          onChanged: (repo) {
-                            ref.read(selectedRepoProvider.notifier).state =
-                                repo;
+                          selectedRepoIds: selectedRepoIds,
+                          onChanged: (ids) {
+                            ref.read(selectedRepoIdsProvider.notifier).state =
+                                ids;
                           },
                         ),
                       ),
@@ -154,12 +166,67 @@ class MetricDetailScreen extends ConsumerWidget {
                         _MetricInfoCard(metricInfo: metricInfo),
                         const SizedBox(height: 24),
 
-                        // Summary Stats
+                        // Summary Stats (aggregated for all selected repos)
+                        _SectionHeader(
+                          title: 'Overall Summary',
+                          subtitle:
+                              _getSelectionLabel(selectedRepoIds, reposAsync),
+                        ),
+                        const SizedBox(height: 12),
                         summaryBuilder(context, ref),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
 
-                        // Custom Content
+                        // Aggregated content (chart, table)
                         contentBuilder(context, ref),
+                        const SizedBox(height: 32),
+
+                        // Multi-repo chart section
+                        if (multiRepoChartBuilder != null)
+                          reposAsync.when(
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                            data: (repos) {
+                              final reposToShow = selectedRepoIds.isEmpty
+                                  ? repos
+                                  : repos
+                                      .where(
+                                          (r) => selectedRepoIds.contains(r.id))
+                                      .toList();
+
+                              if (reposToShow.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _SectionHeader(
+                                    title: 'By Repository',
+                                    subtitle:
+                                        '${reposToShow.length} repositories',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Card(
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: multiRepoChartBuilder!(
+                                          context, ref, reposToShow),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+
+                        // Bottom content section (e.g., measurements table)
+                        if (bottomContentBuilder != null) ...[
+                          const SizedBox(height: 8),
+                          bottomContentBuilder!(context, ref),
+                        ],
                       ],
                     ),
                   ),
@@ -169,6 +236,57 @@ class MetricDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  String _getSelectionLabel(
+      Set<int> selectedIds, AsyncValue<List<RepoOption>> reposAsync) {
+    return reposAsync.when(
+      loading: () => 'Loading...',
+      error: (_, __) => 'Error loading repos',
+      data: (repos) {
+        if (selectedIds.isEmpty || selectedIds.length == repos.length) {
+          return 'All repositories';
+        } else if (selectedIds.length == 1) {
+          final repo = repos.firstWhere((r) => r.id == selectedIds.first);
+          return repo.name;
+        } else {
+          return '${selectedIds.length} repositories selected';
+        }
+      },
+    );
+  }
+}
+
+/// Section header with title and subtitle.
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+        ),
+      ],
     );
   }
 }

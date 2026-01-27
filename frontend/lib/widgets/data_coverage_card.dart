@@ -224,7 +224,8 @@ class DataCoverageCard extends StatelessWidget {
   Widget _buildStatusIndicator(BuildContext context, RepositoryCoverage repo) {
     switch (repo.status) {
       case SyncStatus.noData:
-        return _statusChip(context, 'No data', Colors.grey, Icons.remove_circle_outline);
+        return _statusChip(
+            context, 'No data', Colors.grey, Icons.remove_circle_outline);
       case SyncStatus.incomplete:
         final pct = repo.completionPercent.toStringAsFixed(0);
         return _statusChip(
@@ -234,13 +235,16 @@ class DataCoverageCard extends StatelessWidget {
           Icons.sync,
         );
       case SyncStatus.stale:
-        return _statusChip(context, 'Stale', Colors.orange, Icons.warning_amber);
+        return _statusChip(
+            context, 'Stale', Colors.orange, Icons.warning_amber);
       case SyncStatus.upToDate:
-        return _statusChip(context, 'Up to date', Colors.green, Icons.check_circle);
+        return _statusChip(
+            context, 'Up to date', Colors.green, Icons.check_circle);
     }
   }
 
-  Widget _statusChip(BuildContext context, String label, Color color, IconData icon) {
+  Widget _statusChip(
+      BuildContext context, String label, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

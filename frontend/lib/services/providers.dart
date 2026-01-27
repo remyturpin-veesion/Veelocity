@@ -21,9 +21,15 @@ final selectedPeriodProvider = StateProvider<TimePeriod>((ref) {
   return TimePeriod.days30;
 });
 
-/// State provider for selected repository.
+/// State provider for selected repository (legacy - single selection).
 final selectedRepoProvider = StateProvider<RepoOption>((ref) {
   return RepoOption.all;
+});
+
+/// State provider for selected repository IDs (multi-selection).
+/// Empty set means "all repositories".
+final selectedRepoIdsProvider = StateProvider<Set<int>>((ref) {
+  return {};
 });
 
 /// State provider for last refresh time.
@@ -62,7 +68,10 @@ final developmentMetricsProvider =
 final repositoriesProvider = FutureProvider<List<RepoOption>>((ref) async {
   final service = ref.read(apiServiceProvider);
   final repos = await service.getRepositories();
-  return repos.map((r) => RepoOption(id: r['id'] as int, name: r['full_name'] as String)).toList();
+  return repos
+      .map(
+          (r) => RepoOption(id: r['id'] as int, name: r['full_name'] as String))
+      .toList();
 });
 
 /// Provider for fetching developers with filters.
@@ -180,5 +189,74 @@ final throughputProvider = FutureProvider<Throughput>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repo.id,
+  );
+});
+
+// ============================================================================
+// Per-Repository Metric Providers (for multi-repo view)
+// ============================================================================
+
+/// Provider for fetching deployment frequency for a specific repo.
+final deploymentFrequencyByRepoProvider =
+    FutureProvider.family<DeploymentFrequency, int?>((ref, repoId) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getDeploymentFrequency(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for fetching lead time for a specific repo.
+final leadTimeByRepoProvider =
+    FutureProvider.family<LeadTimeForChanges, int?>((ref, repoId) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getLeadTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for fetching PR review time for a specific repo.
+final prReviewTimeByRepoProvider =
+    FutureProvider.family<PRReviewTime, int?>((ref, repoId) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getPRReviewTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for fetching PR merge time for a specific repo.
+final prMergeTimeByRepoProvider =
+    FutureProvider.family<PRMergeTime, int?>((ref, repoId) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getPRMergeTime(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for fetching throughput for a specific repo.
+final throughputByRepoProvider =
+    FutureProvider.family<Throughput, int?>((ref, repoId) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getThroughput(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
   );
 });

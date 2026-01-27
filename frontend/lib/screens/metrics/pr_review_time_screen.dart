@@ -3,8 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/development_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
-import '../../widgets/measurements_table.dart';
+import '../../widgets/measurements_table.dart' show formatDuration;
+import '../../widgets/repo_comparison_chart.dart';
+import '../../widgets/repo_selector.dart';
 import 'metric_detail_screen.dart';
+
+/// Predefined colors for repository bars.
+const _repoColors = [
+  Colors.teal,
+  Colors.blue,
+  Colors.purple,
+  Colors.green,
+  Colors.pink,
+  Colors.indigo,
+  Colors.amber,
+  Colors.cyan,
+  Colors.red,
+  Colors.lime,
+];
 
 /// Detail screen for PR Review Time metric.
 class PRReviewTimeScreen extends ConsumerWidget {
@@ -16,7 +32,13 @@ class PRReviewTimeScreen extends ConsumerWidget {
 
     return MetricDetailScreen(
       metricInfo: MetricInfo.prReviewTime,
-      onRefresh: () => ref.invalidate(prReviewTimeProvider),
+      onRefresh: () {
+        ref.invalidate(prReviewTimeProvider);
+        final repos = ref.read(repositoriesProvider).valueOrNull ?? [];
+        for (final repo in repos) {
+          ref.invalidate(prReviewTimeByRepoProvider(repo.id));
+        }
+      },
       summaryBuilder: (context, ref) {
         return metricAsync.when(
           loading: () => _buildLoadingSummary(),
@@ -25,11 +47,11 @@ class PRReviewTimeScreen extends ConsumerWidget {
         );
       },
       contentBuilder: (context, ref) {
-        return metricAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _buildError(context, e),
-          data: (data) => _buildContent(context, data),
-        );
+        // No separate overall chart - included in comparison chart
+        return const SizedBox.shrink();
+      },
+      multiRepoChartBuilder: (context, ref, repos) {
+        return _MultiRepoComparisonSection(repos: repos);
       },
     );
   }
@@ -99,121 +121,6 @@ class PRReviewTimeScreen extends ConsumerWidget {
       },
     );
   }
-
-  Widget _buildError(BuildContext context, Object error) {
-    return Center(
-      child: Column(
-        children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-          const SizedBox(height: 8),
-          Text('Error loading data: $error'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context, PRReviewTime data) {
-    // Note: The current backend doesn't return individual PR measurements
-    // for review time. We show a summary message instead.
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            Icon(
-              Icons.rate_review,
-              size: 48,
-              color: Colors.orange.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'PR Review Time Analysis',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Analyzed ${data.count} pull requests in the selected period.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            _PerformanceIndicator(
-              averageHours: data.averageHours,
-              thresholds: const [4, 8, 24], // Elite: <4h, Good: <8h, Needs work: <24h
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PerformanceIndicator extends StatelessWidget {
-  final double averageHours;
-  final List<int> thresholds;
-
-  const _PerformanceIndicator({
-    required this.averageHours,
-    required this.thresholds,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    String rating;
-    Color color;
-    IconData icon;
-
-    if (averageHours == 0) {
-      rating = 'No data';
-      color = Colors.grey;
-      icon = Icons.remove_circle_outline;
-    } else if (averageHours < thresholds[0]) {
-      rating = 'Elite';
-      color = Colors.green;
-      icon = Icons.star;
-    } else if (averageHours < thresholds[1]) {
-      rating = 'Good';
-      color = Colors.blue;
-      icon = Icons.thumb_up;
-    } else if (averageHours < thresholds[2]) {
-      rating = 'Needs improvement';
-      color = Colors.orange;
-      icon = Icons.trending_up;
-    } else {
-      rating = 'Critical';
-      color = Colors.red;
-      icon = Icons.warning;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            rating,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SkeletonStatCard extends StatelessWidget {
@@ -249,6 +156,89 @@ class _SkeletonStatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Multi-repo comparison chart section that includes overall data.
+class _MultiRepoComparisonSection extends ConsumerWidget {
+  final List<RepoOption> repos;
+
+  const _MultiRepoComparisonSection({required this.repos});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overallAsync = ref.watch(prReviewTimeProvider);
+    final dataList = <RepoComparisonData>[];
+    bool isLoading = false;
+    String? errorMessage;
+
+    // Add overall data as first bar
+    overallAsync.when(
+      loading: () => isLoading = true,
+      error: (e, _) => errorMessage ??= e.toString(),
+      data: (data) {
+        if (data.count > 0) {
+          dataList.add(RepoComparisonData(
+            repoId: 0,
+            repoName: 'All Repositories',
+            value: data.averageHours,
+            color: Colors.orange,
+            formattedValue: formatDuration(data.averageHours),
+          ));
+        }
+      },
+    );
+
+    // Add per-repo data
+    for (var i = 0; i < repos.length; i++) {
+      final repo = repos[i];
+      final dataAsync = ref.watch(prReviewTimeByRepoProvider(repo.id));
+
+      dataAsync.when(
+        loading: () => isLoading = true,
+        error: (e, _) => errorMessage ??= e.toString(),
+        data: (data) {
+          if (data.count > 0) {
+            dataList.add(RepoComparisonData(
+              repoId: repo.id!,
+              repoName: repo.name,
+              value: data.averageHours,
+              color: _repoColors[i % _repoColors.length],
+              formattedValue: formatDuration(data.averageHours),
+            ));
+          }
+        },
+      );
+    }
+
+    if (isLoading && dataList.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null && dataList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error: $errorMessage',
+            style: TextStyle(color: Colors.red[400])),
+      );
+    }
+
+    if (dataList.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No PR review time data available'),
+      );
+    }
+
+    return RepoComparisonChart(
+      data: dataList,
+      title: 'Average PR Review Time',
+      valueLabel: 'Hours',
+      valueFormatter: (value) => formatDuration(value),
     );
   }
 }

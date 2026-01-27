@@ -27,7 +27,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   String _formatLastRefresh(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    
+
     if (diff.inSeconds < 60) {
       return 'à l\'instant';
     } else if (diff.inMinutes < 60) {

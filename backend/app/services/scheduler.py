@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.connectors.factory import (
     create_github_actions_connector,
@@ -271,10 +271,12 @@ async def run_fill_details(batch_size: int = 100):
                 commits = await github.fetch_pr_commits(repo_full_name, pr_number)
                 items_synced += await sync_service._upsert_commits(repo_id, pr_id, commits)
                 
-                # Mark PR as having details synced
-                pr = await db.get(PullRequest, pr_id)
-                if pr:
-                    pr.details_synced_at = datetime.utcnow()
+                # Mark PR as having details synced (UPDATE handles missing PR gracefully)
+                await db.execute(
+                    update(PullRequest)
+                    .where(PullRequest.id == pr_id)
+                    .values(details_synced_at=datetime.utcnow())
+                )
                 
                 prs_processed += 1
                 await db.commit()

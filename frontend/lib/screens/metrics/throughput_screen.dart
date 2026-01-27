@@ -4,8 +4,23 @@ import '../../models/development_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
 import '../../widgets/measurements_table.dart';
-import '../../widgets/trend_chart.dart';
+import '../../widgets/multi_repo_trend_chart.dart';
+import '../../widgets/repo_selector.dart';
 import 'metric_detail_screen.dart';
+
+/// Predefined colors for repository lines.
+const _repoColors = [
+  Colors.teal,
+  Colors.orange,
+  Colors.purple,
+  Colors.blue,
+  Colors.pink,
+  Colors.green,
+  Colors.amber,
+  Colors.cyan,
+  Colors.red,
+  Colors.lime,
+];
 
 /// Detail screen for Throughput metric.
 class ThroughputScreen extends ConsumerWidget {
@@ -17,7 +32,13 @@ class ThroughputScreen extends ConsumerWidget {
 
     return MetricDetailScreen(
       metricInfo: MetricInfo.throughput,
-      onRefresh: () => ref.invalidate(throughputProvider),
+      onRefresh: () {
+        ref.invalidate(throughputProvider);
+        final repos = ref.read(repositoriesProvider).valueOrNull ?? [];
+        for (final repo in repos) {
+          ref.invalidate(throughputByRepoProvider(repo.id));
+        }
+      },
       summaryBuilder: (context, ref) {
         return metricAsync.when(
           loading: () => _buildLoadingSummary(),
@@ -26,10 +47,17 @@ class ThroughputScreen extends ConsumerWidget {
         );
       },
       contentBuilder: (context, ref) {
+        // No separate overall chart - included in multi-repo chart
+        return const SizedBox.shrink();
+      },
+      multiRepoChartBuilder: (context, ref, repos) {
+        return _MultiRepoChartSection(repos: repos);
+      },
+      bottomContentBuilder: (context, ref) {
         return metricAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _buildError(context, e),
-          data: (data) => _buildContent(context, data),
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (data) => _buildMeasurementsTable(context, data),
         );
       },
     );
@@ -63,7 +91,9 @@ class ThroughputScreen extends ConsumerWidget {
           runSpacing: 12,
           children: [
             SizedBox(
-              width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+              width: isWide
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth,
               child: SummaryStatCard(
                 label: 'Average per week',
                 value: '${data.average}',
@@ -72,7 +102,9 @@ class ThroughputScreen extends ConsumerWidget {
               ),
             ),
             SizedBox(
-              width: isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+              width: isWide
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth,
               child: SummaryStatCard(
                 label: 'Total PRs merged',
                 value: '${data.total}',
@@ -86,24 +118,12 @@ class ThroughputScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildError(BuildContext context, Object error) {
-    return Center(
-      child: Column(
-        children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-          const SizedBox(height: 8),
-          Text('Error loading data: $error'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context, Throughput data) {
+  Widget _buildMeasurementsTable(BuildContext context, Throughput data) {
     final measurements = data.data.asMap().entries.map((entry) {
       final d = entry.value;
       final index = entry.key;
-      // Use index as a proxy for time ordering (later index = more recent)
-      final timestamp = DateTime.now().subtract(Duration(days: (data.data.length - 1 - index) * 7));
+      final timestamp = DateTime.now()
+          .subtract(Duration(days: (data.data.length - 1 - index) * 7));
       return Measurement(
         id: d.period,
         title: _formatPeriodLabel(d.period),
@@ -115,38 +135,11 @@ class ThroughputScreen extends ConsumerWidget {
       );
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Trend Chart
-        if (data.data.isNotEmpty)
-          Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TrendChart(
-                title: 'Throughput Trend',
-                data: data.data
-                    .map((d) => TrendDataPoint(
-                          label: d.period,
-                          value: d.count.toDouble(),
-                        ))
-                    .toList(),
-                color: Colors.indigo,
-              ),
-            ),
-          ),
-        const SizedBox(height: 24),
-
-        // PRs by Period
-        MeasurementsTable(
-          title: 'PRs Merged by Period',
-          measurements: measurements,
-          showTimestamp: false,
-          defaultSort: MeasurementSortOption.newestFirst,
-        ),
-      ],
+    return MeasurementsTable(
+      title: 'PRs Merged by Period',
+      measurements: measurements,
+      showTimestamp: false,
+      defaultSort: MeasurementSortOption.newestFirst,
     );
   }
 
@@ -192,6 +185,92 @@ class _SkeletonStatCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Multi-repo chart section that includes overall data as a series.
+class _MultiRepoChartSection extends ConsumerWidget {
+  final List<RepoOption> repos;
+
+  const _MultiRepoChartSection({required this.repos});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overallAsync = ref.watch(throughputProvider);
+    final seriesList = <RepoTrendSeries>[];
+    bool isLoading = false;
+    String? errorMessage;
+
+    // Add overall data as first series
+    overallAsync.when(
+      loading: () => isLoading = true,
+      error: (e, _) => errorMessage ??= e.toString(),
+      data: (data) {
+        if (data.data.isNotEmpty) {
+          seriesList.add(RepoTrendSeries(
+            repoId: 0,
+            repoName: 'All Repositories',
+            data: data.data
+                .map((d) =>
+                    TrendPoint(period: d.period, value: d.count.toDouble()))
+                .toList(),
+            color: Colors.indigo,
+          ));
+        }
+      },
+    );
+
+    // Add per-repo data
+    for (var i = 0; i < repos.length; i++) {
+      final repo = repos[i];
+      final dataAsync = ref.watch(throughputByRepoProvider(repo.id));
+
+      dataAsync.when(
+        loading: () => isLoading = true,
+        error: (e, _) => errorMessage ??= e.toString(),
+        data: (data) {
+          if (data.data.isNotEmpty) {
+            seriesList.add(RepoTrendSeries(
+              repoId: repo.id!,
+              repoName: repo.name,
+              data: data.data
+                  .map((d) =>
+                      TrendPoint(period: d.period, value: d.count.toDouble()))
+                  .toList(),
+              color: _repoColors[i % _repoColors.length],
+            ));
+          }
+        },
+      );
+    }
+
+    if (isLoading && seriesList.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null && seriesList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error: $errorMessage',
+            style: TextStyle(color: Colors.red[400])),
+      );
+    }
+
+    if (seriesList.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No throughput data available'),
+      );
+    }
+
+    return MultiRepoTrendChart(
+      series: seriesList,
+      title: 'PRs Merged per Period',
+      height: 280,
     );
   }
 }
