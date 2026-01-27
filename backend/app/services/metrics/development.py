@@ -22,6 +22,7 @@ class DevelopmentMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        author_login: str | None = None,
     ) -> dict:
         """
         Calculate PR review time.
@@ -47,6 +48,9 @@ class DevelopmentMetricsService:
 
         if repo_id:
             query = query.where(PullRequest.repo_id == repo_id)
+
+        if author_login:
+            query = query.where(PullRequest.author_login == author_login)
 
         result = await self._db.execute(query)
         rows = result.all()
@@ -83,6 +87,7 @@ class DevelopmentMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        author_login: str | None = None,
     ) -> dict:
         """
         Calculate PR merge time.
@@ -99,6 +104,9 @@ class DevelopmentMetricsService:
 
         if repo_id:
             query = query.where(PullRequest.repo_id == repo_id)
+
+        if author_login:
+            query = query.where(PullRequest.author_login == author_login)
 
         result = await self._db.execute(query)
         prs = result.scalars().all()
@@ -194,6 +202,7 @@ class DevelopmentMetricsService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        author_login: str | None = None,
     ) -> dict:
         """
         Calculate throughput.
@@ -210,6 +219,9 @@ class DevelopmentMetricsService:
 
         if repo_id:
             query = query.where(PullRequest.repo_id == repo_id)
+
+        if author_login:
+            query = query.where(PullRequest.author_login == author_login)
 
         result = await self._db.execute(query)
         merged_dates = [row[0] for row in result.all() if row[0]]

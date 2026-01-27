@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/metric_info.dart';
+import '../screens/data_coverage_screen.dart';
 import '../screens/metrics/deployment_frequency_screen.dart';
 import '../screens/metrics/lead_time_screen.dart';
 import '../screens/metrics/pr_review_time_screen.dart';
@@ -85,23 +86,88 @@ class MetricsSideNav extends StatelessWidget {
           ),
         ),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          const SizedBox(height: 8),
-          // Home button
-          _buildHomeItem(context, colorScheme),
-          const SizedBox(height: 8),
-          const Divider(height: 1, indent: 8, endIndent: 8),
-          const SizedBox(height: 8),
-          // DORA section
-          const _SectionDivider(label: 'DORA'),
-          ..._items.take(2).map((item) => _buildNavItem(context, item)),
-          const SizedBox(height: 8),
-          // Development section
-          const _SectionDivider(label: 'Dev'),
-          ..._items.skip(2).map((item) => _buildNavItem(context, item)),
-          const Spacer(),
+          // Top navigation items
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                // Home button
+                _buildHomeItem(context, colorScheme),
+                const SizedBox(height: 8),
+                const Divider(height: 1, indent: 8, endIndent: 8),
+                const SizedBox(height: 8),
+                // DORA section
+                const _SectionDivider(label: 'DORA'),
+                ..._items.take(2).map((item) => _buildNavItem(context, item)),
+                const SizedBox(height: 8),
+                // Development section
+                const _SectionDivider(label: 'Dev'),
+                ..._items.skip(2).map((item) => _buildNavItem(context, item)),
+              ],
+            ),
+          ),
+          // Data Coverage link at bottom
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(height: 1, indent: 8, endIndent: 8),
+                const SizedBox(height: 8),
+                _buildDataCoverageItem(context),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDataCoverageItem(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      message: 'Data Coverage',
+      preferBelow: false,
+      waitDuration: const Duration(milliseconds: 300),
+      child: InkWell(
+        onTap: () {
+          final route = PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const DataCoverageScreen(),
+            transitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          );
+          if (isHome) {
+            Navigator.push(context, route);
+          } else {
+            Navigator.pushReplacement(context, route);
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.storage,
+            size: 22,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }

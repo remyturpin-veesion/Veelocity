@@ -69,6 +69,7 @@ class DORAMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        author_login: str | None = None,
     ) -> dict:
         """
         Calculate lead time for changes.
@@ -80,6 +81,8 @@ class DORAMetricsService:
         2. For each deployment, find the PR that contains the deployed commit (head_sha)
         3. Find the first commit on that PR
         4. Lead time = deployment time - first commit time
+        
+        If author_login is specified, only includes deployments of commits by that author.
         """
         # Get successful deployments
         deploy_query = (
@@ -111,6 +114,10 @@ class DORAMetricsService:
             commit = commit_result.scalar_one_or_none()
 
             if not commit or not commit.pr_id:
+                continue
+
+            # If filtering by author, check commit author
+            if author_login and commit.author_login != author_login:
                 continue
 
             # Find first commit on the PR

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/developer.dart';
 import '../../models/development_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
@@ -8,8 +9,8 @@ import '../../widgets/multi_repo_trend_chart.dart';
 import '../../widgets/repo_selector.dart';
 import 'metric_detail_screen.dart';
 
-/// Predefined colors for repository lines.
-const _repoColors = [
+/// Predefined colors for repository/developer lines.
+const _entityColors = [
   Colors.teal,
   Colors.orange,
   Colors.purple,
@@ -38,6 +39,11 @@ class ThroughputScreen extends ConsumerWidget {
         for (final repo in repos) {
           ref.invalidate(throughputByRepoProvider(repo.id));
         }
+        final devs =
+            ref.read(developersProvider).valueOrNull?.developers ?? [];
+        for (final dev in devs) {
+          ref.invalidate(throughputByDeveloperProvider(dev.login));
+        }
       },
       summaryBuilder: (context, ref) {
         return metricAsync.when(
@@ -52,6 +58,9 @@ class ThroughputScreen extends ConsumerWidget {
       },
       multiRepoChartBuilder: (context, ref, repos) {
         return _MultiRepoChartSection(repos: repos);
+      },
+      multiDeveloperChartBuilder: (context, ref, developers) {
+        return _MultiDeveloperChartSection(developers: developers);
       },
       bottomContentBuilder: (context, ref) {
         return metricAsync.when(
@@ -238,7 +247,7 @@ class _MultiRepoChartSection extends ConsumerWidget {
                   .map((d) =>
                       TrendPoint(period: d.period, value: d.count.toDouble()))
                   .toList(),
-              color: _repoColors[i % _repoColors.length],
+              color: _entityColors[i % _entityColors.length],
             ));
           }
         },
@@ -270,6 +279,92 @@ class _MultiRepoChartSection extends ConsumerWidget {
     return MultiRepoTrendChart(
       series: seriesList,
       title: 'PRs Merged per Period',
+      height: 280,
+    );
+  }
+}
+
+/// Multi-developer chart section that includes overall data as a series.
+class _MultiDeveloperChartSection extends ConsumerWidget {
+  final List<Developer> developers;
+
+  const _MultiDeveloperChartSection({required this.developers});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overallAsync = ref.watch(throughputProvider);
+    final seriesList = <RepoTrendSeries>[];
+    bool isLoading = false;
+    String? errorMessage;
+
+    // Add overall data as first series
+    overallAsync.when(
+      loading: () => isLoading = true,
+      error: (e, _) => errorMessage ??= e.toString(),
+      data: (data) {
+        if (data.data.isNotEmpty) {
+          seriesList.add(RepoTrendSeries(
+            repoId: 0,
+            repoName: 'All Developers',
+            data: data.data
+                .map((d) =>
+                    TrendPoint(period: d.period, value: d.count.toDouble()))
+                .toList(),
+            color: Colors.indigo,
+          ));
+        }
+      },
+    );
+
+    // Add per-developer data
+    for (var i = 0; i < developers.length; i++) {
+      final dev = developers[i];
+      final dataAsync = ref.watch(throughputByDeveloperProvider(dev.login));
+
+      dataAsync.when(
+        loading: () => isLoading = true,
+        error: (e, _) => errorMessage ??= e.toString(),
+        data: (data) {
+          if (data.data.isNotEmpty) {
+            seriesList.add(RepoTrendSeries(
+              repoId: i + 1,
+              repoName: dev.login,
+              data: data.data
+                  .map((d) =>
+                      TrendPoint(period: d.period, value: d.count.toDouble()))
+                  .toList(),
+              color: _entityColors[i % _entityColors.length],
+            ));
+          }
+        },
+      );
+    }
+
+    if (isLoading && seriesList.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null && seriesList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error: $errorMessage',
+            style: TextStyle(color: Colors.red[400])),
+      );
+    }
+
+    if (seriesList.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No throughput data available'),
+      );
+    }
+
+    return MultiRepoTrendChart(
+      series: seriesList,
+      title: 'PRs Merged per Period by Developer',
       height: 280,
     );
   }

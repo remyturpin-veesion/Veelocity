@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/developer.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
-import '../../widgets/metrics_side_nav.dart';
-import '../../widgets/period_selector.dart';
-import '../../widgets/repo_multi_selector.dart';
+import '../../widgets/base_scaffold.dart';
 import '../../widgets/repo_selector.dart';
 
 /// Base screen for displaying metric details.
 ///
 /// Provides a consistent layout with:
-/// - Slim navigation sidebar on the left
-/// - AppBar with metric name
-/// - Filters bar (period and repo)
+/// - BaseScaffold with navigation tabs and filters
 /// - Info section with description and calculation
-/// - Summary stats section (aggregated for all selected repos)
-/// - Multi-repo chart section (unified chart with one line per repo)
+/// - Summary stats section (aggregated for all selected repos/developers)
+/// - Multi-repo/developer chart section (unified chart with one line per entity)
 /// - Bottom content section (e.g., measurements table)
+///
+/// In Dashboard mode, displays repository-based charts.
+/// In Team mode, displays developer-based charts.
 class MetricDetailScreen extends ConsumerWidget {
   final MetricInfo metricInfo;
   final Widget Function(BuildContext context, WidgetRef ref) summaryBuilder;
   final Widget Function(BuildContext context, WidgetRef ref) contentBuilder;
 
-  /// Builder for the unified multi-repo chart section.
+  /// Builder for the unified multi-repo chart section (Dashboard mode).
   /// Receives the list of selected repos to display.
   final Widget Function(
           BuildContext context, WidgetRef ref, List<RepoOption> repos)?
       multiRepoChartBuilder;
+
+  /// Builder for the unified multi-developer chart section (Team mode).
+  /// Receives the list of selected developers to display.
+  final Widget Function(
+          BuildContext context, WidgetRef ref, List<Developer> developers)?
+      multiDeveloperChartBuilder;
+
   final Widget Function(BuildContext context, WidgetRef ref)?
       bottomContentBuilder;
   final VoidCallback? onRefresh;
@@ -37,205 +44,202 @@ class MetricDetailScreen extends ConsumerWidget {
     required this.summaryBuilder,
     required this.contentBuilder,
     this.multiRepoChartBuilder,
+    this.multiDeveloperChartBuilder,
     this.bottomContentBuilder,
     this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
-    final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
-    final reposAsync = ref.watch(repositoriesProvider);
+    final currentTab = ref.watch(mainTabProvider);
+    final isTeamMode = currentTab == MainTab.team;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(metricInfo.name),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          if (onRefresh != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
-              onPressed: onRefresh,
-            ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // Metrics navigation sidebar
-          MetricsSideNav(currentMetricId: metricInfo.id),
-          // Main content
-          Expanded(
-            child: Column(
+    final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+    final selectedDeveloperLogins = ref.watch(selectedDeveloperLoginsProvider);
+    final reposAsync = ref.watch(repositoriesProvider);
+    final developersAsync = ref.watch(developersProvider);
+
+    return BaseScaffold(
+      currentMetricId: metricInfo.id,
+      isHome: false,
+      onRefresh: onRefresh,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title Section
+            Row(
               children: [
-                // Filters bar
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey.withValues(alpha: 0.2),
-                      ),
-                    ),
+                    color: metricInfo.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
+                  child: Icon(
+                    metricInfo.icon,
+                    color: metricInfo.color,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PeriodSelector(
-                        selected: selectedPeriod,
-                        onChanged: (period) {
-                          ref.read(selectedPeriodProvider.notifier).state =
-                              period;
-                        },
+                      Text(
+                        metricInfo.name,
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
-                      const SizedBox(width: 16),
-                      reposAsync.when(
-                        loading: () => const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        error: (_, __) => const SizedBox.shrink(),
-                        data: (repos) => RepoMultiSelector(
-                          repos: repos,
-                          selectedRepoIds: selectedRepoIds,
-                          onChanged: (ids) {
-                            ref.read(selectedRepoIdsProvider.notifier).state =
-                                ids;
-                          },
-                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        metricInfo.unit,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
                       ),
                     ],
                   ),
                 ),
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title Section
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: metricInfo.color.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                metricInfo.icon,
-                                color: metricInfo.color,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    metricInfo.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    metricInfo.unit,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: Colors.grey[600],
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Info Section
-                        _MetricInfoCard(metricInfo: metricInfo),
-                        const SizedBox(height: 24),
-
-                        // Summary Stats (aggregated for all selected repos)
-                        _SectionHeader(
-                          title: 'Overall Summary',
-                          subtitle:
-                              _getSelectionLabel(selectedRepoIds, reposAsync),
-                        ),
-                        const SizedBox(height: 12),
-                        summaryBuilder(context, ref),
-                        const SizedBox(height: 16),
-
-                        // Aggregated content (chart, table)
-                        contentBuilder(context, ref),
-                        const SizedBox(height: 32),
-
-                        // Multi-repo chart section
-                        if (multiRepoChartBuilder != null)
-                          reposAsync.when(
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                            data: (repos) {
-                              final reposToShow = selectedRepoIds.isEmpty
-                                  ? repos
-                                  : repos
-                                      .where(
-                                          (r) => selectedRepoIds.contains(r.id))
-                                      .toList();
-
-                              if (reposToShow.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SectionHeader(
-                                    title: 'By Repository',
-                                    subtitle:
-                                        '${reposToShow.length} repositories',
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Card(
-                                    elevation: 1,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: multiRepoChartBuilder!(
-                                          context, ref, reposToShow),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-
-                        // Bottom content section (e.g., measurements table)
-                        if (bottomContentBuilder != null) ...[
-                          const SizedBox(height: 8),
-                          bottomContentBuilder!(context, ref),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+
+            // Info Section
+            _MetricInfoCard(metricInfo: metricInfo),
+            const SizedBox(height: 24),
+
+            // Summary Stats (aggregated for all selected repos/developers)
+            _SectionHeader(
+              title: 'Overall Summary',
+              subtitle: isTeamMode
+                  ? _getDeveloperSelectionLabel(
+                      selectedDeveloperLogins, developersAsync)
+                  : _getSelectionLabel(selectedRepoIds, reposAsync),
+            ),
+            const SizedBox(height: 12),
+            summaryBuilder(context, ref),
+            const SizedBox(height: 16),
+
+            // Aggregated content (chart, table)
+            contentBuilder(context, ref),
+            const SizedBox(height: 32),
+
+            // Multi-entity chart section (repos in Dashboard mode, developers in Team mode)
+            if (isTeamMode && multiDeveloperChartBuilder != null)
+              developersAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (response) {
+                  final devsToShow = selectedDeveloperLogins.isEmpty
+                      ? response.developers
+                      : response.developers
+                          .where((d) =>
+                              selectedDeveloperLogins.contains(d.login))
+                          .toList();
+
+                  if (devsToShow.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SectionHeader(
+                        title: 'By Developer',
+                        subtitle: '${devsToShow.length} developers',
+                      ),
+                      const SizedBox(height: 16),
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: multiDeveloperChartBuilder!(
+                            context,
+                            ref,
+                            devsToShow,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              )
+            else if (!isTeamMode && multiRepoChartBuilder != null)
+              reposAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (repos) {
+                  final reposToShow = selectedRepoIds.isEmpty
+                      ? repos
+                      : repos
+                          .where((r) => selectedRepoIds.contains(r.id))
+                          .toList();
+
+                  if (reposToShow.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SectionHeader(
+                        title: 'By Repository',
+                        subtitle: '${reposToShow.length} repositories',
+                      ),
+                      const SizedBox(height: 16),
+                      Card(
+                        elevation: 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: multiRepoChartBuilder!(
+                            context,
+                            ref,
+                            reposToShow,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+            // Bottom content section (e.g., measurements table)
+            if (bottomContentBuilder != null) ...[
+              const SizedBox(height: 8),
+              bottomContentBuilder!(context, ref),
+            ],
+          ],
+        ),
       ),
+    );
+  }
+
+  String _getDeveloperSelectionLabel(
+      Set<String> selectedLogins, AsyncValue<DevelopersResponse> devsAsync) {
+    return devsAsync.when(
+      loading: () => 'Loading...',
+      error: (_, __) => 'Error loading developers',
+      data: (response) {
+        if (selectedLogins.isEmpty ||
+            selectedLogins.length == response.developers.length) {
+          return 'All developers';
+        } else if (selectedLogins.length == 1) {
+          return selectedLogins.first;
+        } else {
+          return '${selectedLogins.length} developers selected';
+        }
+      },
     );
   }
 

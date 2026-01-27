@@ -87,7 +87,39 @@ class _MultiRepoTrendChartState extends State<MultiRepoTrendChart> {
       periodIndex[sortedPeriods[i]] = i;
     }
 
-    // Calculate min/max Y values across visible series
+    // Calculate median values per period (excluding "All Repositories" with repoId=0)
+    final medianSpots = <FlSpot>[];
+    final individualRepoSeries = widget.series
+        .where((s) => s.repoId != 0 && !_hiddenRepoIds.contains(s.repoId))
+        .toList();
+
+    if (individualRepoSeries.isNotEmpty) {
+      for (var i = 0; i < sortedPeriods.length; i++) {
+        final period = sortedPeriods[i];
+        final values = <double>[];
+
+        for (final series in individualRepoSeries) {
+          final point = series.data.firstWhere(
+            (d) => d.period == period,
+            orElse: () => TrendPoint(period: period, value: 0),
+          );
+          if (point.value > 0) {
+            values.add(point.value);
+          }
+        }
+
+        if (values.isNotEmpty) {
+          values.sort();
+          final median = values.length % 2 == 0
+              ? (values[values.length ~/ 2 - 1] + values[values.length ~/ 2]) /
+                  2
+              : values[values.length ~/ 2];
+          medianSpots.add(FlSpot(i.toDouble(), median));
+        }
+      }
+    }
+
+    // Calculate min/max Y values across visible series and median
     double minY = double.infinity;
     double maxY = double.negativeInfinity;
     for (final s in widget.series) {
@@ -96,6 +128,10 @@ class _MultiRepoTrendChartState extends State<MultiRepoTrendChart> {
         if (d.value < minY) minY = d.value;
         if (d.value > maxY) maxY = d.value;
       }
+    }
+    for (final spot in medianSpots) {
+      if (spot.y < minY) minY = spot.y;
+      if (spot.y > maxY) maxY = spot.y;
     }
 
     if (minY == double.infinity) {
@@ -145,6 +181,22 @@ class _MultiRepoTrendChartState extends State<MultiRepoTrendChart> {
           ),
         );
       }
+    }
+
+    // Add median line (dashed)
+    if (medianSpots.isNotEmpty) {
+      lineBarsData.add(
+        LineChartBarData(
+          spots: medianSpots,
+          isCurved: false,
+          color: Colors.grey[700],
+          barWidth: 2,
+          isStrokeCapRound: true,
+          dashArray: [5, 5], // Dashed line
+          dotData: const FlDotData(show: false),
+          belowBarData: BarAreaData(show: false),
+        ),
+      );
     }
 
     return Column(
@@ -276,53 +328,88 @@ class _MultiRepoTrendChartState extends State<MultiRepoTrendChart> {
   }
 
   Widget _buildLegend() {
+    final individualRepoSeries = widget.series
+        .where((s) => s.repoId != 0 && !_hiddenRepoIds.contains(s.repoId))
+        .toList();
+    final hasMedian = individualRepoSeries.isNotEmpty;
+
     return Wrap(
       spacing: 16,
       runSpacing: 8,
-      children: widget.series.map((s) {
-        final isHidden = _hiddenRepoIds.contains(s.repoId);
-        return InkWell(
-          onTap: () {
-            setState(() {
-              if (isHidden) {
-                _hiddenRepoIds.remove(s.repoId);
-              } else {
-                // Don't allow hiding all series
-                if (_hiddenRepoIds.length < widget.series.length - 1) {
-                  _hiddenRepoIds.add(s.repoId);
+      children: [
+        ...widget.series.map((s) {
+          final isHidden = _hiddenRepoIds.contains(s.repoId);
+          return InkWell(
+            onTap: () {
+              setState(() {
+                if (isHidden) {
+                  _hiddenRepoIds.remove(s.repoId);
+                } else {
+                  // Don't allow hiding all series
+                  if (_hiddenRepoIds.length < widget.series.length - 1) {
+                    _hiddenRepoIds.add(s.repoId);
+                  }
                 }
-              }
-            });
-          },
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
+              });
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isHidden ? Colors.grey[300] : s.color,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _shortenRepoName(s.repoName),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isHidden ? Colors.grey[400] : Colors.grey[700],
+                      decoration: isHidden ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        // Add median indicator
+        if (hasMedian)
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: 20,
+                  height: 2,
                   decoration: BoxDecoration(
-                    color: isHidden ? Colors.grey[300] : s.color,
-                    borderRadius: BorderRadius.circular(2),
+                    color: Colors.grey[700],
+                  ),
+                  child: CustomPaint(
+                    painter: _DashedLinePainter(color: Colors.grey[700]!),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _shortenRepoName(s.repoName),
+                  'Median (repos only)',
                   style: TextStyle(
                     fontSize: 12,
-                    color: isHidden ? Colors.grey[400] : Colors.grey[700],
-                    decoration:
-                        isHidden ? TextDecoration.lineThrough : null,
+                    color: Colors.grey[700],
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
             ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 
@@ -345,4 +432,35 @@ class _MultiRepoTrendChartState extends State<MultiRepoTrendChart> {
     }
     return name;
   }
+}
+
+/// Custom painter for dashed line in legend.
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+
+  _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 3.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, size.height / 2),
+        Offset(startX + dashWidth, size.height / 2),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

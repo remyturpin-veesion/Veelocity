@@ -26,6 +26,7 @@ async def get_dora_metrics(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -36,6 +37,7 @@ async def get_dora_metrics(
     - end_date: End of period (default: now)
     - period: Grouping period - day, week, or month (default: week)
     - repo_id: Optional repository filter
+    - author_login: Optional developer filter (by GitHub login)
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -45,7 +47,9 @@ async def get_dora_metrics(
     deployment_freq = await service.get_deployment_frequency(
         start_date, end_date, period, repo_id
     )
-    lead_time = await service.get_lead_time_for_changes(start_date, end_date, repo_id)
+    lead_time = await service.get_lead_time_for_changes(
+        start_date, end_date, repo_id, author_login
+    )
 
     return {
         "deployment_frequency": deployment_freq,
@@ -78,6 +82,7 @@ async def get_lead_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -89,7 +94,9 @@ async def get_lead_time(
         start_date, end_date = get_default_date_range()
 
     service = DORAMetricsService(db)
-    return await service.get_lead_time_for_changes(start_date, end_date, repo_id)
+    return await service.get_lead_time_for_changes(
+        start_date, end_date, repo_id, author_login
+    )
 
 
 # ============================================================================
@@ -103,6 +110,7 @@ async def get_development_metrics(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -115,10 +123,16 @@ async def get_development_metrics(
 
     service = DevelopmentMetricsService(db)
 
-    pr_review_time = await service.get_pr_review_time(start_date, end_date, repo_id)
-    pr_merge_time = await service.get_pr_merge_time(start_date, end_date, repo_id)
+    pr_review_time = await service.get_pr_review_time(
+        start_date, end_date, repo_id, author_login
+    )
+    pr_merge_time = await service.get_pr_merge_time(
+        start_date, end_date, repo_id, author_login
+    )
     cycle_time = await service.get_cycle_time(start_date, end_date)
-    throughput = await service.get_throughput(start_date, end_date, period, repo_id)
+    throughput = await service.get_throughput(
+        start_date, end_date, period, repo_id, author_login
+    )
 
     return {
         "pr_review_time": pr_review_time,
@@ -133,6 +147,7 @@ async def get_pr_review_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -144,7 +159,9 @@ async def get_pr_review_time(
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_pr_review_time(start_date, end_date, repo_id)
+    return await service.get_pr_review_time(
+        start_date, end_date, repo_id, author_login
+    )
 
 
 @router.get("/development/pr-merge-time")
@@ -152,6 +169,7 @@ async def get_pr_merge_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -163,7 +181,9 @@ async def get_pr_merge_time(
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_pr_merge_time(start_date, end_date, repo_id)
+    return await service.get_pr_merge_time(
+        start_date, end_date, repo_id, author_login
+    )
 
 
 @router.get("/development/cycle-time")
@@ -192,6 +212,7 @@ async def get_throughput(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -203,4 +224,6 @@ async def get_throughput(
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_throughput(start_date, end_date, period, repo_id)
+    return await service.get_throughput(
+        start_date, end_date, period, repo_id, author_login
+    )

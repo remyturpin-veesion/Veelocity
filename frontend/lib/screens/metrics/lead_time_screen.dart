@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/developer.dart';
 import '../../models/dora_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
@@ -9,8 +10,8 @@ import '../../widgets/repo_comparison_chart.dart';
 import '../../widgets/repo_selector.dart';
 import 'metric_detail_screen.dart';
 
-/// Predefined colors for repository bars.
-const _repoColors = [
+/// Predefined colors for repository/developer bars.
+const _entityColors = [
   Colors.teal,
   Colors.blue,
   Colors.purple,
@@ -39,6 +40,11 @@ class LeadTimeScreen extends ConsumerWidget {
         for (final repo in repos) {
           ref.invalidate(leadTimeByRepoProvider(repo.id));
         }
+        final devs =
+            ref.read(developersProvider).valueOrNull?.developers ?? [];
+        for (final dev in devs) {
+          ref.invalidate(leadTimeByDeveloperProvider(dev.login));
+        }
       },
       summaryBuilder: (context, ref) {
         return metricAsync.when(
@@ -53,6 +59,9 @@ class LeadTimeScreen extends ConsumerWidget {
       },
       multiRepoChartBuilder: (context, ref, repos) {
         return _MultiRepoComparisonSection(repos: repos);
+      },
+      multiDeveloperChartBuilder: (context, ref, developers) {
+        return _MultiDeveloperComparisonSection(developers: developers);
       },
       bottomContentBuilder: (context, ref) {
         return metricAsync.when(
@@ -254,7 +263,7 @@ class _MultiRepoComparisonSection extends ConsumerWidget {
               repoId: repo.id!,
               repoName: repo.name,
               value: data.averageHours,
-              color: _repoColors[i % _repoColors.length],
+              color: _entityColors[i % _entityColors.length],
               formattedValue: formatDuration(data.averageHours),
             ));
           }
@@ -287,6 +296,89 @@ class _MultiRepoComparisonSection extends ConsumerWidget {
     return RepoComparisonChart(
       data: dataList,
       title: 'Average Lead Time',
+      valueLabel: 'Hours',
+      valueFormatter: (value) => formatDuration(value),
+    );
+  }
+}
+
+/// Multi-developer comparison chart section that includes overall data.
+class _MultiDeveloperComparisonSection extends ConsumerWidget {
+  final List<Developer> developers;
+
+  const _MultiDeveloperComparisonSection({required this.developers});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final overallAsync = ref.watch(leadTimeProvider);
+    final dataList = <RepoComparisonData>[];
+    bool isLoading = false;
+    String? errorMessage;
+
+    // Add overall data as first bar
+    overallAsync.when(
+      loading: () => isLoading = true,
+      error: (e, _) => errorMessage ??= e.toString(),
+      data: (data) {
+        if (data.count > 0) {
+          dataList.add(RepoComparisonData(
+            repoId: 0,
+            repoName: 'All Developers',
+            value: data.averageHours,
+            color: Colors.green,
+            formattedValue: formatDuration(data.averageHours),
+          ));
+        }
+      },
+    );
+
+    // Add per-developer data
+    for (var i = 0; i < developers.length; i++) {
+      final dev = developers[i];
+      final dataAsync = ref.watch(leadTimeByDeveloperProvider(dev.login));
+
+      dataAsync.when(
+        loading: () => isLoading = true,
+        error: (e, _) => errorMessage ??= e.toString(),
+        data: (data) {
+          if (data.count > 0) {
+            dataList.add(RepoComparisonData(
+              repoId: i + 1,
+              repoName: dev.login,
+              value: data.averageHours,
+              color: _entityColors[i % _entityColors.length],
+              formattedValue: formatDuration(data.averageHours),
+            ));
+          }
+        },
+      );
+    }
+
+    if (isLoading && dataList.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null && dataList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Error: $errorMessage',
+            style: TextStyle(color: Colors.red[400])),
+      );
+    }
+
+    if (dataList.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No lead time data available'),
+      );
+    }
+
+    return RepoComparisonChart(
+      data: dataList,
+      title: 'Average Lead Time by Developer',
       valueLabel: 'Hours',
       valueFormatter: (value) => formatDuration(value),
     );
