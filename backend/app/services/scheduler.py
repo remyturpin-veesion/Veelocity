@@ -10,7 +10,7 @@ from app.connectors.factory import (
     create_linear_connector,
 )
 from app.core.database import async_session_maker
-from app.models.github import Commit, PullRequest, Repository
+from app.models.github import PullRequest, Repository
 from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
@@ -195,13 +195,12 @@ async def run_fill_details(batch_size: int = 100):
     Args:
         batch_size: Number of PRs to process per run (default 100 = ~300 API calls)
     """
+    from datetime import datetime
+    
     from app.connectors.rate_limiter import get_rate_limiter
     
     async with async_session_maker() as db:
-        # Find PRs without commits (commits are fetched last, so if missing = needs details)
-        prs_with_commits = select(Commit.pr_id).where(Commit.pr_id.isnot(None)).distinct()
-        
-        # Select only the columns we need to avoid lazy loading issues
+        # Find PRs that haven't had their details synced yet
         prs_without_details = await db.execute(
             select(
                 PullRequest.id,
@@ -210,7 +209,7 @@ async def run_fill_details(batch_size: int = 100):
                 Repository.full_name,
             )
             .join(Repository)
-            .where(~PullRequest.id.in_(prs_with_commits))
+            .where(PullRequest.details_synced_at.is_(None))
             .order_by(PullRequest.updated_at.desc())
             .limit(batch_size)
         )
@@ -232,7 +231,7 @@ async def run_fill_details(batch_size: int = 100):
         # Count total remaining
         total_remaining_result = await db.execute(
             select(func.count(PullRequest.id))
-            .where(~PullRequest.id.in_(prs_with_commits))
+            .where(PullRequest.details_synced_at.is_(None))
         )
         total_remaining = total_remaining_result.scalar() or 0
         
@@ -271,6 +270,11 @@ async def run_fill_details(batch_size: int = 100):
                 
                 commits = await github.fetch_pr_commits(repo_full_name, pr_number)
                 items_synced += await sync_service._upsert_commits(repo_id, pr_id, commits)
+                
+                # Mark PR as having details synced
+                pr = await db.get(PullRequest, pr_id)
+                if pr:
+                    pr.details_synced_at = datetime.utcnow()
                 
                 prs_processed += 1
                 await db.commit()

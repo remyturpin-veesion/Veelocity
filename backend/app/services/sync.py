@@ -279,7 +279,12 @@ class SyncService:
                 "message": data["message"],
                 "committed_at": _parse_datetime(data.get("committed_at")),
             }
-            if not existing:
+            if existing:
+                # Update pr_id if it was previously NULL
+                if existing.pr_id is None and pr_id is not None:
+                    existing.pr_id = pr_id
+                    count += 1
+            else:
                 self._db.add(Commit(**commit_data))
                 count += 1
         await self._db.flush()
