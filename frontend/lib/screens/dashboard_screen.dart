@@ -17,6 +17,20 @@ import 'metrics/throughput_screen.dart';
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
+  /// Navigate to a screen with a smooth fade transition.
+  void _navigateWithFade(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => screen,
+        transitionDuration: const Duration(milliseconds: 200),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doraAsync = ref.watch(doraMetricsProvider);
@@ -135,11 +149,9 @@ class DashboardScreen extends ConsumerWidget {
                           '${dora.deploymentFrequency.total} total deployments',
                       icon: Icons.rocket_launch,
                       color: Colors.blue,
-                      onTap: () => Navigator.push(
+                      onTap: () => _navigateWithFade(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const DeploymentFrequencyScreen(),
-                        ),
+                        const DeploymentFrequencyScreen(),
                       ),
                     ),
                   ),
@@ -153,11 +165,9 @@ class DashboardScreen extends ConsumerWidget {
                           'Median: ${_formatDuration(dora.leadTimeForChanges.medianHours)}',
                       icon: Icons.timer,
                       color: Colors.green,
-                      onTap: () => Navigator.push(
+                      onTap: () => _navigateWithFade(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const LeadTimeScreen(),
-                        ),
+                        const LeadTimeScreen(),
                       ),
                     ),
                   ),
@@ -201,11 +211,9 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prReviewTime.count} PRs reviewed',
                         icon: Icons.rate_review,
                         color: Colors.orange,
-                        onTap: () => Navigator.push(
+                        onTap: () => _navigateWithFade(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const PRReviewTimeScreen(),
-                          ),
+                          const PRReviewTimeScreen(),
                         ),
                       ),
                     ),
@@ -217,11 +225,9 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prMergeTime.count} PRs merged',
                         icon: Icons.merge,
                         color: Colors.purple,
-                        onTap: () => Navigator.push(
+                        onTap: () => _navigateWithFade(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const PRMergeTimeScreen(),
-                          ),
+                          const PRMergeTimeScreen(),
                         ),
                       ),
                     ),
@@ -233,11 +239,9 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.cycleTime.count} issues completed',
                         icon: Icons.loop,
                         color: Colors.teal,
-                        onTap: () => Navigator.push(
+                        onTap: () => _navigateWithFade(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const CycleTimeScreen(),
-                          ),
+                          const CycleTimeScreen(),
                         ),
                       ),
                     ),
@@ -249,11 +253,9 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.throughput.total} PRs merged total',
                         icon: Icons.speed,
                         color: Colors.indigo,
-                        onTap: () => Navigator.push(
+                        onTap: () => _navigateWithFade(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const ThroughputScreen(),
-                          ),
+                          const ThroughputScreen(),
                         ),
                       ),
                     ),

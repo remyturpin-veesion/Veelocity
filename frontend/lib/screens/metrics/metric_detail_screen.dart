@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
+import '../../widgets/metrics_side_nav.dart';
 import '../../widgets/period_selector.dart';
 import '../../widgets/repo_selector.dart';
 
 /// Base screen for displaying metric details.
 ///
 /// Provides a consistent layout with:
+/// - Slim navigation sidebar on the left
 /// - AppBar with metric name
 /// - Filters bar (period and repo)
 /// - Info section with description and calculation
@@ -46,65 +48,123 @@ class MetricDetailScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: Column(
+      body: Row(
         children: [
-          // Filters bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Row(
+          // Metrics navigation sidebar
+          MetricsSideNav(currentMetricId: metricInfo.id),
+          // Main content
+          Expanded(
+            child: Column(
               children: [
-                PeriodSelector(
-                  selected: selectedPeriod,
-                  onChanged: (period) {
-                    ref.read(selectedPeriodProvider.notifier).state = period;
-                  },
-                ),
-                const SizedBox(width: 16),
-                reposAsync.when(
-                  loading: () => const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                // Filters bar
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
+                    ),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (repos) => RepoSelector(
-                    repos: repos,
-                    selected: selectedRepo,
-                    onChanged: (repo) {
-                      ref.read(selectedRepoProvider.notifier).state = repo;
-                    },
+                  child: Row(
+                    children: [
+                      PeriodSelector(
+                        selected: selectedPeriod,
+                        onChanged: (period) {
+                          ref.read(selectedPeriodProvider.notifier).state =
+                              period;
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      reposAsync.when(
+                        loading: () => const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (repos) => RepoSelector(
+                          repos: repos,
+                          selected: selectedRepo,
+                          onChanged: (repo) {
+                            ref.read(selectedRepoProvider.notifier).state =
+                                repo;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title Section
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: metricInfo.color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                metricInfo.icon,
+                                color: metricInfo.color,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    metricInfo.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    metricInfo.unit,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Info Section
+                        _MetricInfoCard(metricInfo: metricInfo),
+                        const SizedBox(height: 24),
+
+                        // Summary Stats
+                        summaryBuilder(context, ref),
+                        const SizedBox(height: 24),
+
+                        // Custom Content
+                        contentBuilder(context, ref),
+                      ],
+                    ),
                   ),
                 ),
               ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Info Section
-                  _MetricInfoCard(metricInfo: metricInfo),
-                  const SizedBox(height: 24),
-
-                  // Summary Stats
-                  summaryBuilder(context, ref),
-                  const SizedBox(height: 24),
-
-                  // Custom Content
-                  contentBuilder(context, ref),
-                ],
-              ),
             ),
           ),
         ],

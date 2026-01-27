@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/providers.dart';
 import '../services/theme_provider.dart';
+import '../widgets/metrics_side_nav.dart';
 import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 import 'dashboard_screen.dart';
@@ -76,51 +77,63 @@ class _AppShellState extends ConsumerState<AppShell> {
           _ThemeModeButton(),
         ],
       ),
-      body: Column(
+      body: Row(
         children: [
-          // Global filters bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-              ),
-            ),
-            child: Row(
+          // Metrics navigation sidebar
+          MetricsSideNav(isHome: _currentIndex == 0),
+          // Main content
+          Expanded(
+            child: Column(
               children: [
-                PeriodSelector(
-                  selected: selectedPeriod,
-                  onChanged: (period) {
-                    ref.read(selectedPeriodProvider.notifier).state = period;
-                  },
-                ),
-                const SizedBox(width: 16),
-                reposAsync.when(
-                  loading: () => const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                // Global filters bar
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
+                    ),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (repos) => RepoSelector(
-                    repos: repos,
-                    selected: selectedRepo,
-                    onChanged: (repo) {
-                      ref.read(selectedRepoProvider.notifier).state = repo;
-                    },
+                  child: Row(
+                    children: [
+                      PeriodSelector(
+                        selected: selectedPeriod,
+                        onChanged: (period) {
+                          ref.read(selectedPeriodProvider.notifier).state =
+                              period;
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      reposAsync.when(
+                        loading: () => const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (repos) => RepoSelector(
+                          repos: repos,
+                          selected: selectedRepo,
+                          onChanged: (repo) {
+                            ref.read(selectedRepoProvider.notifier).state =
+                                repo;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: _screens,
                   ),
                 ),
               ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
             ),
           ),
         ],
