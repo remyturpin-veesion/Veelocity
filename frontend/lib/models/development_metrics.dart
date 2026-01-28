@@ -1,5 +1,7 @@
 // Development metrics models.
 
+import 'trend_data.dart';
+
 /// PR Review Time metric.
 class PRReviewTime {
   final String startDate;
@@ -7,6 +9,7 @@ class PRReviewTime {
   final int count;
   final double averageHours;
   final double medianHours;
+  final TrendData? trend;
 
   PRReviewTime({
     required this.startDate,
@@ -14,6 +17,7 @@ class PRReviewTime {
     required this.count,
     required this.averageHours,
     required this.medianHours,
+    this.trend,
   });
 
   factory PRReviewTime.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,9 @@ class PRReviewTime {
       count: json['count'] as int,
       averageHours: (json['average_hours'] as num).toDouble(),
       medianHours: (json['median_hours'] as num).toDouble(),
+      trend: json['trend'] != null
+          ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -34,6 +41,7 @@ class PRMergeTime {
   final int count;
   final double averageHours;
   final double medianHours;
+  final TrendData? trend;
 
   PRMergeTime({
     required this.startDate,
@@ -41,6 +49,7 @@ class PRMergeTime {
     required this.count,
     required this.averageHours,
     required this.medianHours,
+    this.trend,
   });
 
   factory PRMergeTime.fromJson(Map<String, dynamic> json) {
@@ -50,6 +59,9 @@ class PRMergeTime {
       count: json['count'] as int,
       averageHours: (json['average_hours'] as num).toDouble(),
       medianHours: (json['median_hours'] as num).toDouble(),
+      trend: json['trend'] != null
+          ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -104,6 +116,7 @@ class Throughput {
   final List<ThroughputPeriod> data;
   final int total;
   final double average;
+  final TrendData? trend;
 
   Throughput({
     required this.period,
@@ -112,6 +125,7 @@ class Throughput {
     required this.data,
     required this.total,
     required this.average,
+    this.trend,
   });
 
   factory Throughput.fromJson(Map<String, dynamic> json) {
@@ -124,6 +138,9 @@ class Throughput {
           .toList(),
       total: json['total'] as int,
       average: (json['average'] as num).toDouble(),
+      trend: json['trend'] != null
+          ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

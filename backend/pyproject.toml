@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.26.0",
     "apscheduler>=3.10.4",
     "alembic>=1.13.1",
+    "numpy>=1.26.0",
 ]
 
 [dependency-groups]

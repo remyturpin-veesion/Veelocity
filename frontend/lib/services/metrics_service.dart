@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../core/config.dart';
+import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 
@@ -56,9 +57,11 @@ class MetricsService {
     String period = 'week',
     int? repoId,
     String? authorLogin,
+    bool includeTrend = false,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
+      'include_trend': includeTrend,
     };
 
     if (startDate != null) {
@@ -88,8 +91,11 @@ class MetricsService {
     DateTime? endDate,
     int? repoId,
     String? authorLogin,
+    bool includeTrend = false,
   }) async {
-    final queryParams = <String, dynamic>{};
+    final queryParams = <String, dynamic>{
+      'include_trend': includeTrend,
+    };
 
     if (startDate != null) {
       queryParams['start_date'] = startDate.toIso8601String();
@@ -147,8 +153,11 @@ class MetricsService {
     DateTime? endDate,
     int? repoId,
     String? authorLogin,
+    bool includeTrend = false,
   }) async {
-    final queryParams = <String, dynamic>{};
+    final queryParams = <String, dynamic>{
+      'include_trend': includeTrend,
+    };
 
     if (startDate != null) {
       queryParams['start_date'] = startDate.toIso8601String();
@@ -177,8 +186,11 @@ class MetricsService {
     DateTime? endDate,
     int? repoId,
     String? authorLogin,
+    bool includeTrend = false,
   }) async {
-    final queryParams = <String, dynamic>{};
+    final queryParams = <String, dynamic>{
+      'include_trend': includeTrend,
+    };
 
     if (startDate != null) {
       queryParams['start_date'] = startDate.toIso8601String();
@@ -234,9 +246,11 @@ class MetricsService {
     String period = 'week',
     int? repoId,
     String? authorLogin,
+    bool includeTrend = false,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
+      'include_trend': includeTrend,
     };
 
     if (startDate != null) {
@@ -258,5 +272,40 @@ class MetricsService {
     );
 
     return Throughput.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get anomalies for a specific metric.
+  Future<AnomalyResponse> getAnomalies({
+    required String metric,
+    DateTime? startDate,
+    DateTime? endDate,
+    String period = 'week',
+    int? repoId,
+    String? authorLogin,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'metric': metric,
+      'period': period,
+    };
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+    if (authorLogin != null) {
+      queryParams['author_login'] = authorLogin;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/anomalies',
+      queryParameters: queryParams,
+    );
+
+    return AnomalyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 }

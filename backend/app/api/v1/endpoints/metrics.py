@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.services.metrics.anomalies import AnomalyDetectionService
+from app.services.metrics.comparison import ComparisonService
 from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
 
@@ -64,20 +66,49 @@ async def get_deployment_frequency(
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
     author_login: str | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get deployment frequency metric.
 
     Measures how often successful deployments occur.
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DORAMetricsService(db)
-    return await service.get_deployment_frequency(
+    result = await service.get_deployment_frequency(
         start_date, end_date, period, repo_id, author_login
     )
+
+    # Add trend data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+
+        # Get previous period data
+        prev_result = await service.get_deployment_frequency(
+            prev_start, prev_end, period, repo_id, author_login
+        )
+
+        # Calculate trend
+        trend = await comparison_service.calculate_trend(
+            metric_name="deployment_frequency",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average"],
+            previous_value=prev_result["average"],
+        )
+
+        result["trend"] = trend.to_dict()
+
+    return result
 
 
 @router.get("/dora/lead-time")
@@ -86,20 +117,49 @@ async def get_lead_time(
     end_date: datetime | None = None,
     repo_id: int | None = None,
     author_login: str | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get lead time for changes metric.
 
     Measures time from first commit to deployment.
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DORAMetricsService(db)
-    return await service.get_lead_time_for_changes(
+    result = await service.get_lead_time_for_changes(
         start_date, end_date, repo_id, author_login
     )
+
+    # Add trend data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+
+        # Get previous period data
+        prev_result = await service.get_lead_time_for_changes(
+            prev_start, prev_end, repo_id, author_login
+        )
+
+        # Calculate trend
+        trend = await comparison_service.calculate_trend(
+            metric_name="lead_time",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average_hours"],
+            previous_value=prev_result["average_hours"],
+        )
+
+        result["trend"] = trend.to_dict()
+
+    return result
 
 
 # ============================================================================
@@ -151,20 +211,49 @@ async def get_pr_review_time(
     end_date: datetime | None = None,
     repo_id: int | None = None,
     author_login: str | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get PR review time metric.
 
     Measures time from PR opened to first review.
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_pr_review_time(
+    result = await service.get_pr_review_time(
         start_date, end_date, repo_id, author_login
     )
+
+    # Add trend data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+
+        # Get previous period data
+        prev_result = await service.get_pr_review_time(
+            prev_start, prev_end, repo_id, author_login
+        )
+
+        # Calculate trend
+        trend = await comparison_service.calculate_trend(
+            metric_name="pr_review_time",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average_hours"],
+            previous_value=prev_result["average_hours"],
+        )
+
+        result["trend"] = trend.to_dict()
+
+    return result
 
 
 @router.get("/development/pr-merge-time")
@@ -173,20 +262,49 @@ async def get_pr_merge_time(
     end_date: datetime | None = None,
     repo_id: int | None = None,
     author_login: str | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get PR merge time metric.
 
     Measures time from PR opened to merged.
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_pr_merge_time(
+    result = await service.get_pr_merge_time(
         start_date, end_date, repo_id, author_login
     )
+
+    # Add trend data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+
+        # Get previous period data
+        prev_result = await service.get_pr_merge_time(
+            prev_start, prev_end, repo_id, author_login
+        )
+
+        # Calculate trend
+        trend = await comparison_service.calculate_trend(
+            metric_name="pr_merge_time",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average_hours"],
+            previous_value=prev_result["average_hours"],
+        )
+
+        result["trend"] = trend.to_dict()
+
+    return result
 
 
 @router.get("/development/cycle-time")
@@ -216,17 +334,148 @@ async def get_throughput(
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
     author_login: str | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get throughput metric.
 
     Measures count of PRs merged per period.
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_throughput(
+    result = await service.get_throughput(
         start_date, end_date, period, repo_id, author_login
     )
+
+    # Add trend data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+
+        # Get previous period data
+        prev_result = await service.get_throughput(
+            prev_start, prev_end, period, repo_id, author_login
+        )
+
+        # Calculate trend
+        trend = await comparison_service.calculate_trend(
+            metric_name="throughput",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average"],
+            previous_value=prev_result["average"],
+        )
+
+        result["trend"] = trend.to_dict()
+
+    return result
+
+
+# ============================================================================
+# Anomaly Detection
+# ============================================================================
+
+
+@router.get("/anomalies")
+async def get_anomalies(
+    metric: Literal[
+        "deployment_frequency",
+        "lead_time",
+        "pr_review_time",
+        "pr_merge_time",
+        "throughput",
+    ],
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "week",
+    repo_id: int | None = None,
+    author_login: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Detect anomalies in a specific metric.
+
+    Query params:
+    - metric: Which metric to analyze for anomalies
+    - start_date: Start of period (default: 30 days ago)
+    - end_date: End of period (default: now)
+    - period: Grouping period - day, week, or month (default: week)
+    - repo_id: Optional repository filter
+    - author_login: Optional developer filter
+
+    Returns:
+    - anomalies: List of detected anomalies
+    - summary: Aggregated statistics (total count, severity breakdown)
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    # Fetch metric data based on metric type
+    if metric == "deployment_frequency":
+        service = DORAMetricsService(db)
+        data = await service.get_deployment_frequency(
+            start_date, end_date, period, repo_id, author_login
+        )
+        values = [p["count"] for p in data["data"]]
+        dates = [p["period"] for p in data["data"]]
+        metric_context = "Higher deployment frequency is generally better."
+
+    elif metric == "lead_time":
+        service = DORAMetricsService(db)
+        data = await service.get_lead_time_for_changes(
+            start_date, end_date, repo_id, author_login
+        )
+        values = [m["lead_time_hours"] for m in data["measurements"]]
+        dates = [m["deployed_at"] for m in data["measurements"]]
+        metric_context = "Lower lead time indicates faster delivery."
+
+    elif metric == "pr_review_time":
+        service = DevelopmentMetricsService(db)
+        data = await service.get_pr_review_time(
+            start_date, end_date, repo_id, author_login
+        )
+        # For aggregate metrics, we need to fetch individual data points
+        # For now, return empty as this requires fetching PR-level data
+        return {"anomalies": [], "summary": {"total_count": 0}}
+
+    elif metric == "pr_merge_time":
+        service = DevelopmentMetricsService(db)
+        data = await service.get_pr_merge_time(
+            start_date, end_date, repo_id, author_login
+        )
+        # Same as above - requires PR-level data
+        return {"anomalies": [], "summary": {"total_count": 0}}
+
+    elif metric == "throughput":
+        service = DevelopmentMetricsService(db)
+        data = await service.get_throughput(
+            start_date, end_date, period, repo_id, author_login
+        )
+        values = [p["count"] for p in data["data"]]
+        dates = [p["period"] for p in data["data"]]
+        metric_context = "Higher throughput indicates more PRs merged."
+
+    else:
+        return {"anomalies": [], "summary": {"total_count": 0}}
+
+    # Detect anomalies
+    anomaly_service = AnomalyDetectionService()
+    anomalies = anomaly_service.detect_outliers(
+        metric_name=metric, values=values, dates=dates, metric_context=metric_context
+    )
+
+    # Calculate summary statistics
+    summary = anomaly_service.calculate_anomaly_score(anomalies)
+
+    return {
+        "anomalies": [a.to_dict() for a in anomalies],
+        "summary": summary,
+    }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../services/providers.dart';
+import '../widgets/anomaly_badge.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
@@ -13,18 +15,42 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final doraAsync = ref.watch(doraMetricsProvider);
-    final devAsync = ref.watch(developmentMetricsProvider);
+    // Watch individual metric providers to get trend data
+    final deploymentFreqAsync = ref.watch(deploymentFrequencyProvider);
+    final leadTimeAsync = ref.watch(leadTimeProvider);
+    final prReviewTimeAsync = ref.watch(prReviewTimeProvider);
+    final prMergeTimeAsync = ref.watch(prMergeTimeProvider);
+    final cycleTimeAsync = ref.watch(cycleTimeProvider);
+    final throughputAsync = ref.watch(throughputProvider);
 
-    return doraAsync.when(
-      loading: () => _buildLoadingState(),
-      error: (error, stack) => _buildErrorState(context, ref, error),
-      data: (doraMetrics) => devAsync.when(
-        loading: () => _buildDashboard(context, ref, doraMetrics, null),
-        error: (_, __) => _buildDashboard(context, ref, doraMetrics, null),
-        data: (devMetrics) =>
-            _buildDashboard(context, ref, doraMetrics, devMetrics),
-      ),
+    // Watch anomaly providers
+    final deploymentAnomaliesAsync =
+        ref.watch(deploymentFrequencyAnomaliesProvider);
+    final throughputAnomaliesAsync = ref.watch(throughputAnomaliesProvider);
+    final leadTimeAnomaliesAsync = ref.watch(leadTimeAnomaliesProvider);
+
+    // Show loading if any critical metric is loading
+    if (deploymentFreqAsync.isLoading || leadTimeAsync.isLoading) {
+      return _buildLoadingState();
+    }
+
+    // Show error if any critical metric has error
+    if (deploymentFreqAsync.hasError) {
+      return _buildErrorState(context, ref, deploymentFreqAsync.error!);
+    }
+
+    return _buildDashboard(
+      context,
+      ref,
+      deploymentFreqAsync.value,
+      leadTimeAsync.value,
+      prReviewTimeAsync.value,
+      prMergeTimeAsync.value,
+      cycleTimeAsync.value,
+      throughputAsync.value,
+      deploymentAnomaliesAsync.value,
+      throughputAnomaliesAsync.value,
+      leadTimeAnomaliesAsync.value,
     );
   }
 
@@ -70,8 +96,12 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
-                ref.invalidate(doraMetricsProvider);
-                ref.invalidate(developmentMetricsProvider);
+                ref.invalidate(deploymentFrequencyProvider);
+                ref.invalidate(leadTimeProvider);
+                ref.invalidate(prReviewTimeProvider);
+                ref.invalidate(prMergeTimeProvider);
+                ref.invalidate(cycleTimeProvider);
+                ref.invalidate(throughputProvider);
               },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
@@ -85,16 +115,52 @@ class DashboardScreen extends ConsumerWidget {
   Widget _buildDashboard(
     BuildContext context,
     WidgetRef ref,
-    DORAMetrics dora,
-    DevelopmentMetrics? dev,
+    DeploymentFrequency? deploymentFreq,
+    LeadTimeForChanges? leadTime,
+    PRReviewTime? prReviewTime,
+    PRMergeTime? prMergeTime,
+    CycleTime? cycleTime,
+    Throughput? throughput,
+    AnomalyResponse? deploymentAnomalies,
+    AnomalyResponse? throughputAnomalies,
+    AnomalyResponse? leadTimeAnomalies,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
+
+    // Aggregate all anomalies
+    final allAnomalies = <Anomaly>[
+      if (deploymentAnomalies != null) ...deploymentAnomalies.anomalies,
+      if (throughputAnomalies != null) ...throughputAnomalies.anomalies,
+      if (leadTimeAnomalies != null) ...leadTimeAnomalies.anomalies,
+    ];
+
+    final totalAnomalies = allAnomalies.length;
+    final majorAnomalies =
+        allAnomalies.where((a) => a.severity == AnomalySeverity.major).length;
+    final minorAnomalies =
+        allAnomalies.where((a) => a.severity == AnomalySeverity.minor).length;
+
+    final aggregatedSummary = AnomalySummary(
+      totalCount: totalAnomalies,
+      majorCount: majorAnomalies,
+      minorCount: minorAnomalies,
+      severityScore: minorAnomalies + (majorAnomalies * 3),
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Anomaly Summary Card (if any anomalies detected)
+          if (aggregatedSummary.hasAnomalies)
+            _buildAnomalyCard(
+              context,
+              aggregatedSummary,
+              allAnomalies,
+            ),
+          if (aggregatedSummary.hasAnomalies) const SizedBox(height: 24),
+
           // DORA Metrics Section
           Text(
             'DORA Metrics',
@@ -120,31 +186,35 @@ class DashboardScreen extends ConsumerWidget {
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  SizedBox(
-                    width: cardWidth,
-                    child: KPICard(
-                      title: 'Deployment Frequency',
-                      value: '${dora.deploymentFrequency.average}/week',
-                      subtitle:
-                          '${dora.deploymentFrequency.total} total deployments',
-                      icon: Icons.rocket_launch,
-                      color: Colors.blue,
-                      onTap: () => context.go('/metrics/deployment-frequency?tab=dashboard'),
+                  if (deploymentFreq != null)
+                    SizedBox(
+                      width: cardWidth,
+                      child: KPICard(
+                        title: 'Deployment Frequency',
+                        value: '${deploymentFreq.average}/week',
+                        subtitle: '${deploymentFreq.total} total deployments',
+                        icon: Icons.rocket_launch,
+                        color: Colors.blue,
+                        trend: deploymentFreq.trend,
+                        onTap: () => context
+                            .go('/metrics/deployment-frequency?tab=dashboard'),
+                      ),
                     ),
-                  ),
-                  SizedBox(
-                    width: cardWidth,
-                    child: KPICard(
-                      title: 'Lead Time for Changes',
-                      value:
-                          _formatDuration(dora.leadTimeForChanges.averageHours),
-                      subtitle:
-                          'Median: ${_formatDuration(dora.leadTimeForChanges.medianHours)}',
-                      icon: Icons.timer,
-                      color: Colors.green,
-                      onTap: () => context.go('/metrics/lead-time?tab=dashboard'),
+                  if (leadTime != null)
+                    SizedBox(
+                      width: cardWidth,
+                      child: KPICard(
+                        title: 'Lead Time for Changes',
+                        value: _formatDuration(leadTime.averageHours),
+                        subtitle:
+                            'Median: ${_formatDuration(leadTime.medianHours)}',
+                        icon: Icons.timer,
+                        color: Colors.green,
+                        trend: leadTime.trend,
+                        onTap: () =>
+                            context.go('/metrics/lead-time?tab=dashboard'),
+                      ),
                     ),
-                  ),
                 ],
               );
             },
@@ -166,68 +236,158 @@ class DashboardScreen extends ConsumerWidget {
                 ),
           ),
           const SizedBox(height: 24),
-          if (dev != null)
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 600;
-                final cardWidth = isWide
-                    ? (constraints.maxWidth - 16) / 2
-                    : constraints.maxWidth;
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 600;
+              final cardWidth = isWide
+                  ? (constraints.maxWidth - 16) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  if (prReviewTime != null)
                     SizedBox(
                       width: cardWidth,
                       child: KPICard(
                         title: 'PR Review Time',
-                        value: _formatDuration(dev.prReviewTime.averageHours),
-                        subtitle: '${dev.prReviewTime.count} PRs reviewed',
+                        value: _formatDuration(prReviewTime.averageHours),
+                        subtitle: '${prReviewTime.count} PRs reviewed',
                         icon: Icons.rate_review,
                         color: Colors.orange,
-                        onTap: () => context.go('/metrics/pr-review-time?tab=dashboard'),
+                        trend: prReviewTime.trend,
+                        onTap: () =>
+                            context.go('/metrics/pr-review-time?tab=dashboard'),
                       ),
                     ),
+                  if (prMergeTime != null)
                     SizedBox(
                       width: cardWidth,
                       child: KPICard(
                         title: 'PR Merge Time',
-                        value: _formatDuration(dev.prMergeTime.averageHours),
-                        subtitle: '${dev.prMergeTime.count} PRs merged',
+                        value: _formatDuration(prMergeTime.averageHours),
+                        subtitle: '${prMergeTime.count} PRs merged',
                         icon: Icons.merge,
                         color: Colors.purple,
-                        onTap: () => context.go('/metrics/pr-merge-time?tab=dashboard'),
+                        trend: prMergeTime.trend,
+                        onTap: () =>
+                            context.go('/metrics/pr-merge-time?tab=dashboard'),
                       ),
                     ),
+                  if (cycleTime != null)
                     SizedBox(
                       width: cardWidth,
                       child: KPICard(
                         title: 'Cycle Time',
-                        value: _formatDuration(dev.cycleTime.averageHours),
-                        subtitle: '${dev.cycleTime.count} issues completed',
+                        value: _formatDuration(cycleTime.averageHours),
+                        subtitle: '${cycleTime.count} issues completed',
                         icon: Icons.loop,
                         color: Colors.teal,
-                        onTap: () => context.go('/metrics/cycle-time?tab=dashboard'),
+                        onTap: () =>
+                            context.go('/metrics/cycle-time?tab=dashboard'),
                       ),
                     ),
+                  if (throughput != null)
                     SizedBox(
                       width: cardWidth,
                       child: KPICard(
                         title: 'Throughput',
-                        value: '${dev.throughput.average}/week',
-                        subtitle: '${dev.throughput.total} PRs merged total',
+                        value: '${throughput.average}/week',
+                        subtitle: '${throughput.total} PRs merged total',
                         icon: Icons.speed,
                         color: Colors.indigo,
-                        onTap: () => context.go('/metrics/throughput?tab=dashboard'),
+                        trend: throughput.trend,
+                        onTap: () =>
+                            context.go('/metrics/throughput?tab=dashboard'),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnomalyCard(
+    BuildContext context,
+    AnomalySummary summary,
+    List<Anomaly> anomalies,
+  ) {
+    final theme = Theme.of(context);
+    final hasMajor = summary.hasMajorAnomalies;
+    final color = hasMajor ? Colors.red : Colors.orange;
+
+    return Card(
+      elevation: 2,
+      color: color.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withOpacity(0.3), width: 2),
+      ),
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AnomalyDetailsDialog(
+              anomalies: anomalies,
+              summary: summary,
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  hasMajor ? Icons.error : Icons.warning_amber,
+                  color: color,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '⚠️ Anomalies Detected',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      summary.hasMajorAnomalies
+                          ? '${summary.majorCount} major, ${summary.minorCount} minor anomalies found'
+                          : '${summary.minorCount} minor anomalies found',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                );
-              },
-            )
-          else
-            const SkeletonGrid(count: 4),
-        ],
+                ),
+              ),
+              // Arrow
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

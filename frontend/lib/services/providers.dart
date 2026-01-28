@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_service.dart';
 import 'metrics_service.dart';
+import '../models/anomaly.dart';
 import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
@@ -160,6 +161,7 @@ final deploymentFrequencyProvider =
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+    includeTrend: true,
   );
 });
 
@@ -177,6 +179,7 @@ final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+    includeTrend: true,
   );
 });
 
@@ -194,6 +197,7 @@ final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+    includeTrend: true,
   );
 });
 
@@ -211,6 +215,7 @@ final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+    includeTrend: true,
   );
 });
 
@@ -239,6 +244,7 @@ final throughputProvider = FutureProvider<Throughput>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+    includeTrend: true,
   );
 });
 
@@ -378,6 +384,70 @@ final deploymentFrequencyByDeveloperProvider =
   return service.getDeploymentFrequency(
     startDate: period.startDate,
     endDate: period.endDate,
+    authorLogin: authorLogin,
+  );
+});
+
+// ============================================================================
+// Anomaly Detection Providers
+// ============================================================================
+
+/// Provider for deployment frequency anomalies.
+final deploymentFrequencyAnomaliesProvider =
+    FutureProvider<AnomalyResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repoIds = ref.watch(selectedRepoIdsProvider);
+  final devLogins = ref.watch(selectedDeveloperLoginsProvider);
+
+  // Use first selected repo, or null for all repos
+  final repoId = repoIds.isEmpty ? null : repoIds.first;
+  final authorLogin = devLogins.isEmpty ? null : devLogins.first;
+
+  return service.getAnomalies(
+    metric: 'deployment_frequency',
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+    authorLogin: authorLogin,
+  );
+});
+
+/// Provider for throughput anomalies.
+final throughputAnomaliesProvider =
+    FutureProvider<AnomalyResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repoIds = ref.watch(selectedRepoIdsProvider);
+  final devLogins = ref.watch(selectedDeveloperLoginsProvider);
+
+  final repoId = repoIds.isEmpty ? null : repoIds.first;
+  final authorLogin = devLogins.isEmpty ? null : devLogins.first;
+
+  return service.getAnomalies(
+    metric: 'throughput',
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+    authorLogin: authorLogin,
+  );
+});
+
+/// Provider for lead time anomalies.
+final leadTimeAnomaliesProvider = FutureProvider<AnomalyResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repoIds = ref.watch(selectedRepoIdsProvider);
+  final devLogins = ref.watch(selectedDeveloperLoginsProvider);
+
+  final repoId = repoIds.isEmpty ? null : repoIds.first;
+  final authorLogin = devLogins.isEmpty ? null : devLogins.first;
+
+  return service.getAnomalies(
+    metric: 'lead_time',
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
     authorLogin: authorLogin,
   );
 });

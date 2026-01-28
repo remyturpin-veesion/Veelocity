@@ -1,5 +1,7 @@
 // DORA metrics data models.
 
+import 'trend_data.dart';
+
 class DeploymentFrequency {
   final String period;
   final String startDate;
@@ -7,6 +9,7 @@ class DeploymentFrequency {
   final List<PeriodData> data;
   final int total;
   final double average;
+  final TrendData? trend;
 
   DeploymentFrequency({
     required this.period,
@@ -15,6 +18,7 @@ class DeploymentFrequency {
     required this.data,
     required this.total,
     required this.average,
+    this.trend,
   });
 
   factory DeploymentFrequency.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,9 @@ class DeploymentFrequency {
           .toList(),
       total: json['total'] as int,
       average: (json['average'] as num).toDouble(),
+      trend: json['trend'] != null
+          ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -52,6 +59,7 @@ class LeadTimeForChanges {
   final double averageHours;
   final double medianHours;
   final List<LeadTimeMeasurement> measurements;
+  final TrendData? trend;
 
   LeadTimeForChanges({
     required this.startDate,
@@ -60,6 +68,7 @@ class LeadTimeForChanges {
     required this.averageHours,
     required this.medianHours,
     required this.measurements,
+    this.trend,
   });
 
   factory LeadTimeForChanges.fromJson(Map<String, dynamic> json) {
@@ -72,6 +81,9 @@ class LeadTimeForChanges {
       measurements: (json['measurements'] as List)
           .map((e) => LeadTimeMeasurement.fromJson(e as Map<String, dynamic>))
           .toList(),
+      trend: json['trend'] != null
+          ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
