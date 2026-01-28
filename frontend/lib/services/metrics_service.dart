@@ -3,6 +3,8 @@ import '../core/config.dart';
 import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/pr_health.dart';
+import '../models/reviewer_workload.dart';
 
 /// Service for fetching DORA and development metrics from the API.
 class MetricsService {
@@ -320,5 +322,72 @@ class MetricsService {
     );
 
     return AnomalyResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<PRHealthResponse> getPRHealth({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+    String? authorLogin,
+    int? minScore,
+    int? maxScore,
+    bool includeSummary = true,
+  }) async {
+    final queryParams = <String, dynamic>{
+      'include_summary': includeSummary,
+    };
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+    if (authorLogin != null) {
+      queryParams['author_login'] = authorLogin;
+    }
+    if (minScore != null) {
+      queryParams['min_score'] = minScore;
+    }
+    if (maxScore != null) {
+      queryParams['max_score'] = maxScore;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/pr-health',
+      queryParameters: queryParams,
+    );
+
+    return PRHealthResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<ReviewerWorkloadResponse> getReviewerWorkload({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/reviewer-workload',
+      queryParameters: queryParams,
+    );
+
+    return ReviewerWorkloadResponse.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 }

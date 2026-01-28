@@ -30,6 +30,8 @@ class MetricInfo {
     'pr_merge_time': prMergeTime,
     'cycle_time': cycleTime,
     'throughput': throughput,
+    'pr_health': prHealth,
+    'reviewer_workload': reviewerWorkload,
   };
 
   static const deploymentFrequency = MetricInfo(
@@ -138,5 +140,41 @@ class MetricInfo {
     ],
     icon: Icons.speed,
     color: Colors.indigo,
+  );
+
+  static const prHealth = MetricInfo(
+    id: 'pr_health',
+    name: 'PR Health',
+    description:
+        'Scores each pull request (0–100) based on review rounds, comment volume, PR size, time to first review, and time to merge. Helps identify PRs that need attention and track overall review health.',
+    calculation:
+        'Four components (review, comment, size, time) each contribute 0–25 points. Categories: excellent (80+), good (60–79), fair (40–59), poor (<40).',
+    unit: 'score (0–100)',
+    tips: [
+      'Target excellent or good scores for most PRs',
+      'Address poor scores by reducing review rounds and PR size',
+      'Use filters to find PRs by author or repository',
+      'Combine with reviewer workload to balance review capacity',
+    ],
+    icon: Icons.health_and_safety,
+    color: Colors.red,
+  );
+
+  static const reviewerWorkload = MetricInfo(
+    id: 'reviewer_workload',
+    name: 'Reviewer Workload',
+    description:
+        'Analyzes how code reviews are distributed across reviewers. Identifies bottlenecks (reviewers handling >40% of reviews) and under-utilized reviewers (<10% when team has 3+ reviewers).',
+    calculation:
+        'Review count per reviewer in the period. Gini coefficient measures inequality (0 = equal, 1 = one person does all). Bottleneck: >40% of reviews. Under-utilized: <10% when 3+ reviewers.',
+    unit: 'reviews',
+    tips: [
+      'Aim for Gini coefficient below 0.5 to avoid burnout',
+      'Balance workload by involving under-utilized reviewers',
+      'Use code owners to spread review responsibility',
+      'Monitor bottlenecks to prevent single points of failure',
+    ],
+    icon: Icons.people,
+    color: Colors.amber,
   );
 }

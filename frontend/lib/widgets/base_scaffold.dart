@@ -11,9 +11,7 @@ import 'repo_multi_selector.dart';
 /// Base scaffold providing consistent layout across all screens.
 ///
 /// Includes:
-/// - AppBar with Dashboard/Team navigation tabs
-/// - Theme toggle and refresh buttons
-/// - Optional global filters bar (period and repo)
+/// - Optional global filters bar (Dashboard/Team tabs, period selector, dark mode)
 /// - MetricsSideNav on the left
 /// - Main content area
 class BaseScaffold extends ConsumerWidget {
@@ -26,48 +24,16 @@ class BaseScaffold extends ConsumerWidget {
   /// Whether to show the filters bar (period and repo selectors).
   final bool showFilters;
 
-  /// Additional actions for the AppBar.
-  final List<Widget>? additionalActions;
-
   /// Child widget to display in the main content area.
   final Widget child;
-
-  /// Callback when refresh is pressed.
-  final VoidCallback? onRefresh;
 
   const BaseScaffold({
     super.key,
     this.currentMetricId,
     this.isHome = false,
     this.showFilters = true,
-    this.additionalActions,
     required this.child,
-    this.onRefresh,
   });
-
-  String _formatLastRefresh(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time);
-
-    if (diff.inSeconds < 60) {
-      return 'à l\'instant';
-    } else if (diff.inMinutes < 60) {
-      return 'il y a ${diff.inMinutes} min';
-    } else {
-      final hours = time.hour.toString().padLeft(2, '0');
-      final minutes = time.minute.toString().padLeft(2, '0');
-      return '$hours:$minutes';
-    }
-  }
-
-  void _handleRefresh(WidgetRef ref) {
-    ref.invalidate(doraMetricsProvider);
-    ref.invalidate(developmentMetricsProvider);
-    ref.invalidate(developersProvider);
-    ref.invalidate(syncCoverageProvider);
-    ref.read(lastRefreshTimeProvider.notifier).state = DateTime.now();
-    onRefresh?.call();
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,36 +42,9 @@ class BaseScaffold extends ConsumerWidget {
     final selectedDeveloperLogins = ref.watch(selectedDeveloperLoginsProvider);
     final reposAsync = ref.watch(repositoriesProvider);
     final developersAsync = ref.watch(developersProvider);
-    final lastRefresh = ref.watch(lastRefreshTimeProvider);
     final currentTab = ref.watch(mainTabProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Veelocity'),
-        automaticallyImplyLeading: false,
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          if (lastRefresh != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Center(
-                child: Text(
-                  _formatLastRefresh(lastRefresh),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                ),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: () => _handleRefresh(ref),
-          ),
-          if (additionalActions != null) ...additionalActions!,
-          const _ThemeModeButton(),
-        ],
-      ),
       body: Row(
         children: [
           // Metrics navigation sidebar
@@ -145,6 +84,7 @@ class BaseScaffold extends ConsumerWidget {
                                 period;
                           },
                         ),
+                        const _ThemeModeButton(),
                       ],
                     ),
                   ),

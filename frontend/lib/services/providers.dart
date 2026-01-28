@@ -5,6 +5,8 @@ import '../models/anomaly.dart';
 import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/pr_health.dart';
+import '../models/reviewer_workload.dart';
 import '../models/sync_coverage.dart';
 import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
@@ -455,5 +457,40 @@ final leadTimeAnomaliesProvider = FutureProvider<AnomalyResponse>((ref) async {
     endDate: period.endDate,
     repoId: repoId,
     authorLogin: authorLogin,
+  );
+});
+
+/// Provider for fetching PR health scores.
+final prHealthProvider = FutureProvider<PRHealthResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final repoIds = ref.watch(selectedRepoIdsProvider);
+  final devLogins = ref.watch(selectedDeveloperLoginsProvider);
+
+  final repoId = repoIds.isEmpty ? null : repoIds.first;
+  final authorLogin = devLogins.isEmpty ? null : devLogins.first;
+
+  return service.getPRHealth(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+    authorLogin: authorLogin,
+    includeSummary: true,
+  );
+});
+
+/// Provider for fetching reviewer workload.
+final reviewerWorkloadProvider =
+    FutureProvider<ReviewerWorkloadResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+
+  final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
+
+  return service.getReviewerWorkload(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
   );
 });

@@ -63,6 +63,14 @@ class MetricsSideNav extends StatelessWidget {
       info: MetricInfo.throughput,
       route: '/metrics/throughput',
     ),
+    const _MetricNavItem(
+      info: MetricInfo.prHealth,
+      route: '/metrics/pr-health',
+    ),
+    const _MetricNavItem(
+      info: MetricInfo.reviewerWorkload,
+      route: '/metrics/reviewer-workload',
+    ),
   ];
 
   @override
@@ -102,7 +110,14 @@ class MetricsSideNav extends StatelessWidget {
                 const SizedBox(height: 8),
                 // Development section
                 const _SectionDivider(label: 'Dev'),
-                ..._items.skip(2).map((item) => _buildNavItem(context, item)),
+                ..._items
+                    .skip(2)
+                    .take(4)
+                    .map((item) => _buildNavItem(context, item)),
+                const SizedBox(height: 8),
+                // Insights section
+                const _SectionDivider(label: 'Insights'),
+                ..._items.skip(6).map((item) => _buildNavItem(context, item)),
               ],
             ),
           ),

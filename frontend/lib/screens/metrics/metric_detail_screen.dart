@@ -62,7 +62,6 @@ class MetricDetailScreen extends ConsumerWidget {
     return BaseScaffold(
       currentMetricId: metricInfo.id,
       isHome: false,
-      onRefresh: onRefresh,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(

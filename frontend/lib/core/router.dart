@@ -9,6 +9,8 @@ import '../screens/metrics/lead_time_screen.dart';
 import '../screens/metrics/pr_merge_time_screen.dart';
 import '../screens/metrics/pr_review_time_screen.dart';
 import '../screens/metrics/throughput_screen.dart';
+import '../screens/pr_health_screen.dart';
+import '../screens/reviewer_workload_screen.dart';
 import '../services/providers.dart';
 
 /// GoRouter configuration for the app.
@@ -21,7 +23,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Sync mainTabProvider with URL based on query parameter
           final path = state.uri.path;
           final tab = state.uri.queryParameters['tab'];
-          
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (tab == 'team' || path.startsWith('/team')) {
               ref.read(mainTabProvider.notifier).state = MainTab.team;
@@ -30,7 +32,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
             }
           });
-          
+
           return child;
         },
         routes: [
@@ -95,6 +97,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _buildFadePage(
               state,
               const ThroughputScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/metrics/pr-health',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const PRHealthScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/metrics/reviewer-workload',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const ReviewerWorkloadScreen(),
             ),
           ),
           // Data coverage
