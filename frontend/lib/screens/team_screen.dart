@@ -24,32 +24,25 @@ class TeamScreen extends ConsumerWidget {
   Widget _buildLoadingState() {
     return const SingleChildScrollView(
       padding: EdgeInsets.all(16),
-      child: SkeletonGrid(count: 6),
+      child: Column(
+        children: [
+          ListItemSkeleton(),
+          ListItemSkeleton(),
+          ListItemSkeleton(),
+          ListItemSkeleton(),
+          ListItemSkeleton(),
+          ListItemSkeleton(),
+        ],
+      ),
     );
   }
 
   Widget _buildErrorState(BuildContext context, WidgetRef ref, Object error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'Unable to load team data',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => ref.invalidate(developersProvider),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorEmptyState(
+      title: 'Unable to Load Team Data',
+      message: 'We encountered an error while fetching developer statistics.\n'
+          'Please try again.',
+      onRetry: () => ref.invalidate(developersProvider),
     );
   }
 
@@ -59,7 +52,12 @@ class TeamScreen extends ConsumerWidget {
     DevelopersResponse response,
   ) {
     if (response.developers.isEmpty) {
-      return EmptyState.noData();
+      return NoDataEmptyState(
+        dataType: 'developers',
+        helpText: 'No developers found in the selected time period.\n'
+            'Developers will appear once they have activity in GitHub.',
+        onRetrySync: () => ref.invalidate(developersProvider),
+      );
     }
 
     final period = ref.watch(selectedPeriodProvider);

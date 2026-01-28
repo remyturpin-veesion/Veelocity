@@ -60,9 +60,27 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonGrid(count: 2),
-          SizedBox(height: 32),
-          SkeletonGrid(count: 4),
+          // DORA Metrics skeleton
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: const [
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Development Metrics skeleton
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: const [
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+            ],
+          ),
         ],
       ),
     );
