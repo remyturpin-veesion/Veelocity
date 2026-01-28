@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../models/metric_info.dart';
-import '../screens/data_coverage_screen.dart';
-import '../screens/metrics/deployment_frequency_screen.dart';
-import '../screens/metrics/lead_time_screen.dart';
-import '../screens/metrics/pr_review_time_screen.dart';
-import '../screens/metrics/pr_merge_time_screen.dart';
-import '../screens/metrics/cycle_time_screen.dart';
-import '../screens/metrics/throughput_screen.dart';
 
 /// Navigation item for the metrics sidebar.
 class _MetricNavItem {
   final MetricInfo info;
-  final Widget Function() screenBuilder;
+  final String route;
 
   const _MetricNavItem({
     required this.info,
-    required this.screenBuilder,
+    required this.route,
   });
 }
 
@@ -45,29 +39,29 @@ class MetricsSideNav extends StatelessWidget {
   });
 
   static final List<_MetricNavItem> _items = [
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.deploymentFrequency,
-      screenBuilder: () => const DeploymentFrequencyScreen(),
+      route: '/metrics/deployment-frequency',
     ),
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.leadTime,
-      screenBuilder: () => const LeadTimeScreen(),
+      route: '/metrics/lead-time',
     ),
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.prReviewTime,
-      screenBuilder: () => const PRReviewTimeScreen(),
+      route: '/metrics/pr-review-time',
     ),
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.prMergeTime,
-      screenBuilder: () => const PRMergeTimeScreen(),
+      route: '/metrics/pr-merge-time',
     ),
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.cycleTime,
-      screenBuilder: () => const CycleTimeScreen(),
+      route: '/metrics/cycle-time',
     ),
-    _MetricNavItem(
+    const _MetricNavItem(
       info: MetricInfo.throughput,
-      screenBuilder: () => const ThroughputScreen(),
+      route: '/metrics/throughput',
     ),
   ];
 
@@ -141,17 +135,13 @@ class MetricsSideNav extends StatelessWidget {
       waitDuration: const Duration(milliseconds: 300),
       child: InkWell(
         onTap: () {
-          final route = PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const DataCoverageScreen(),
-            transitionDuration: const Duration(milliseconds: 200),
-            transitionsBuilder: (_, animation, __, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-          );
-          if (isHome) {
-            Navigator.push(context, route);
+          // Preserve tab state when navigating to data coverage
+          final currentUri = GoRouterState.of(context).uri;
+          final tabParam = currentUri.queryParameters['tab'];
+          if (tabParam != null) {
+            context.go('/data-coverage?tab=$tabParam');
           } else {
-            Navigator.pushReplacement(context, route);
+            context.go('/data-coverage?tab=dashboard');
           }
         },
         borderRadius: BorderRadius.circular(8),
@@ -184,8 +174,14 @@ class MetricsSideNav extends StatelessWidget {
                 if (onHomeTap != null) {
                   onHomeTap!();
                 } else {
-                  // Simply pop back to the dashboard
-                  Navigator.of(context).pop();
+                  // Preserve tab state when going home
+                  final currentUri = GoRouterState.of(context).uri;
+                  final tabParam = currentUri.queryParameters['tab'];
+                  if (tabParam == 'team') {
+                    context.go('/team?tab=team');
+                  } else {
+                    context.go('/?tab=dashboard');
+                  }
                 }
               },
         borderRadius: BorderRadius.circular(8),
@@ -228,18 +224,13 @@ class MetricsSideNav extends StatelessWidget {
         onTap: isSelected
             ? null
             : () {
-                final route = PageRouteBuilder(
-                  pageBuilder: (_, __, ___) => item.screenBuilder(),
-                  transitionDuration: const Duration(milliseconds: 200),
-                  transitionsBuilder: (_, animation, __, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                );
-                // Use push from home, pushReplacement from metric screens
-                if (isHome) {
-                  Navigator.push(context, route);
+                // Preserve tab state in URL
+                final currentUri = GoRouterState.of(context).uri;
+                final tabParam = currentUri.queryParameters['tab'];
+                if (tabParam != null) {
+                  context.go('${item.route}?tab=$tabParam');
                 } else {
-                  Navigator.pushReplacement(context, route);
+                  context.go(item.route);
                 }
               },
         borderRadius: BorderRadius.circular(8),

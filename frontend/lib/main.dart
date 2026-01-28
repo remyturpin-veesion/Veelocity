@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/router.dart';
 import 'core/theme.dart';
-import 'screens/app_shell.dart';
 import 'services/theme_provider.dart';
 
 void main() {
@@ -14,14 +14,15 @@ class VeelocityApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final router = ref.watch(routerProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Veelocity',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
-      home: const AppShell(),
+      routerConfig: router,
     );
   }
 }

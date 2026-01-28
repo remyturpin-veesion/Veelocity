@@ -68,7 +68,7 @@ class MetricDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Section
+            // Title Section with info button
             Row(
               children: [
                 Container(
@@ -88,12 +88,29 @@ class MetricDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        metricInfo.name,
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      Row(
+                        children: [
+                          Text(
+                            metricInfo.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.info_outline,
+                                color: metricInfo.color),
+                            onPressed: () =>
+                                _showMetricInfoDialog(context, metricInfo),
+                            tooltip: 'About this metric',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            iconSize: 20,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -107,10 +124,6 @@ class MetricDetailScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-
-            // Info Section
-            _MetricInfoCard(metricInfo: metricInfo),
             const SizedBox(height: 24),
 
             // Summary Stats (aggregated for all selected repos/developers)
@@ -138,8 +151,8 @@ class MetricDetailScreen extends ConsumerWidget {
                   final devsToShow = selectedDeveloperLogins.isEmpty
                       ? response.developers
                       : response.developers
-                          .where((d) =>
-                              selectedDeveloperLogins.contains(d.login))
+                          .where(
+                              (d) => selectedDeveloperLogins.contains(d.login))
                           .toList();
 
                   if (devsToShow.isEmpty) {
@@ -262,6 +275,80 @@ class MetricDetailScreen extends ConsumerWidget {
   }
 }
 
+/// Show a dialog with metric information.
+void _showMetricInfoDialog(BuildContext context, MetricInfo metricInfo) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: isDark
+          ? const Color(0xFF1E1E1E)
+          : Theme.of(context).dialogBackgroundColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: metricInfo.color.withValues(alpha: isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              metricInfo.icon,
+              color: metricInfo.color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'About ${metricInfo.name}',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoSection(
+              title: 'What it measures',
+              content: metricInfo.description,
+              icon: Icons.info_outline,
+              isDark: isDark,
+            ),
+            const SizedBox(height: 20),
+            _InfoSection(
+              title: 'How it\'s calculated',
+              content: metricInfo.calculation,
+              icon: Icons.calculate_outlined,
+              isDark: isDark,
+            ),
+            const SizedBox(height: 20),
+            _TipsSection(tips: metricInfo.tips, isDark: isDark),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            foregroundColor: metricInfo.color,
+          ),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Section header with title and subtitle.
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -295,120 +382,17 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Collapsible card showing metric description and calculation.
-class _MetricInfoCard extends StatefulWidget {
-  final MetricInfo metricInfo;
-
-  const _MetricInfoCard({required this.metricInfo});
-
-  @override
-  State<_MetricInfoCard> createState() => _MetricInfoCardState();
-}
-
-class _MetricInfoCardState extends State<_MetricInfoCard> {
-  bool _isExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: widget.metricInfo.color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      widget.metricInfo.icon,
-                      color: widget.metricInfo.color,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'About this metric',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        Text(
-                          'Tap to ${_isExpanded ? 'collapse' : 'expand'}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.grey[600],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  _InfoSection(
-                    title: 'What it measures',
-                    content: widget.metricInfo.description,
-                    icon: Icons.info_outline,
-                  ),
-                  const SizedBox(height: 16),
-                  _InfoSection(
-                    title: 'How it\'s calculated',
-                    content: widget.metricInfo.calculation,
-                    icon: Icons.calculate_outlined,
-                  ),
-                  const SizedBox(height: 16),
-                  _TipsSection(tips: widget.metricInfo.tips),
-                ],
-              ),
-            ),
-            crossFadeState: _isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _InfoSection extends StatelessWidget {
   final String title;
   final String content;
   final IconData icon;
+  final bool isDark;
 
   const _InfoSection({
     required this.title,
     required this.content,
     required this.icon,
+    this.isDark = false,
   });
 
   @override
@@ -418,23 +402,27 @@ class _InfoSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
+            Icon(
+              icon,
+              size: 18,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
             const SizedBox(width: 8),
             Text(
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
+                    color: isDark ? Colors.grey[300] : Colors.grey[700],
                   ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           content,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[800],
-                height: 1.5,
+                color: isDark ? Colors.grey[300] : Colors.grey[800],
+                height: 1.6,
               ),
         ),
       ],
@@ -444,8 +432,9 @@ class _InfoSection extends StatelessWidget {
 
 class _TipsSection extends StatelessWidget {
   final List<String> tips;
+  final bool isDark;
 
-  const _TipsSection({required this.tips});
+  const _TipsSection({required this.tips, this.isDark = false});
 
   @override
   Widget build(BuildContext context) {
@@ -454,29 +443,40 @@ class _TipsSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber[700]),
+            Icon(
+              Icons.lightbulb_outline,
+              size: 18,
+              color: isDark ? Colors.amber[400] : Colors.amber[700],
+            ),
             const SizedBox(width: 8),
             Text(
               'Tips for improvement',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
+                    color: isDark ? Colors.grey[300] : Colors.grey[700],
                   ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         ...tips.map((tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('• ', style: TextStyle(color: Colors.grey[600])),
+                  Text(
+                    '• ',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontSize: 16,
+                    ),
+                  ),
                   Expanded(
                     child: Text(
                       tip,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[800],
+                            color: isDark ? Colors.grey[300] : Colors.grey[800],
+                            height: 1.6,
                           ),
                     ),
                   ),

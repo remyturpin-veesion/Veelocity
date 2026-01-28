@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/developer.dart';
 import '../../models/dora_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
 import '../../widgets/measurements_table.dart';
+import '../../widgets/metric_not_available.dart';
 import '../../widgets/multi_repo_trend_chart.dart';
 import '../../widgets/repo_selector.dart';
 import 'metric_detail_screen.dart';
 
-/// Predefined colors for repository lines.
-const _repoColors = [
+/// Predefined colors for repository/developer lines.
+const _entityColors = [
   Colors.green,
   Colors.orange,
   Colors.purple,
@@ -52,6 +54,9 @@ class DeploymentFrequencyScreen extends ConsumerWidget {
       },
       multiRepoChartBuilder: (context, ref, repos) {
         return _MultiRepoChartSection(repos: repos);
+      },
+      multiDeveloperChartBuilder: (context, ref, developers) {
+        return _MultiDeveloperChartSection(developers: developers);
       },
       bottomContentBuilder: (context, ref) {
         return metricAsync.when(
@@ -239,7 +244,7 @@ class _MultiRepoChartSection extends ConsumerWidget {
                   .map((d) =>
                       TrendPoint(period: d.period, value: d.count.toDouble()))
                   .toList(),
-              color: _repoColors[i % _repoColors.length],
+              color: _entityColors[i % _entityColors.length],
             ));
           }
         },
@@ -272,6 +277,24 @@ class _MultiRepoChartSection extends ConsumerWidget {
       series: seriesList,
       title: 'Deployments per Period',
       height: 280,
+    );
+  }
+}
+
+/// Multi-developer chart section.
+/// Note: Deployment frequency is not available per developer as deployments
+/// are team-level events.
+class _MultiDeveloperChartSection extends StatelessWidget {
+  final List<Developer> developers;
+
+  const _MultiDeveloperChartSection({required this.developers});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MetricNotAvailable(
+      title: 'Metric Not Available Per Developer',
+      description:
+          'Deployment Frequency measures team-level deployment events and cannot be broken down by individual developers.',
     );
   }
 }

@@ -99,22 +99,28 @@ class DataCoverageCard extends StatelessWidget {
   }
 
   Widget _buildTotalsSummary(BuildContext context) {
-    return Row(
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
       children: [
+        _buildTotalChip(
+          context,
+          Icons.people,
+          '${coverage.totalDevelopers} Developers',
+          Colors.orange,
+        ),
         _buildTotalChip(
           context,
           Icons.merge,
           '${coverage.totalPullRequests} PRs',
           Colors.purple,
         ),
-        const SizedBox(width: 12),
         _buildTotalChip(
           context,
           Icons.commit,
           '${coverage.totalCommits} Commits',
           Colors.blue,
         ),
-        const SizedBox(width: 12),
         _buildTotalChip(
           context,
           Icons.play_arrow,

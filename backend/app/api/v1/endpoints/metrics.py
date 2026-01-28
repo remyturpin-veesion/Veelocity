@@ -45,7 +45,7 @@ async def get_dora_metrics(
     service = DORAMetricsService(db)
 
     deployment_freq = await service.get_deployment_frequency(
-        start_date, end_date, period, repo_id
+        start_date, end_date, period, repo_id, author_login
     )
     lead_time = await service.get_lead_time_for_changes(
         start_date, end_date, repo_id, author_login
@@ -63,6 +63,7 @@ async def get_deployment_frequency(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -74,7 +75,9 @@ async def get_deployment_frequency(
         start_date, end_date = get_default_date_range()
 
     service = DORAMetricsService(db)
-    return await service.get_deployment_frequency(start_date, end_date, period, repo_id)
+    return await service.get_deployment_frequency(
+        start_date, end_date, period, repo_id, author_login
+    )
 
 
 @router.get("/dora/lead-time")

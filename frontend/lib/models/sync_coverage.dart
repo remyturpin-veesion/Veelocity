@@ -6,6 +6,7 @@ class SyncCoverage {
   final int totalPullRequests;
   final int totalCommits;
   final int totalWorkflowRuns;
+  final int totalDevelopers;
 
   SyncCoverage({
     required this.connectors,
@@ -13,6 +14,7 @@ class SyncCoverage {
     required this.totalPullRequests,
     required this.totalCommits,
     required this.totalWorkflowRuns,
+    required this.totalDevelopers,
   });
 
   factory SyncCoverage.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class SyncCoverage {
       totalPullRequests: json['total_pull_requests'] as int,
       totalCommits: json['total_commits'] as int,
       totalWorkflowRuns: json['total_workflow_runs'] as int,
+      totalDevelopers: json['total_developers'] as int,
     );
   }
 }

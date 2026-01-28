@@ -1,34 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../services/providers.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
-import 'metrics/deployment_frequency_screen.dart';
-import 'metrics/lead_time_screen.dart';
-import 'metrics/pr_review_time_screen.dart';
-import 'metrics/pr_merge_time_screen.dart';
-import 'metrics/cycle_time_screen.dart';
-import 'metrics/throughput_screen.dart';
 
 /// Main dashboard screen showing DORA and development metrics.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  /// Navigate to a screen with a smooth fade transition.
-  void _navigateWithFade(BuildContext context, Widget screen) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => screen,
-        transitionDuration: const Duration(milliseconds: 200),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -148,10 +129,7 @@ class DashboardScreen extends ConsumerWidget {
                           '${dora.deploymentFrequency.total} total deployments',
                       icon: Icons.rocket_launch,
                       color: Colors.blue,
-                      onTap: () => _navigateWithFade(
-                        context,
-                        const DeploymentFrequencyScreen(),
-                      ),
+                      onTap: () => context.go('/metrics/deployment-frequency?tab=dashboard'),
                     ),
                   ),
                   SizedBox(
@@ -164,10 +142,7 @@ class DashboardScreen extends ConsumerWidget {
                           'Median: ${_formatDuration(dora.leadTimeForChanges.medianHours)}',
                       icon: Icons.timer,
                       color: Colors.green,
-                      onTap: () => _navigateWithFade(
-                        context,
-                        const LeadTimeScreen(),
-                      ),
+                      onTap: () => context.go('/metrics/lead-time?tab=dashboard'),
                     ),
                   ),
                 ],
@@ -210,10 +185,7 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prReviewTime.count} PRs reviewed',
                         icon: Icons.rate_review,
                         color: Colors.orange,
-                        onTap: () => _navigateWithFade(
-                          context,
-                          const PRReviewTimeScreen(),
-                        ),
+                        onTap: () => context.go('/metrics/pr-review-time?tab=dashboard'),
                       ),
                     ),
                     SizedBox(
@@ -224,10 +196,7 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.prMergeTime.count} PRs merged',
                         icon: Icons.merge,
                         color: Colors.purple,
-                        onTap: () => _navigateWithFade(
-                          context,
-                          const PRMergeTimeScreen(),
-                        ),
+                        onTap: () => context.go('/metrics/pr-merge-time?tab=dashboard'),
                       ),
                     ),
                     SizedBox(
@@ -238,10 +207,7 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.cycleTime.count} issues completed',
                         icon: Icons.loop,
                         color: Colors.teal,
-                        onTap: () => _navigateWithFade(
-                          context,
-                          const CycleTimeScreen(),
-                        ),
+                        onTap: () => context.go('/metrics/cycle-time?tab=dashboard'),
                       ),
                     ),
                     SizedBox(
@@ -252,10 +218,7 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${dev.throughput.total} PRs merged total',
                         icon: Icons.speed,
                         color: Colors.indigo,
-                        onTap: () => _navigateWithFade(
-                          context,
-                          const ThroughputScreen(),
-                        ),
+                        onTap: () => context.go('/metrics/throughput?tab=dashboard'),
                       ),
                     ),
                   ],

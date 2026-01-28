@@ -22,14 +22,18 @@ class DORAMetricsService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        author_login: str | None = None,
     ) -> dict:
         """
         Calculate deployment frequency over a period.
 
         Returns count of successful deployments grouped by period.
+        If author_login is specified, only counts deployments where the deployed commit
+        was authored by that developer.
         """
+        # Get all successful deployments
         query = (
-            select(WorkflowRun.completed_at)
+            select(WorkflowRun)
             .join(Workflow)
             .where(
                 and_(
@@ -45,7 +49,21 @@ class DORAMetricsService:
             query = query.where(Workflow.repo_id == repo_id)
 
         result = await self._db.execute(query.order_by(WorkflowRun.completed_at))
-        deployments = list(result.scalars().all())
+        workflow_runs = list(result.scalars().all())
+
+        # Filter by author if specified
+        deployments = []
+        for run in workflow_runs:
+            if author_login:
+                # Check if the deployed commit was authored by this developer
+                commit_result = await self._db.execute(
+                    select(Commit).where(Commit.sha == run.head_sha)
+                )
+                commit = commit_result.scalar_one_or_none()
+                if commit and commit.author_login == author_login:
+                    deployments.append(run.completed_at)
+            else:
+                deployments.append(run.completed_at)
 
         # Group by period
         grouped = self._group_by_period(deployments, period)

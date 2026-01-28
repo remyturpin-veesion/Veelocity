@@ -1,7 +1,6 @@
 """Sync status and data coverage endpoints."""
 
 from datetime import datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -66,6 +65,7 @@ class SyncCoverageResponse(BaseModel):
     total_pull_requests: int
     total_commits: int
     total_workflow_runs: int
+    total_developers: int
 
 
 @router.post("/trigger-full")
@@ -192,7 +192,7 @@ async def fill_all_details(
     from sqlalchemy import select, func
     from app.connectors.factory import create_github_connector
     from app.connectors.rate_limiter import get_rate_limiter
-    from app.models.github import Commit, PullRequest, Repository
+    from app.models.github import PullRequest, Repository
     from app.services.sync import SyncService
     
     logger = logging.getLogger(__name__)
@@ -784,10 +784,28 @@ async def get_sync_coverage(
         total_commits += commit_count or 0
         total_runs += run_count or 0
 
+    # Count unique developers (based on PR authors and commit authors)
+    unique_developers = set()
+    
+    # Get unique PR authors
+    pr_authors_result = await db.execute(
+        select(PullRequest.author_login).distinct().where(PullRequest.author_login.isnot(None))
+    )
+    pr_authors = pr_authors_result.scalars().all()
+    unique_developers.update(pr_authors)
+    
+    # Get unique commit authors
+    commit_authors_result = await db.execute(
+        select(Commit.author_login).distinct().where(Commit.author_login.isnot(None))
+    )
+    commit_authors = commit_authors_result.scalars().all()
+    unique_developers.update(commit_authors)
+
     return SyncCoverageResponse(
         connectors=connectors,
         repositories=repository_coverages,
         total_pull_requests=total_prs,
         total_commits=total_commits,
         total_workflow_runs=total_runs,
+        total_developers=len(unique_developers),
     )

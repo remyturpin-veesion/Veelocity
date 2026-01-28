@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../services/providers.dart';
 import '../services/theme_provider.dart';
 import 'developer_multi_selector.dart';
@@ -84,19 +85,6 @@ class BaseScaffold extends ConsumerWidget {
         automaticallyImplyLeading: false,
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          // Navigation tabs
-          _NavigationTabs(
-            currentTab: currentTab,
-            isHome: isHome,
-            onTabChanged: (tab) {
-              ref.read(mainTabProvider.notifier).state = tab;
-              // Pop back to home if we're on a detail screen
-              if (!isHome) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
-            },
-          ),
-          const SizedBox(width: 16),
           if (lastRefresh != null)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -129,7 +117,7 @@ class BaseScaffold extends ConsumerWidget {
           Expanded(
             child: Column(
               children: [
-                // Global filters bar
+                // Period selector bar
                 if (showFilters)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -144,6 +132,12 @@ class BaseScaffold extends ConsumerWidget {
                     ),
                     child: Row(
                       children: [
+                        // Navigation tabs
+                        _NavigationTabs(
+                          currentTab: currentTab,
+                          isHome: isHome,
+                        ),
+                        const Spacer(),
                         PeriodSelector(
                           selected: selectedPeriod,
                           onChanged: (period) {
@@ -151,7 +145,58 @@ class BaseScaffold extends ConsumerWidget {
                                 period;
                           },
                         ),
-                        const SizedBox(width: 16),
+                      ],
+                    ),
+                  ),
+                // Entity selector section (repos or developers)
+                if (showFilters)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              currentTab == MainTab.dashboard
+                                  ? Icons.folder_outlined
+                                  : Icons.people_outline,
+                              size: 16,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              currentTab == MainTab.dashboard
+                                  ? 'Repositories'
+                                  : 'Developers',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7),
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         // Show repo selector in Dashboard mode, developer selector in Team mode
                         if (currentTab == MainTab.dashboard)
                           reposAsync.when(
@@ -160,7 +205,10 @@ class BaseScaffold extends ConsumerWidget {
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            error: (_, __) => const SizedBox.shrink(),
+                            error: (_, __) => const Text(
+                              'Error loading repositories',
+                              style: TextStyle(color: Colors.red),
+                            ),
                             data: (repos) => RepoMultiSelector(
                               repos: repos,
                               selectedRepoIds: selectedRepoIds,
@@ -178,14 +226,17 @@ class BaseScaffold extends ConsumerWidget {
                               height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            error: (_, __) => const SizedBox.shrink(),
+                            error: (_, __) => const Text(
+                              'Error loading developers',
+                              style: TextStyle(color: Colors.red),
+                            ),
                             data: (response) => DeveloperMultiSelector(
                               developers: response.developers,
                               selectedLogins: selectedDeveloperLogins,
                               onChanged: (logins) {
                                 ref
-                                    .read(
-                                        selectedDeveloperLoginsProvider.notifier)
+                                    .read(selectedDeveloperLoginsProvider
+                                        .notifier)
                                     .state = logins;
                               },
                             ),
@@ -208,12 +259,10 @@ class BaseScaffold extends ConsumerWidget {
 class _NavigationTabs extends StatelessWidget {
   final MainTab currentTab;
   final bool isHome;
-  final ValueChanged<MainTab> onTabChanged;
 
   const _NavigationTabs({
     required this.currentTab,
     required this.isHome,
-    required this.onTabChanged,
   });
 
   @override
@@ -232,14 +281,14 @@ class _NavigationTabs extends StatelessWidget {
             icon: Icons.dashboard,
             label: 'Dashboard',
             isSelected: isHome && currentTab == MainTab.dashboard,
-            onTap: () => onTabChanged(MainTab.dashboard),
+            onTap: () => context.go('/?tab=dashboard'),
           ),
           _buildNavTab(
             context,
             icon: Icons.people,
             label: 'Team',
             isSelected: isHome && currentTab == MainTab.team,
-            onTap: () => onTabChanged(MainTab.team),
+            onTap: () => context.go('/team?tab=team'),
           ),
         ],
       ),

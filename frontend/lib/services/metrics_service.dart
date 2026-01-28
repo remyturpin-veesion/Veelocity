@@ -55,6 +55,7 @@ class MetricsService {
     DateTime? endDate,
     String period = 'week',
     int? repoId,
+    String? authorLogin,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
@@ -68,6 +69,9 @@ class MetricsService {
     }
     if (repoId != null) {
       queryParams['repo_id'] = repoId;
+    }
+    if (authorLogin != null) {
+      queryParams['author_login'] = authorLogin;
     }
 
     final response = await _dio.get(

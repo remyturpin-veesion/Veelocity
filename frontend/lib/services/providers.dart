@@ -317,7 +317,8 @@ final throughputByRepoProvider =
 
 /// Provider for fetching lead time for a specific developer.
 final leadTimeByDeveloperProvider =
-    FutureProvider.family<LeadTimeForChanges, String?>((ref, authorLogin) async {
+    FutureProvider.family<LeadTimeForChanges, String?>(
+        (ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
   final period = ref.watch(selectedPeriodProvider);
 
@@ -361,6 +362,20 @@ final throughputByDeveloperProvider =
   final period = ref.watch(selectedPeriodProvider);
 
   return service.getThroughput(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    authorLogin: authorLogin,
+  );
+});
+
+/// Provider for fetching deployment frequency for a specific developer.
+final deploymentFrequencyByDeveloperProvider =
+    FutureProvider.family<DeploymentFrequency, String?>(
+        (ref, authorLogin) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+
+  return service.getDeploymentFrequency(
     startDate: period.startDate,
     endDate: period.endDate,
     authorLogin: authorLogin,
