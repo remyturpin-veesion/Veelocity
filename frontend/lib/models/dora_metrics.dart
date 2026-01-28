@@ -1,5 +1,6 @@
 // DORA metrics data models.
 
+import 'benchmark_data.dart';
 import 'trend_data.dart';
 
 class DeploymentFrequency {
@@ -10,6 +11,7 @@ class DeploymentFrequency {
   final int total;
   final double average;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   DeploymentFrequency({
     required this.period,
@@ -19,6 +21,7 @@ class DeploymentFrequency {
     required this.total,
     required this.average,
     this.trend,
+    this.benchmark,
   });
 
   factory DeploymentFrequency.fromJson(Map<String, dynamic> json) {
@@ -33,6 +36,9 @@ class DeploymentFrequency {
       average: (json['average'] as num).toDouble(),
       trend: json['trend'] != null
           ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
           : null,
     );
   }
@@ -60,6 +66,7 @@ class LeadTimeForChanges {
   final double medianHours;
   final List<LeadTimeMeasurement> measurements;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   LeadTimeForChanges({
     required this.startDate,
@@ -69,6 +76,7 @@ class LeadTimeForChanges {
     required this.medianHours,
     required this.measurements,
     this.trend,
+    this.benchmark,
   });
 
   factory LeadTimeForChanges.fromJson(Map<String, dynamic> json) {
@@ -83,6 +91,9 @@ class LeadTimeForChanges {
           .toList(),
       trend: json['trend'] != null
           ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
           : null,
     );
   }

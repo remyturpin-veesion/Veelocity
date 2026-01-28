@@ -196,6 +196,7 @@ class DashboardScreen extends ConsumerWidget {
                         icon: Icons.rocket_launch,
                         color: Colors.blue,
                         trend: deploymentFreq.trend,
+                        benchmark: deploymentFreq.benchmark,
                         onTap: () => context
                             .go('/metrics/deployment-frequency?tab=dashboard'),
                       ),
@@ -211,6 +212,7 @@ class DashboardScreen extends ConsumerWidget {
                         icon: Icons.timer,
                         color: Colors.green,
                         trend: leadTime.trend,
+                        benchmark: leadTime.benchmark,
                         onTap: () =>
                             context.go('/metrics/lead-time?tab=dashboard'),
                       ),
@@ -256,6 +258,7 @@ class DashboardScreen extends ConsumerWidget {
                         icon: Icons.rate_review,
                         color: Colors.orange,
                         trend: prReviewTime.trend,
+                        benchmark: prReviewTime.benchmark,
                         onTap: () =>
                             context.go('/metrics/pr-review-time?tab=dashboard'),
                       ),
@@ -270,6 +273,7 @@ class DashboardScreen extends ConsumerWidget {
                         icon: Icons.merge,
                         color: Colors.purple,
                         trend: prMergeTime.trend,
+                        benchmark: prMergeTime.benchmark,
                         onTap: () =>
                             context.go('/metrics/pr-merge-time?tab=dashboard'),
                       ),
@@ -283,6 +287,7 @@ class DashboardScreen extends ConsumerWidget {
                         subtitle: '${cycleTime.count} issues completed',
                         icon: Icons.loop,
                         color: Colors.teal,
+                        benchmark: cycleTime.benchmark,
                         onTap: () =>
                             context.go('/metrics/cycle-time?tab=dashboard'),
                       ),
@@ -297,6 +302,7 @@ class DashboardScreen extends ConsumerWidget {
                         icon: Icons.speed,
                         color: Colors.indigo,
                         trend: throughput.trend,
+                        benchmark: throughput.benchmark,
                         onTap: () =>
                             context.go('/metrics/throughput?tab=dashboard'),
                       ),

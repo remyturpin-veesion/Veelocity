@@ -162,6 +162,7 @@ final deploymentFrequencyProvider =
     endDate: period.endDate,
     repoId: repoId,
     includeTrend: true,
+    includeBenchmark: true,
   );
 });
 
@@ -180,6 +181,7 @@ final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
     endDate: period.endDate,
     repoId: repoId,
     includeTrend: true,
+    includeBenchmark: true,
   );
 });
 
@@ -198,6 +200,7 @@ final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
     endDate: period.endDate,
     repoId: repoId,
     includeTrend: true,
+    includeBenchmark: true,
   );
 });
 
@@ -216,6 +219,7 @@ final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
     endDate: period.endDate,
     repoId: repoId,
     includeTrend: true,
+    includeBenchmark: true,
   );
 });
 
@@ -227,6 +231,7 @@ final cycleTimeProvider = FutureProvider<CycleTime>((ref) async {
   return service.getCycleTime(
     startDate: period.startDate,
     endDate: period.endDate,
+    includeBenchmark: true,
   );
 });
 
@@ -245,6 +250,7 @@ final throughputProvider = FutureProvider<Throughput>((ref) async {
     endDate: period.endDate,
     repoId: repoId,
     includeTrend: true,
+    includeBenchmark: true,
   );
 });
 

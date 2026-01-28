@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.services.metrics.anomalies import AnomalyDetectionService
+from app.services.metrics.benchmarks import BenchmarkService
 from app.services.metrics.comparison import ComparisonService
 from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
@@ -67,6 +68,7 @@ async def get_deployment_frequency(
     repo_id: int | None = None,
     author_login: str | None = None,
     include_trend: bool = False,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -76,6 +78,7 @@ async def get_deployment_frequency(
 
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -108,6 +111,13 @@ async def get_deployment_frequency(
 
         result["trend"] = trend.to_dict()
 
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_deployment_frequency_benchmark(
+            result["average"]
+        )
+        result["benchmark"] = benchmark.to_dict()
+
     return result
 
 
@@ -118,6 +128,7 @@ async def get_lead_time(
     repo_id: int | None = None,
     author_login: str | None = None,
     include_trend: bool = False,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -127,6 +138,7 @@ async def get_lead_time(
 
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -158,6 +170,11 @@ async def get_lead_time(
         )
 
         result["trend"] = trend.to_dict()
+
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_lead_time_benchmark(result["average_hours"])
+        result["benchmark"] = benchmark.to_dict()
 
     return result
 
@@ -212,6 +229,7 @@ async def get_pr_review_time(
     repo_id: int | None = None,
     author_login: str | None = None,
     include_trend: bool = False,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -221,6 +239,7 @@ async def get_pr_review_time(
 
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -253,6 +272,13 @@ async def get_pr_review_time(
 
         result["trend"] = trend.to_dict()
 
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_pr_review_time_benchmark(
+            result["average_hours"]
+        )
+        result["benchmark"] = benchmark.to_dict()
+
     return result
 
 
@@ -263,6 +289,7 @@ async def get_pr_merge_time(
     repo_id: int | None = None,
     author_login: str | None = None,
     include_trend: bool = False,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -272,6 +299,7 @@ async def get_pr_merge_time(
 
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -304,6 +332,13 @@ async def get_pr_merge_time(
 
         result["trend"] = trend.to_dict()
 
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_pr_merge_time_benchmark(
+            result["average_hours"]
+        )
+        result["benchmark"] = benchmark.to_dict()
+
     return result
 
 
@@ -312,6 +347,7 @@ async def get_cycle_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     team_id: int | None = None,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -319,12 +355,22 @@ async def get_cycle_time(
 
     Measures time from issue started to linked PR merged.
     Requires Linear integration and PR-issue linking.
+
+    Query params:
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DevelopmentMetricsService(db)
-    return await service.get_cycle_time(start_date, end_date, team_id)
+    result = await service.get_cycle_time(start_date, end_date, team_id)
+
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_cycle_time_benchmark(result["average_hours"])
+        result["benchmark"] = benchmark.to_dict()
+
+    return result
 
 
 @router.get("/development/throughput")
@@ -335,6 +381,7 @@ async def get_throughput(
     repo_id: int | None = None,
     author_login: str | None = None,
     include_trend: bool = False,
+    include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -344,6 +391,7 @@ async def get_throughput(
 
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
+    - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
@@ -375,6 +423,11 @@ async def get_throughput(
         )
 
         result["trend"] = trend.to_dict()
+
+    # Add benchmark data if requested
+    if include_benchmark:
+        benchmark = BenchmarkService.get_throughput_benchmark(result["average"])
+        result["benchmark"] = benchmark.to_dict()
 
     return result
 

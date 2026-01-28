@@ -1,5 +1,6 @@
 // Development metrics models.
 
+import 'benchmark_data.dart';
 import 'trend_data.dart';
 
 /// PR Review Time metric.
@@ -10,6 +11,7 @@ class PRReviewTime {
   final double averageHours;
   final double medianHours;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   PRReviewTime({
     required this.startDate,
@@ -18,6 +20,7 @@ class PRReviewTime {
     required this.averageHours,
     required this.medianHours,
     this.trend,
+    this.benchmark,
   });
 
   factory PRReviewTime.fromJson(Map<String, dynamic> json) {
@@ -29,6 +32,9 @@ class PRReviewTime {
       medianHours: (json['median_hours'] as num).toDouble(),
       trend: json['trend'] != null
           ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
           : null,
     );
   }
@@ -42,6 +48,7 @@ class PRMergeTime {
   final double averageHours;
   final double medianHours;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   PRMergeTime({
     required this.startDate,
@@ -50,6 +57,7 @@ class PRMergeTime {
     required this.averageHours,
     required this.medianHours,
     this.trend,
+    this.benchmark,
   });
 
   factory PRMergeTime.fromJson(Map<String, dynamic> json) {
@@ -62,6 +70,9 @@ class PRMergeTime {
       trend: json['trend'] != null
           ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
           : null,
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -73,6 +84,7 @@ class CycleTime {
   final int count;
   final double averageHours;
   final double medianHours;
+  final BenchmarkData? benchmark;
 
   CycleTime({
     required this.startDate,
@@ -80,6 +92,7 @@ class CycleTime {
     required this.count,
     required this.averageHours,
     required this.medianHours,
+    this.benchmark,
   });
 
   factory CycleTime.fromJson(Map<String, dynamic> json) {
@@ -89,6 +102,9 @@ class CycleTime {
       count: json['count'] as int,
       averageHours: (json['average_hours'] as num).toDouble(),
       medianHours: (json['median_hours'] as num).toDouble(),
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -117,6 +133,7 @@ class Throughput {
   final int total;
   final double average;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   Throughput({
     required this.period,
@@ -126,6 +143,7 @@ class Throughput {
     required this.total,
     required this.average,
     this.trend,
+    this.benchmark,
   });
 
   factory Throughput.fromJson(Map<String, dynamic> json) {
@@ -140,6 +158,9 @@ class Throughput {
       average: (json['average'] as num).toDouble(),
       trend: json['trend'] != null
           ? TrendData.fromJson(json['trend'] as Map<String, dynamic>)
+          : null,
+      benchmark: json['benchmark'] != null
+          ? BenchmarkData.fromJson(json['benchmark'] as Map<String, dynamic>)
           : null,
     );
   }

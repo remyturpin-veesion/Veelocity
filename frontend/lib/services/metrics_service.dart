@@ -58,10 +58,12 @@ class MetricsService {
     int? repoId,
     String? authorLogin,
     bool includeTrend = false,
+    bool includeBenchmark = false,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
       'include_trend': includeTrend,
+      'include_benchmark': includeBenchmark,
     };
 
     if (startDate != null) {
@@ -92,9 +94,11 @@ class MetricsService {
     int? repoId,
     String? authorLogin,
     bool includeTrend = false,
+    bool includeBenchmark = false,
   }) async {
     final queryParams = <String, dynamic>{
       'include_trend': includeTrend,
+      'include_benchmark': includeBenchmark,
     };
 
     if (startDate != null) {
@@ -154,9 +158,11 @@ class MetricsService {
     int? repoId,
     String? authorLogin,
     bool includeTrend = false,
+    bool includeBenchmark = false,
   }) async {
     final queryParams = <String, dynamic>{
       'include_trend': includeTrend,
+      'include_benchmark': includeBenchmark,
     };
 
     if (startDate != null) {
@@ -187,9 +193,11 @@ class MetricsService {
     int? repoId,
     String? authorLogin,
     bool includeTrend = false,
+    bool includeBenchmark = false,
   }) async {
     final queryParams = <String, dynamic>{
       'include_trend': includeTrend,
+      'include_benchmark': includeBenchmark,
     };
 
     if (startDate != null) {
@@ -218,8 +226,11 @@ class MetricsService {
     DateTime? startDate,
     DateTime? endDate,
     int? teamId,
+    bool includeBenchmark = false,
   }) async {
-    final queryParams = <String, dynamic>{};
+    final queryParams = <String, dynamic>{
+      'include_benchmark': includeBenchmark,
+    };
 
     if (startDate != null) {
       queryParams['start_date'] = startDate.toIso8601String();
@@ -247,10 +258,12 @@ class MetricsService {
     int? repoId,
     String? authorLogin,
     bool includeTrend = false,
+    bool includeBenchmark = false,
   }) async {
     final queryParams = <String, dynamic>{
       'period': period,
       'include_trend': includeTrend,
+      'include_benchmark': includeBenchmark,
     };
 
     if (startDate != null) {

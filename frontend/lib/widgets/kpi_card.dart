@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../models/benchmark_data.dart';
 import '../models/trend_data.dart';
+import 'benchmark_badge.dart';
 import 'trend_indicator.dart';
 
 /// A card widget for displaying a KPI metric.
@@ -11,6 +13,7 @@ class KPICard extends StatelessWidget {
   final Color? color;
   final VoidCallback? onTap;
   final TrendData? trend;
+  final BenchmarkData? benchmark;
 
   const KPICard({
     super.key,
@@ -21,6 +24,7 @@ class KPICard extends StatelessWidget {
     this.color,
     this.onTap,
     this.trend,
+    this.benchmark,
   });
 
   @override
@@ -89,6 +93,10 @@ class KPICard extends StatelessWidget {
               if (trend != null) ...[
                 const SizedBox(height: 8),
                 TrendIndicator(trend: trend!),
+              ],
+              if (benchmark != null) ...[
+                const SizedBox(height: 8),
+                BenchmarkBadge(benchmark: benchmark!, compact: true),
               ],
             ],
           ),
