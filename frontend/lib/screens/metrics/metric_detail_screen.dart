@@ -4,6 +4,7 @@ import '../../models/developer.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
 import '../../widgets/base_scaffold.dart';
+import '../../widgets/breadcrumb.dart';
 import '../../widgets/repo_selector.dart';
 
 /// Base screen for displaying metric details.
@@ -67,6 +68,8 @@ class MetricDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Breadcrumb(label: 'Dashboard', route: '/'),
+            const SizedBox(height: 16),
             // Title Section with info button
             Row(
               children: [

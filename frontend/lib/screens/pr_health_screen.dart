@@ -6,6 +6,7 @@ import '../models/pr_health.dart';
 import '../services/providers.dart';
 import 'pr_detail_screen.dart';
 import '../widgets/base_scaffold.dart';
+import '../widgets/breadcrumb.dart';
 import '../widgets/empty_state.dart';
 
 /// Screen for viewing PR health scores.
@@ -42,7 +43,6 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
   }
 
   Widget _buildPRDetailInline(BuildContext context) {
-    final theme = Theme.of(context);
     final asyncDetail = ref.watch(prDetailProvider(_selectedPrId!));
 
     return asyncDetail.when(
@@ -56,27 +56,9 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
+            Breadcrumb(
+              label: 'PR Health Scores',
               onTap: () => setState(() => _selectedPrId = null),
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'PR Health Scores',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 16),
             PRDetailView(pr: pr),
@@ -143,6 +125,8 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Breadcrumb(label: 'Dashboard', route: '/'),
+          const SizedBox(height: 16),
           // Summary cards
           if (response.summary != null) _buildSummaryCards(response.summary!),
           const SizedBox(height: 24),

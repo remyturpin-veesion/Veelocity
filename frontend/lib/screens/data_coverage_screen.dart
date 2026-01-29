@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
+import '../widgets/breadcrumb.dart';
 import '../widgets/data_coverage_card.dart';
 
 /// Screen displaying data coverage and sync status.
@@ -20,6 +21,8 @@ class DataCoverageScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Breadcrumb(label: 'Dashboard', route: '/'),
+            const SizedBox(height: 16),
             // Title
             Text(
               'Data Coverage',

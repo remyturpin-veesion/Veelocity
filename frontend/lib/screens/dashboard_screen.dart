@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/recommendation.dart';
 import '../services/providers.dart';
 import '../widgets/anomaly_badge.dart';
 import '../widgets/kpi_card.dart';
@@ -29,6 +30,10 @@ class DashboardScreen extends ConsumerWidget {
     final throughputAnomaliesAsync = ref.watch(throughputAnomaliesProvider);
     final leadTimeAnomaliesAsync = ref.watch(leadTimeAnomaliesProvider);
 
+    // Watch Phase 2 insight providers (optional; don't block dashboard)
+    final recommendationsAsync = ref.watch(recommendationsProvider);
+    final reliabilityAsync = ref.watch(deploymentReliabilityProvider);
+
     // Show loading if any critical metric is loading
     if (deploymentFreqAsync.isLoading || leadTimeAsync.isLoading) {
       return _buildLoadingState();
@@ -51,6 +56,8 @@ class DashboardScreen extends ConsumerWidget {
       deploymentAnomaliesAsync.value,
       throughputAnomaliesAsync.value,
       leadTimeAnomaliesAsync.value,
+      recommendationsAsync.value,
+      reliabilityAsync.value,
     );
   }
 
@@ -142,6 +149,8 @@ class DashboardScreen extends ConsumerWidget {
     AnomalyResponse? deploymentAnomalies,
     AnomalyResponse? throughputAnomalies,
     AnomalyResponse? leadTimeAnomalies,
+    RecommendationsResponse? recommendations,
+    DeploymentReliability? reliability,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
 
@@ -178,6 +187,20 @@ class DashboardScreen extends ConsumerWidget {
               allAnomalies,
             ),
           if (aggregatedSummary.hasAnomalies) const SizedBox(height: 24),
+
+          // Recommendations summary (Phase 2 integration)
+          if (recommendations != null &&
+              recommendations.recommendations.isNotEmpty)
+            _buildRecommendationsCard(context, recommendations),
+          if (recommendations != null &&
+              recommendations.recommendations.isNotEmpty)
+            const SizedBox(height: 24),
+
+          // Deployment reliability summary (Phase 2 integration)
+          if (reliability != null && reliability.totalRuns > 0)
+            _buildReliabilityCard(context, reliability),
+          if (reliability != null && reliability.totalRuns > 0)
+            const SizedBox(height: 24),
 
           // DORA Metrics Section
           Text(
@@ -404,6 +427,147 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               // Arrow
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsCard(
+    BuildContext context,
+    RecommendationsResponse response,
+  ) {
+    final theme = Theme.of(context);
+    final highCount =
+        response.recommendations.where((r) => r.priority == 'high').length;
+    final total = response.recommendations.length;
+
+    return Card(
+      elevation: 2,
+      color: Colors.blue.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blue.withOpacity(0.3), width: 2),
+      ),
+      child: InkWell(
+        onTap: () => context.go('/insights/recommendations'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lightbulb_outline,
+                  color: Colors.blue,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recommendations',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      highCount > 0
+                          ? '$total recommendations ($highCount high priority)'
+                          : '$total recommendations to improve metrics',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReliabilityCard(
+    BuildContext context,
+    DeploymentReliability reliability,
+  ) {
+    final theme = Theme.of(context);
+    final isHealthy = reliability.stabilityScore >= 90;
+    final color = isHealthy ? Colors.green : Colors.orange;
+
+    return Card(
+      elevation: 2,
+      color: color.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withOpacity(0.3), width: 2),
+      ),
+      child: InkWell(
+        onTap: () => context.go('/metrics/deployment-frequency?tab=dashboard'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isHealthy ? Icons.check_circle_outline : Icons.warning_amber,
+                  color: color,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Deployment reliability',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${reliability.stabilityScore.toStringAsFixed(0)}% stability · '
+                      '${reliability.failureRate.toStringAsFixed(1)}% failure rate '
+                      '(${reliability.totalRuns} runs)',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,

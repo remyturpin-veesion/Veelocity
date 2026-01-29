@@ -35,7 +35,7 @@ class MetricsSideNav extends StatelessWidget {
     this.currentMetricId,
     this.isHome = false,
     this.onHomeTap,
-    this.width = 56,
+    this.width = 72,
   });
 
   static final List<_MetricNavItem> _items = [

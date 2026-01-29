@@ -1,8 +1,8 @@
 # Veelocity: Developer Pain Point Detection & UI/UX Enhancement Plan
 
-## Implementation Status: Phase 1 - In Progress ⚙️
+## Implementation Status: Phase 2 Dashboard Integration ✅
 
-**Last Updated:** January 28, 2026
+**Last Updated:** January 29, 2026
 
 ---
 
@@ -16,6 +16,7 @@ Transform Veelocity from a "metrics dashboard" into a "developer intelligence pl
 - ✅ Phase 1, Feature 3: DORA Benchmarking & Contextual Interpretation (COMPLETE)
 - ✅ Phase 1, Feature 4: UI/UX Polish & Empty State Improvements (COMPLETE)
 - 🎉 **PHASE 1 COMPLETE!**
+- ✅ Phase 2 dashboard integration: Recommendations + Deployment Reliability summary cards on main dashboard (Jan 29, 2026)
 - 📋 Phase 2-5: Planned
 
 ---
@@ -511,6 +512,12 @@ Response:
 - **API:** `GET /api/v1/metrics/recommendations` (start_date, end_date, repo_id)
 - **Tests:** `backend/tests/services/test_recommendation_engine.py` — 5 tests (deploy, lead time, review SLA, redistribute, priority order)
 - **Frontend:** Model `Recommendation` / `RecommendationsResponse`, `getRecommendations()` in MetricsService, `recommendationsProvider`; new screen **Recommendations** under Insights with list of cards (title, description, priority badge, metric context); route `/insights/recommendations`; side nav item under Insights.
+
+### Phase 2 dashboard integration (Jan 29, 2026)
+- **Dashboard:** Main dashboard now surfaces Phase 2 insights at a glance:
+  - **Recommendations summary card:** When the API returns recommendations, a blue card shows total count and high-priority count; tap navigates to `/insights/recommendations`.
+  - **Deployment reliability summary card:** When deployment runs exist, a compact card shows stability %, failure rate, and run count (green when stability ≥90%, orange otherwise); tap navigates to deployment frequency screen for full breakdown.
+- **Implementation:** `frontend/lib/screens/dashboard_screen.dart` — watches `recommendationsProvider` and `deploymentReliabilityProvider`, renders cards above DORA metrics section (same pattern as anomaly summary card).
 
 ---
 

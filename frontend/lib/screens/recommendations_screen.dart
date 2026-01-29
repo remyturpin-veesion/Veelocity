@@ -5,6 +5,7 @@ import '../core/config.dart';
 import '../models/recommendation.dart';
 import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
+import '../widgets/breadcrumb.dart';
 import '../widgets/empty_state.dart';
 
 /// Screen for viewing prioritized recommendations.
@@ -59,6 +60,8 @@ class RecommendationsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Breadcrumb(label: 'Dashboard', route: '/'),
+          const SizedBox(height: 16),
           Text(
             'Recommandations',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(

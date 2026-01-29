@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:go_router/go_router.dart';
 import '../core/config.dart';
 import '../models/pr_detail.dart';
 import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
+import '../widgets/breadcrumb.dart';
 import '../widgets/empty_state.dart';
 
 /// Reusable PR detail body (header, stats, health, reviews, comments, commits).
@@ -315,7 +315,7 @@ class PRDetailScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBreadcrumb(context),
+              Breadcrumb(label: 'PR Health', route: '/metrics/pr-health'),
               const SizedBox(height: 16),
               PRDetailView(pr: pr),
             ],
@@ -331,28 +331,6 @@ class PRDetailScreen extends ConsumerWidget {
       return 'Impossible de joindre le serveur.\n${AppConfig.apiBaseUrl}';
     }
     return error.toString();
-  }
-
-  Widget _buildBreadcrumb(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: () => context.go('/metrics/pr-health'),
-      borderRadius: BorderRadius.circular(8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.arrow_back, size: 20, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          Text(
-            'PR Health',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

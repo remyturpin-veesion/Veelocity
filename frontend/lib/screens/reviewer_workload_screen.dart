@@ -5,6 +5,7 @@ import '../core/config.dart';
 import '../models/reviewer_workload.dart';
 import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
+import '../widgets/breadcrumb.dart';
 import '../widgets/empty_state.dart';
 
 /// Screen for viewing reviewer workload distribution.
@@ -95,6 +96,8 @@ class _ReviewerWorkloadScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Breadcrumb(label: 'Dashboard', route: '/'),
+          const SizedBox(height: 16),
           _buildSummaryCards(response.summary),
           const SizedBox(height: 24),
           _buildWorkloadTable(context, sortedWorkloads),
