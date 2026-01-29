@@ -12,6 +12,7 @@ from app.services.metrics.benchmarks import BenchmarkService
 from app.services.metrics.comparison import ComparisonService
 from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
+from app.services.insights.recommendation_engine import RecommendationEngine
 from app.services.metrics.pr_health import PRHealthService
 from app.services.metrics.reviewer_workload import ReviewerWorkloadService
 
@@ -660,4 +661,34 @@ async def get_reviewer_workload(
         "end_date": end_date.isoformat(),
         "workloads": [w.to_dict() for w in workloads],
         "summary": summary.to_dict(),
+    }
+
+
+@router.get("/recommendations")
+async def get_recommendations(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get prioritized recommendations based on DORA and development metrics.
+
+    Rules: deployment frequency <1/week, lead time >48h, review time >12h,
+    large PRs detected, reviewer bottleneck.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    engine = RecommendationEngine(db)
+    recommendations = await engine.get_recommendations(
+        start_date=start_date,
+        end_date=end_date,
+        repo_id=repo_id,
+    )
+
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "recommendations": [r.to_dict() for r in recommendations],
     }

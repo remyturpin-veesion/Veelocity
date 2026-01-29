@@ -6,6 +6,7 @@ import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_health.dart';
+import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
 import '../models/sync_coverage.dart';
 import '../widgets/period_selector.dart';
@@ -505,6 +506,22 @@ final reviewerWorkloadProvider =
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getReviewerWorkload(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for fetching prioritized recommendations.
+final recommendationsProvider =
+    FutureProvider<RecommendationsResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+
+  final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
+
+  return service.getRecommendations(
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,

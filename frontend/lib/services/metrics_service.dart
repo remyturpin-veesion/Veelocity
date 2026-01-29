@@ -4,6 +4,7 @@ import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_health.dart';
+import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
 
 /// Service for fetching DORA and development metrics from the API.
@@ -113,6 +114,34 @@ class MetricsService {
     );
 
     return DeploymentReliability.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  /// Get prioritized recommendations based on metrics.
+  Future<RecommendationsResponse> getRecommendations({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+
+    final response = await _dio.get(
+      '/api/v1/metrics/recommendations',
+      queryParameters: queryParams,
+    );
+
+    return RecommendationsResponse.fromJson(
       response.data as Map<String, dynamic>,
     );
   }

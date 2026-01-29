@@ -71,6 +71,10 @@ class MetricsSideNav extends StatelessWidget {
       info: MetricInfo.reviewerWorkload,
       route: '/metrics/reviewer-workload',
     ),
+    const _MetricNavItem(
+      info: MetricInfo.recommendations,
+      route: '/insights/recommendations',
+    ),
   ];
 
   @override

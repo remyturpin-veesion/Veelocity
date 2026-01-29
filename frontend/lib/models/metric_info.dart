@@ -32,6 +32,7 @@ class MetricInfo {
     'throughput': throughput,
     'pr_health': prHealth,
     'reviewer_workload': reviewerWorkload,
+    'recommendations': recommendations,
   };
 
   static const deploymentFrequency = MetricInfo(
@@ -175,6 +176,23 @@ class MetricInfo {
       'Monitor bottlenecks to prevent single points of failure',
     ],
     icon: Icons.people,
+    color: Colors.amber,
+  );
+
+  static const recommendations = MetricInfo(
+    id: 'recommendations',
+    name: 'Recommendations',
+    description:
+        'Prioritized, data-driven recommendations to improve deployment frequency, lead time, review time, PR size, and reviewer balance.',
+    calculation:
+        'Rule-based engine: deployment frequency <1/week, lead time >48h, review time >12h, large PRs, reviewer bottleneck.',
+    unit: '—',
+    tips: [
+      'Address high-priority items first',
+      'Use metric context to track progress',
+      'Re-run after changes to see updated recommendations',
+    ],
+    icon: Icons.lightbulb_outline,
     color: Colors.amber,
   );
 }

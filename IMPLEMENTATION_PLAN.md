@@ -496,18 +496,21 @@ Response:
 
 ---
 
-### Feature 8: Smart Recommendations Engine
-**Status:** Not started | **Priority:** P1 | **Estimated:** 4-5 days
+### ✅ Feature 8: Smart Recommendations Engine (COMPLETED)
+**Status:** Done | **Priority:** P1
 
 **Implementation:**
-- Backend: `backend/app/services/insights/recommendation_engine.py`
-- Rule-based engine generating recommendations:
-  - Deployment frequency <1/week → "Deploy more frequently"
-  - Lead time >48h → "Break down PRs"
-  - Review time >12h → "Set team review SLA"
-  - Large PRs detected → "Split large PRs"
-  - Reviewer bottleneck → "Redistribute reviews"
-- Frontend: New "Insights" screen with prioritized recommendations
+- **Backend:** `backend/app/services/insights/recommendation_engine.py`
+  - `RecommendationEngine.get_recommendations(start_date, end_date, repo_id)`:
+  - Deployment frequency <1/week → "Deploy more frequently" (high)
+  - Lead time >48h → "Break down PRs" (high)
+  - PR review time >12h → "Set team review SLA" (medium)
+  - Large PRs (size score ≤12 or lines >500) → "Split large PRs" (medium)
+  - Reviewer bottleneck → "Redistribute reviews" (medium)
+  - Returns list of `Recommendation` (id, title, description, priority, metric_context), sorted by priority.
+- **API:** `GET /api/v1/metrics/recommendations` (start_date, end_date, repo_id)
+- **Tests:** `backend/tests/services/test_recommendation_engine.py` — 5 tests (deploy, lead time, review SLA, redistribute, priority order)
+- **Frontend:** Model `Recommendation` / `RecommendationsResponse`, `getRecommendations()` in MetricsService, `recommendationsProvider`; new screen **Recommendations** under Insights with list of cards (title, description, priority badge, metric context); route `/insights/recommendations`; side nav item under Insights.
 
 ---
 
@@ -775,7 +778,7 @@ Response:
 
 ---
 
-**Current Phase:** 2 of 5 | **Current Feature:** 7 of 15
+**Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
-**Phase 2:** In Progress (3/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅)
-**Next Up:** Phase 2 - Feature 8: Smart Recommendations Engine
+**Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
+**Next Up:** Phase 3 - Feature 9: Individual PR Explorer

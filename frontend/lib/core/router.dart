@@ -10,6 +10,7 @@ import '../screens/metrics/pr_merge_time_screen.dart';
 import '../screens/metrics/pr_review_time_screen.dart';
 import '../screens/metrics/throughput_screen.dart';
 import '../screens/pr_health_screen.dart';
+import '../screens/recommendations_screen.dart';
 import '../screens/reviewer_workload_screen.dart';
 import '../services/providers.dart';
 
@@ -111,6 +112,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _buildFadePage(
               state,
               const ReviewerWorkloadScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/insights/recommendations',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const RecommendationsScreen(),
             ),
           ),
           // Data coverage
