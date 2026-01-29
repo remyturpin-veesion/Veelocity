@@ -521,7 +521,7 @@ Response:
 
 ---
 
-## Phase 3: Deep Drill-Down & Analytics (Weeks 5-6) - STATUS: Planned
+## Phase 3: Deep Drill-Down & Analytics (Weeks 5-6) - STATUS: In Progress
 
 ### ✅ Feature 9: Individual PR Explorer (COMPLETED)
 **Status:** Done | **Priority:** P2
@@ -538,8 +538,17 @@ Response:
   - PR Health table: PR number and title are links to `/pr/{prId}` (go_router)
 - **Dependency:** Added `url_launcher` for opening GitHub PR link
 
-### Feature 10: Developer Performance Profiles
-**Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
+### Feature 10: Developer Performance Profiles (COMPLETED - Jan 29, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Frontend:** Full-page developer profile at `/team/developer/:login`:
+  - `DeveloperProfileScreen(login)` with BaseScaffold, breadcrumb "Team" → `/team`
+  - Header: avatar (from developers list when available), login, subtitle "Developer performance profile"
+  - Sections: Pull requests (PRs created/merged/open, avg merge time), Code changes (lines added/deleted, total, avg/PR), Collaboration (reviews given, comments made, commits made)
+  - Uses existing `developerStatsProvider(login)` and `GET /api/v1/developers/{login}`
+- **Router:** Added nested route `/team/developer/:login`
+- **Team screen:** Developer cards now navigate to profile page (`context.go('/team/developer/${developer.login}')`); bottom sheet removed in favor of full-page profile
 
 ### Feature 11: Correlation Analysis
 **Status:** Not started | **Priority:** P2 | **Estimated:** 4-5 days
@@ -800,4 +809,4 @@ Response:
 **Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 3 - Feature 10: Developer Performance Profiles
+**Next Up:** Phase 3 - Feature 11: Correlation Analysis

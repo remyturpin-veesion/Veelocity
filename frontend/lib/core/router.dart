@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/app_shell.dart';
 import '../screens/data_coverage_screen.dart';
+import '../screens/developer_profile_screen.dart';
 import '../screens/metrics/cycle_time_screen.dart';
 import '../screens/metrics/deployment_frequency_screen.dart';
 import '../screens/metrics/lead_time_screen.dart';
@@ -57,6 +58,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               state,
               const AppShell(),
             ),
+            routes: [
+              GoRoute(
+                path: 'developer/:login',
+                pageBuilder: (context, state) {
+                  final login = state.pathParameters['login'] ?? '';
+                  return _buildFadePage(
+                    state,
+                    DeveloperProfileScreen(login: login),
+                  );
+                },
+              ),
+            ],
           ),
           // Metric detail screens
           GoRoute(
