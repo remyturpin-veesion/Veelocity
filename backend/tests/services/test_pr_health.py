@@ -308,6 +308,7 @@ class TestPRHealthScoreSerialization:
     def test_to_dict(self):
         """Test conversion to dictionary."""
         score = PRHealthScore(
+            pr_id=1,
             pr_number=123,
             pr_title="Test PR",
             repository="test/repo",
@@ -331,6 +332,7 @@ class TestPRHealthScoreSerialization:
         result = score.to_dict()
         
         # Verify structure
+        assert result["pr_id"] == 1
         assert result["pr_number"] == 123
         assert result["health_score"] == 85
         assert result["health_category"] == "excellent"
@@ -354,6 +356,7 @@ class TestPRHealthScoreSerialization:
     def test_to_dict_with_none_times(self):
         """Test serialization with None time values."""
         score = PRHealthScore(
+            pr_id=1,
             pr_number=123,
             pr_title="Test PR",
             repository="test/repo",

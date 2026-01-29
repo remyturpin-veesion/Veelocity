@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../core/config.dart';
+import '../models/pr_detail.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -97,5 +98,18 @@ class ApiService {
   Future<Map<String, dynamic>> getSyncCoverage() async {
     final response = await _dio.get('/api/v1/sync/coverage');
     return response.data as Map<String, dynamic>;
+  }
+
+  /// Get PR detail for Individual PR Explorer (reviews, comments, commits, optional health).
+  Future<PRDetail> getPRDetail(int prId, {bool includeHealth = true}) async {
+    final response = await _dio.get(
+      '/api/v1/github/prs/$prId',
+      queryParameters: {'include_health': includeHealth},
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic> && data.containsKey('error')) {
+      throw Exception(data['error'] as String);
+    }
+    return PRDetail.fromJson(data as Map<String, dynamic>);
   }
 }

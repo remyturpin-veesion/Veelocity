@@ -100,6 +100,7 @@ class PRHealthMetrics {
 
 /// PR health score.
 class PRHealthScore {
+  final int prId;
   final int prNumber;
   final String prTitle;
   final String repository;
@@ -113,6 +114,7 @@ class PRHealthScore {
   final List<String> issues;
 
   PRHealthScore({
+    required this.prId,
     required this.prNumber,
     required this.prTitle,
     required this.repository,
@@ -128,6 +130,7 @@ class PRHealthScore {
 
   factory PRHealthScore.fromJson(Map<String, dynamic> json) {
     return PRHealthScore(
+      prId: json['pr_id'] as int,
       prNumber: json['pr_number'] as int,
       prTitle: json['pr_title'] as String,
       repository: json['repository'] as String,

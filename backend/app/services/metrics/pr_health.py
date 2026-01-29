@@ -27,6 +27,7 @@ HealthCategory = Literal["excellent", "good", "fair", "poor"]
 class PRHealthScore:
     """Health score for a pull request."""
 
+    pr_id: int  # Internal DB id for linking to PR detail
     pr_number: int
     pr_title: str
     repository: str
@@ -57,6 +58,7 @@ class PRHealthScore:
     def to_dict(self) -> dict:
         """Convert to dictionary for API response."""
         return {
+            "pr_id": self.pr_id,
             "pr_number": self.pr_number,
             "pr_title": self.pr_title,
             "repository": self.repository,
@@ -147,6 +149,24 @@ class PRHealthService:
         
         return health_scores
 
+    async def get_health_for_pr(self, pr_id: int) -> PRHealthScore | None:
+        """
+        Calculate health score for a single PR by id.
+
+        Returns None if PR not found or not closed.
+        """
+        query = (
+            select(PullRequest)
+            .options(selectinload(PullRequest.repository))
+            .where(PullRequest.id == pr_id)
+            .where(PullRequest.state == "closed")
+        )
+        result = await self.db.execute(query)
+        pr = result.scalar_one_or_none()
+        if not pr:
+            return None
+        return await self._calculate_single_pr_health(pr)
+
     async def _calculate_single_pr_health(self, pr: PullRequest) -> PRHealthScore:
         """Calculate health score for a single PR."""
         # Get reviews and comments
@@ -182,6 +202,7 @@ class PRHealthService:
         )
         
         return PRHealthScore(
+            pr_id=pr.id,
             pr_number=pr.number,
             pr_title=pr.title,
             repository=pr.repository.full_name if pr.repository else "unknown",

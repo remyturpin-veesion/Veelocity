@@ -516,8 +516,20 @@ Response:
 
 ## Phase 3: Deep Drill-Down & Analytics (Weeks 5-6) - STATUS: Planned
 
-### Feature 9: Individual PR Explorer
-**Status:** Not started | **Priority:** P2 | **Estimated:** 4-5 days
+### ✅ Feature 9: Individual PR Explorer (COMPLETED)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Backend:** Enriched existing `GET /api/v1/github/prs/{pr_id}`:
+  - Added `repository: { id, full_name }` for "View on GitHub" link
+  - Added query param `include_health=true`; when set, embeds PR health score (PRHealthService.get_health_for_pr)
+  - PRHealthScore now includes `pr_id` for linking from PR Health table to detail
+- **Frontend:** Individual PR Explorer screen:
+  - Model `PRDetail` (repository, reviews, comments, commits, optional health) in `pr_detail.dart`
+  - ApiService.getPRDetail(prId, includeHealth: true), prDetailProvider(prId)
+  - Route `/pr/:id`, screen PRDetailScreen(prId): header (title, #number, repo, author, dates), stats (+additions/-deletions), health card if present, "View on GitHub" (url_launcher), sections Reviews / Comments / Commits
+  - PR Health table: PR number and title are links to `/pr/{prId}` (go_router)
+- **Dependency:** Added `url_launcher` for opening GitHub PR link
 
 ### Feature 10: Developer Performance Profiles
 **Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
@@ -781,4 +793,4 @@ Response:
 **Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 3 - Feature 9: Individual PR Explorer
+**Next Up:** Phase 3 - Feature 10: Developer Performance Profiles

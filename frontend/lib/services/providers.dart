@@ -5,6 +5,7 @@ import '../models/anomaly.dart';
 import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/pr_detail.dart';
 import '../models/pr_health.dart';
 import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
@@ -22,6 +23,13 @@ final mainTabProvider = StateProvider<MainTab>((ref) {
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
+});
+
+/// Provider for PR detail (Individual PR Explorer) by PR id.
+final prDetailProvider =
+    FutureProvider.family<PRDetail, int>((ref, prId) async {
+  final api = ref.read(apiServiceProvider);
+  return api.getPRDetail(prId, includeHealth: true);
 });
 
 final metricsServiceProvider = Provider<MetricsService>((ref) {

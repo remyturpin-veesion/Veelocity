@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/config.dart';
 import '../models/pr_health.dart';
 import '../services/providers.dart';
@@ -243,7 +244,7 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
                     label: const Text('Issues'),
                   ),
                 ],
-                rows: prs.map((pr) => _buildPRRow(pr)).toList(),
+                rows: prs.map((pr) => _buildPRRow(context, pr)).toList(),
               ),
             ),
           ],
@@ -252,7 +253,7 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
     );
   }
 
-  DataRow _buildPRRow(PRHealthScore pr) {
+  DataRow _buildPRRow(BuildContext context, PRHealthScore pr) {
     final color = Color(pr.healthCategory.colorValue);
 
     return DataRow(
@@ -282,13 +283,31 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
             ),
           ),
         ),
-        DataCell(Text('#${pr.prNumber}')),
+        DataCell(
+          InkWell(
+            onTap: () => context.go('/pr/${pr.prId}'),
+            child: Text(
+              '#${pr.prNumber}',
+              style: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
         DataCell(
           SizedBox(
             width: 300,
-            child: Text(
-              pr.prTitle,
-              overflow: TextOverflow.ellipsis,
+            child: InkWell(
+              onTap: () => context.go('/pr/${pr.prId}'),
+              child: Text(
+                pr.prTitle,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
           ),
         ),

@@ -9,6 +9,7 @@ import '../screens/metrics/lead_time_screen.dart';
 import '../screens/metrics/pr_merge_time_screen.dart';
 import '../screens/metrics/pr_review_time_screen.dart';
 import '../screens/metrics/throughput_screen.dart';
+import '../screens/pr_detail_screen.dart';
 import '../screens/pr_health_screen.dart';
 import '../screens/recommendations_screen.dart';
 import '../screens/reviewer_workload_screen.dart';
@@ -120,6 +121,25 @@ final routerProvider = Provider<GoRouter>((ref) {
               state,
               const RecommendationsScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/pr/:id',
+            pageBuilder: (context, state) {
+              final idStr = state.pathParameters['id'];
+              final prId = idStr != null ? int.tryParse(idStr) : null;
+              if (prId == null) {
+                return _buildFadePage(
+                  state,
+                  const Scaffold(
+                    body: Center(child: Text('Invalid PR id')),
+                  ),
+                );
+              }
+              return _buildFadePage(
+                state,
+                PRDetailScreen(prId: prId),
+              );
+            },
           ),
           // Data coverage
           GoRoute(

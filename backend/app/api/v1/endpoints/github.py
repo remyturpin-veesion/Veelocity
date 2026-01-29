@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.github import PullRequest, Repository
+from app.services.metrics.pr_health import PRHealthService
 from app.schemas.pagination import (
     PaginatedResponse,
     PaginationParams,
@@ -92,15 +93,15 @@ async def get_pr_detail(
     max_reviews: int = 50,
     max_comments: int = 50,
     max_commits: int = 100,
+    include_health: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get PR with reviews, comments, and commits.
-    
-    Related items are limited by default to prevent excessive data loading.
-    Use max_reviews, max_comments, max_commits to adjust (capped at 100 each).
+    Get PR with reviews, comments, and commits (Individual PR Explorer).
+
+    Related items are limited by default. Use max_reviews, max_comments, max_commits
+    to adjust (capped at 100 each). Set include_health=true to add PR health score.
     """
-    # Enforce hard caps
     max_reviews = min(max_reviews, 100)
     max_comments = min(max_comments, 100)
     max_commits = min(max_commits, 100)
@@ -109,6 +110,7 @@ async def get_pr_detail(
         select(PullRequest)
         .where(PullRequest.id == pr_id)
         .options(
+            selectinload(PullRequest.repository),
             selectinload(PullRequest.reviews),
             selectinload(PullRequest.comments),
             selectinload(PullRequest.commits_rel),
@@ -118,12 +120,11 @@ async def get_pr_detail(
     if not pr:
         return {"error": "PR not found"}
 
-    # Apply limits to related items
     reviews = sorted(pr.reviews, key=lambda r: r.submitted_at or "", reverse=True)[:max_reviews]
     comments = sorted(pr.comments, key=lambda c: c.created_at or "", reverse=True)[:max_comments]
     commits = sorted(pr.commits_rel, key=lambda c: c.committed_at or "", reverse=True)[:max_commits]
 
-    return {
+    payload = {
         "id": pr.id,
         "number": pr.number,
         "title": pr.title,
@@ -135,6 +136,11 @@ async def get_pr_detail(
         "merged_at": pr.merged_at,
         "additions": pr.additions,
         "deletions": pr.deletions,
+        "repository": (
+            {"id": pr.repository.id, "full_name": pr.repository.full_name}
+            if pr.repository
+            else None
+        ),
         "reviews": [
             {"reviewer_login": r.reviewer_login, "state": r.state, "submitted_at": r.submitted_at}
             for r in reviews
@@ -153,3 +159,11 @@ async def get_pr_detail(
             "commits": {"shown": len(commits), "total": len(pr.commits_rel)},
         },
     }
+
+    if include_health:
+        health_svc = PRHealthService(db)
+        health = await health_svc.get_health_for_pr(pr_id)
+        if health:
+            payload["health"] = health.to_dict()
+
+    return payload
