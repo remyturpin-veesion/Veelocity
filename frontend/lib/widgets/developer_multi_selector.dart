@@ -58,8 +58,8 @@ class DeveloperMultiSelector extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: developers.map((dev) {
-                final isSelected =
-                    selectedLogins.isEmpty || selectedLogins.contains(dev.login);
+                final isSelected = selectedLogins.isEmpty ||
+                    selectedLogins.contains(dev.login);
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: _InlineCheckbox(
@@ -128,57 +128,55 @@ class _InlineCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final isActive = isSelected && !isIndeterminate;
 
-    // Use colors that work well in both light and dark themes
+    // Outline style: selected = border + checkmark, no fill (lighter look)
     final activeColor = theme.colorScheme.primary;
-    final textColor = isActive
-        ? (isDark ? theme.colorScheme.primary : theme.colorScheme.primary)
-        : theme.colorScheme.onSurface;
+    final borderColor = isActive
+        ? activeColor.withValues(alpha: 0.6)
+        : theme.colorScheme.outline.withValues(alpha: 0.5);
+    final textColor =
+        isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface;
 
-    return InkWell(
-      onTap: () => onChanged(!isSelected),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? activeColor.withValues(alpha: isDark ? 0.2 : 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? activeColor.withValues(alpha: 0.5)
-                : theme.colorScheme.outline.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!isSelected),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: borderColor),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: IgnorePointer(
-                child: Checkbox(
-                  value: isIndeterminate ? null : isSelected,
-                  tristate: isIndeterminate,
-                  onChanged: (_) {}, // Handled by InkWell
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: IgnorePointer(
+                  child: Checkbox(
+                    value: isIndeterminate ? null : isSelected,
+                    tristate: isIndeterminate,
+                    onChanged: (_) {}, // Handled by InkWell
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-                color: textColor,
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+                  color: textColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
