@@ -30,6 +30,7 @@ class SkeletonCard extends StatelessWidget {
           baseColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           highlightColor: isDark ? Colors.grey[700]! : Colors.grey[100]!,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header row (icon + title)
@@ -51,7 +52,7 @@ class SkeletonCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
               // Value
               Container(
@@ -59,7 +60,7 @@ class SkeletonCard extends StatelessWidget {
                 height: 32,
                 color: Colors.white,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // Subtitle
               Container(
@@ -67,7 +68,7 @@ class SkeletonCard extends StatelessWidget {
                 height: 12,
                 color: Colors.white,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Trend indicator
               Container(

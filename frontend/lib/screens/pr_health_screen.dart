@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../core/config.dart';
 import '../models/pr_health.dart';
 import '../services/providers.dart';
+import 'pr_detail_screen.dart';
 import '../widgets/base_scaffold.dart';
 import '../widgets/empty_state.dart';
 
@@ -19,6 +19,7 @@ class PRHealthScreen extends ConsumerStatefulWidget {
 class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
   String _sortColumn = 'health_score';
   bool _sortAscending = true;
+  int? _selectedPrId;
 
   @override
   Widget build(BuildContext context) {
@@ -27,13 +28,60 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
     return BaseScaffold(
       currentMetricId: 'pr_health',
       isHome: false,
-      child: prHealthAsync.when(
-        loading: () => _buildLoadingState(),
-        error: (error, stack) => ErrorEmptyState(
-          message: _formatErrorMessage(error),
-          onRetry: () => ref.invalidate(prHealthProvider),
+      child: _selectedPrId != null
+          ? _buildPRDetailInline(context)
+          : prHealthAsync.when(
+              loading: () => _buildLoadingState(),
+              error: (error, stack) => ErrorEmptyState(
+                message: _formatErrorMessage(error),
+                onRetry: () => ref.invalidate(prHealthProvider),
+              ),
+              data: (response) => _buildContent(context, response),
+            ),
+    );
+  }
+
+  Widget _buildPRDetailInline(BuildContext context) {
+    final theme = Theme.of(context);
+    final asyncDetail = ref.watch(prDetailProvider(_selectedPrId!));
+
+    return asyncDetail.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => ErrorEmptyState(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(prDetailProvider(_selectedPrId!)),
+      ),
+      data: (pr) => SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _selectedPrId = null),
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.arrow_back,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'PR Health Scores',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            PRDetailView(pr: pr),
+          ],
         ),
-        data: (response) => _buildContent(context, response),
       ),
     );
   }
@@ -285,7 +333,7 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
         ),
         DataCell(
           InkWell(
-            onTap: () => context.go('/pr/${pr.prId}'),
+            onTap: () => setState(() => _selectedPrId = pr.prId),
             child: Text(
               '#${pr.prNumber}',
               style: const TextStyle(
@@ -299,7 +347,7 @@ class _PRHealthScreenState extends ConsumerState<PRHealthScreen> {
           SizedBox(
             width: 300,
             child: InkWell(
-              onTap: () => context.go('/pr/${pr.prId}'),
+              onTap: () => setState(() => _selectedPrId = pr.prId),
               child: Text(
                 pr.prTitle,
                 overflow: TextOverflow.ellipsis,
