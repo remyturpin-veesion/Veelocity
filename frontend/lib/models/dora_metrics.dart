@@ -58,6 +58,47 @@ class PeriodData {
   }
 }
 
+/// Deployment reliability: failure rate, MTTR, stability score.
+class DeploymentReliability {
+  final String startDate;
+  final String endDate;
+  final int totalRuns;
+  final int successfulRuns;
+  final int failedRuns;
+  final int cancelledRuns;
+  final double failureRate;
+  final double? mttrHours;
+  final double stabilityScore;
+
+  DeploymentReliability({
+    required this.startDate,
+    required this.endDate,
+    required this.totalRuns,
+    required this.successfulRuns,
+    required this.failedRuns,
+    required this.cancelledRuns,
+    required this.failureRate,
+    this.mttrHours,
+    required this.stabilityScore,
+  });
+
+  factory DeploymentReliability.fromJson(Map<String, dynamic> json) {
+    return DeploymentReliability(
+      startDate: json['start_date'] as String,
+      endDate: json['end_date'] as String,
+      totalRuns: json['total_runs'] as int,
+      successfulRuns: json['successful_runs'] as int,
+      failedRuns: json['failed_runs'] as int,
+      cancelledRuns: json['cancelled_runs'] as int,
+      failureRate: (json['failure_rate'] as num).toDouble(),
+      mttrHours: json['mttr_hours'] != null
+          ? (json['mttr_hours'] as num).toDouble()
+          : null,
+      stabilityScore: (json['stability_score'] as num).toDouble(),
+    );
+  }
+}
+
 class LeadTimeForChanges {
   final String startDate;
   final String endDate;

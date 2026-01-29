@@ -168,6 +168,22 @@ final deploymentFrequencyProvider =
   );
 });
 
+/// Provider for fetching deployment reliability (failure rate, MTTR, stability).
+final deploymentReliabilityProvider =
+    FutureProvider<DeploymentReliability>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+
+  final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
+
+  return service.getDeploymentReliability(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
 /// Provider for fetching lead time metric.
 final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
   final service = ref.read(metricsServiceProvider);

@@ -82,6 +82,98 @@ class DORAMetricsService:
             "average": round(average, 2),
         }
 
+    async def get_deployment_reliability(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        repo_id: int | None = None,
+    ) -> dict:
+        """
+        Calculate deployment reliability metrics.
+
+        - Failure rate: % of deployment runs with conclusion "failure"
+        - MTTR: Mean time to recovery (hours from failure to next successful run,
+          same workflow). Only computed for failures that have a subsequent success.
+        - Stability score: 100 * (1 - failure_rate), 0–100.
+        """
+        query = (
+            select(WorkflowRun)
+            .join(Workflow)
+            .where(
+                and_(
+                    Workflow.is_deployment == True,  # noqa: E712
+                    WorkflowRun.completed_at >= start_date,
+                    WorkflowRun.completed_at <= end_date,
+                    WorkflowRun.conclusion.in_(["success", "failure", "cancelled"]),
+                )
+            )
+        )
+        if repo_id:
+            query = query.where(Workflow.repo_id == repo_id)
+
+        result = await self._db.execute(query.order_by(WorkflowRun.completed_at))
+        runs = list(result.scalars().all())
+
+        success_count = sum(1 for r in runs if r.conclusion == "success")
+        failure_count = sum(1 for r in runs if r.conclusion == "failure")
+        cancelled_count = sum(1 for r in runs if r.conclusion == "cancelled")
+        total_completed = success_count + failure_count + cancelled_count
+
+        if total_completed == 0:
+            return {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "total_runs": 0,
+                "successful_runs": 0,
+                "failed_runs": 0,
+                "cancelled_runs": 0,
+                "failure_rate": 0.0,
+                "mttr_hours": None,
+                "stability_score": 100.0,
+            }
+
+        failure_rate = (failure_count / total_completed) * 100
+        stability_score = 100.0 * (1 - failure_count / total_completed)
+
+        # MTTR: for each failed run, find next successful run (same workflow)
+        recovery_times: list[float] = []
+        failed_runs = [r for r in runs if r.conclusion == "failure" and r.completed_at]
+        success_by_workflow: dict[int, list[tuple[datetime, WorkflowRun]]] = {}
+        for r in runs:
+            if r.conclusion == "success" and r.completed_at:
+                success_by_workflow.setdefault(r.workflow_id, []).append(
+                    (r.completed_at, r)
+                )
+        for wf_id, pairs in success_by_workflow.items():
+            pairs.sort(key=lambda x: x[0])
+
+        for run in failed_runs:
+            t_fail = run.completed_at
+            wf_id = run.workflow_id
+            next_successes = success_by_workflow.get(wf_id, [])
+            next_success = next(
+                (t for t, _ in next_successes if t > t_fail), None
+            )
+            if next_success:
+                recovery_seconds = (next_success - t_fail).total_seconds()
+                recovery_times.append(recovery_seconds / 3600)
+
+        mttr_hours: float | None = None
+        if recovery_times:
+            mttr_hours = round(sum(recovery_times) / len(recovery_times), 2)
+
+        return {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "total_runs": total_completed,
+            "successful_runs": success_count,
+            "failed_runs": failure_count,
+            "cancelled_runs": cancelled_count,
+            "failure_rate": round(failure_rate, 2),
+            "mttr_hours": mttr_hours,
+            "stability_score": round(stability_score, 2),
+        }
+
     async def get_lead_time_for_changes(
         self,
         start_date: datetime,

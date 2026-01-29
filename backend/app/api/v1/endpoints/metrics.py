@@ -123,6 +123,28 @@ async def get_deployment_frequency(
     return result
 
 
+@router.get("/dora/deployment-reliability")
+async def get_deployment_reliability(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get deployment reliability metrics.
+
+    Returns failure rate (% of runs that failed), MTTR (mean time to recovery
+    in hours), and stability score (0–100).
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DORAMetricsService(db)
+    return await service.get_deployment_reliability(
+        start_date, end_date, repo_id
+    )
+
+
 @router.get("/dora/lead-time")
 async def get_lead_time(
     start_date: datetime | None = None,

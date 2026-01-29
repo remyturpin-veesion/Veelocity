@@ -481,15 +481,18 @@ Response:
 
 ---
 
-### Feature 7: Deployment Reliability Metrics
-**Status:** Not started | **Priority:** P1 | **Estimated:** 2-3 days
+### ✅ Feature 7: Deployment Reliability Metrics (COMPLETED)
+**Status:** Done | **Priority:** P1
 
 **Implementation:**
-- Enhance `backend/app/services/metrics/dora.py`:
-  - Deployment failure rate (% with conclusion="failure")
-  - Mean Time to Recovery (MTTR)
-  - Deployment stability score
-- Frontend: Add to deployment frequency screen
+- **Backend** (`backend/app/services/metrics/dora.py`):
+  - `get_deployment_reliability(start_date, end_date, repo_id)`:
+  - **Failure rate:** % of deployment runs with conclusion "failure" (among success/failure/cancelled)
+  - **MTTR:** Mean time to recovery (hours from failure to next successful run, same workflow)
+  - **Stability score:** 100 × (1 − failure_rate)
+- **API:** `GET /api/v1/metrics/dora/deployment-reliability` (start_date, end_date, repo_id)
+- **Tests:** `backend/tests/services/test_dora.py` — 6 tests (empty, all success, mixed, MTTR, MTTR multiple, no recovery)
+- **Frontend:** `DeploymentReliability` model, `getDeploymentReliability()` in MetricsService, `deploymentReliabilityProvider`; deployment frequency screen shows three reliability cards (Failure rate, MTTR, Stability score) when data exists
 
 ---
 
@@ -772,7 +775,7 @@ Response:
 
 ---
 
-**Current Phase:** 2 of 5 | **Current Feature:** 5 of 15 (33% complete)
+**Current Phase:** 2 of 5 | **Current Feature:** 7 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
-**Phase 2:** In Progress (2/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅)
-**Next Up:** Phase 2 - Feature 7: Deployment Reliability Metrics
+**Phase 2:** In Progress (3/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅)
+**Next Up:** Phase 2 - Feature 8: Smart Recommendations Engine

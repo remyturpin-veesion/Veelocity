@@ -36,6 +36,7 @@ class DeploymentFrequencyScreen extends ConsumerWidget {
       metricInfo: MetricInfo.deploymentFrequency,
       onRefresh: () {
         ref.invalidate(deploymentFrequencyProvider);
+        ref.invalidate(deploymentReliabilityProvider);
         final repos = ref.read(repositoriesProvider).valueOrNull ?? [];
         for (final repo in repos) {
           ref.invalidate(deploymentFrequencyByRepoProvider(repo.id));
@@ -45,7 +46,15 @@ class DeploymentFrequencyScreen extends ConsumerWidget {
         return metricAsync.when(
           loading: () => _buildLoadingSummary(),
           error: (e, _) => _buildErrorSummary(context, e),
-          data: (data) => _buildSummary(context, data),
+          data: (data) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSummary(context, data),
+              const SizedBox(height: 12),
+              _buildReliabilityCards(context, ref),
+            ],
+          ),
         );
       },
       contentBuilder: (context, ref) {
@@ -118,6 +127,61 @@ class DeploymentFrequencyScreen extends ConsumerWidget {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReliabilityCards(BuildContext context, WidgetRef ref) {
+    final reliabilityAsync = ref.watch(deploymentReliabilityProvider);
+    return reliabilityAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (r) {
+        if (r.totalRuns == 0) return const SizedBox.shrink();
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 400;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: isWide
+                      ? (constraints.maxWidth - 24) / 3
+                      : constraints.maxWidth,
+                  child: SummaryStatCard(
+                    label: 'Failure rate',
+                    value: '${r.failureRate}%',
+                    icon: Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                  ),
+                ),
+                SizedBox(
+                  width: isWide
+                      ? (constraints.maxWidth - 24) / 3
+                      : constraints.maxWidth,
+                  child: SummaryStatCard(
+                    label: 'MTTR (hours)',
+                    value: r.mttrHours != null ? '${r.mttrHours}' : '—',
+                    icon: Icons.schedule,
+                    color: Colors.indigo,
+                  ),
+                ),
+                SizedBox(
+                  width: isWide
+                      ? (constraints.maxWidth - 24) / 3
+                      : constraints.maxWidth,
+                  child: SummaryStatCard(
+                    label: 'Stability score',
+                    value: '${r.stabilityScore}',
+                    icon: Icons.health_and_safety,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
