@@ -164,6 +164,35 @@ class GitHubConnector(BaseConnector):
                 
         return prs
 
+    async def fetch_pull_request_details(
+        self, repo_full_name: str, pr_number: int
+    ) -> dict | None:
+        """
+        Fetch a single PR to get additions, deletions, commits_count.
+
+        The list-pulls endpoint does not return these fields; only GET pull does.
+        """
+        try:
+            response = await self._get(
+                f"/repos/{repo_full_name}/pulls/{pr_number}",
+            )
+        except RateLimitExceeded as e:
+            stats = self._rate_limiter.get_stats()
+            logger.warning(
+                f"Rate limit hit fetching PR #{pr_number} details: {e} "
+                f"(sync: {stats['calls_made']}/{stats['max_per_sync']}, "
+                f"hourly: {stats['hourly_calls']}/{stats['max_per_hour']})"
+            )
+            return None
+        if response.status_code != 200:
+            return None
+        pr = response.json()
+        return {
+            "additions": pr.get("additions", 0),
+            "deletions": pr.get("deletions", 0),
+            "commits_count": pr.get("commits", 0),
+        }
+
     async def fetch_reviews(self, repo_full_name: str, pr_number: int) -> list[dict]:
         try:
             response = await self._get(

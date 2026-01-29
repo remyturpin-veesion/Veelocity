@@ -111,6 +111,24 @@ async def test_fetch_reviews(connector):
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_fetch_pull_request_details(connector):
+    respx.get("https://api.github.com/repos/owner/repo/pulls/42").mock(
+        return_value=Response(200, json={
+            "id": 100,
+            "additions": 150,
+            "deletions": 30,
+            "commits": 5,
+        })
+    )
+    details = await connector.fetch_pull_request_details("owner/repo", 42)
+    assert details is not None
+    assert details["additions"] == 150
+    assert details["deletions"] == 30
+    assert details["commits_count"] == 5
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_fetch_comments(connector):
     respx.get("https://api.github.com/repos/owner/repo/pulls/42/comments").mock(
         return_value=Response(200, json=[

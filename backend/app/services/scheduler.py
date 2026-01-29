@@ -271,11 +271,20 @@ async def run_fill_details(batch_size: int = 100):
                 commits = await github.fetch_pr_commits(repo_full_name, pr_number)
                 items_synced += await sync_service._upsert_commits(repo_id, pr_id, commits)
                 
-                # Mark PR as having details synced (UPDATE handles missing PR gracefully)
+                # List-pulls does not return additions/deletions; fetch single PR
+                details = await github.fetch_pull_request_details(
+                    repo_full_name, pr_number
+                )
+                update_values = {"details_synced_at": datetime.utcnow()}
+                if details:
+                    update_values["additions"] = details.get("additions", 0)
+                    update_values["deletions"] = details.get("deletions", 0)
+                    update_values["commits_count"] = details.get("commits_count", 0)
+                
                 await db.execute(
                     update(PullRequest)
                     .where(PullRequest.id == pr_id)
-                    .values(details_synced_at=datetime.utcnow())
+                    .values(**update_values)
                 )
                 
                 prs_processed += 1
@@ -285,8 +294,48 @@ async def run_fill_details(batch_size: int = 100):
                 await db.rollback()
                 continue
         
+        # Backfill additions/deletions for PRs that were detail-synced before we stored them
+        backfill_result = await db.execute(
+            select(
+                PullRequest.id,
+                PullRequest.number,
+                Repository.full_name,
+            )
+            .join(Repository)
+            .where(PullRequest.details_synced_at.isnot(None))
+            .where(PullRequest.additions == 0, PullRequest.deletions == 0)
+            .order_by(PullRequest.updated_at.desc())
+            .limit(50)
+        )
+        backfill_prs = [
+            {"pr_id": r[0], "pr_number": r[1], "repo_full_name": r[2]}
+            for r in backfill_result.all()
+        ]
+        for pr_data in backfill_prs:
+            try:
+                details = await github.fetch_pull_request_details(
+                    pr_data["repo_full_name"], pr_data["pr_number"]
+                )
+                if details and (details.get("additions", 0) or details.get("deletions", 0)):
+                    await db.execute(
+                        update(PullRequest)
+                        .where(PullRequest.id == pr_data["pr_id"])
+                        .values(
+                            additions=details.get("additions", 0),
+                            deletions=details.get("deletions", 0),
+                            commits_count=details.get("commits_count", 0),
+                        )
+                    )
+                    await db.commit()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to backfill PR #{pr_data['pr_number']} stats: {e}"
+                )
+                await db.rollback()
+                continue
+
         await github.close()
-        
+
         stats = rate_limiter.get_stats()
         logger.info(
             f"Filled {items_synced} items for {prs_processed} PRs "

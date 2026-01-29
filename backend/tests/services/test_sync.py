@@ -41,6 +41,11 @@ def mock_connector():
     connector.fetch_pr_commits.return_value = [
         {"sha": "abc123", "author_login": "dev1", "message": "feat: add thing", "committed_at": "2025-01-01T08:00:00Z"}
     ]
+    connector.fetch_pull_request_details.return_value = {
+        "additions": 10,
+        "deletions": 5,
+        "commits_count": 2,
+    }
     return connector
 
 
@@ -103,13 +108,14 @@ def mock_db():
 
 @pytest.mark.asyncio
 async def test_sync_all_calls_connector_methods(mock_db, mock_connector):
-    """sync_all should fetch repos, PRs, reviews, comments, commits."""
+    """sync_all with fetch_details=True fetches repos, PRs, reviews, comments, commits, PR details."""
     service = SyncService(mock_db, mock_connector)
-    count = await service.sync_all()
+    count = await service.sync_all(fetch_details=True)
 
     mock_connector.fetch_repos.assert_called_once()
     mock_connector.fetch_pull_requests.assert_called_once_with("owner/repo", state="all")
     mock_connector.fetch_reviews.assert_called_once_with("owner/repo", 1)
     mock_connector.fetch_comments.assert_called_once_with("owner/repo", 1)
     mock_connector.fetch_pr_commits.assert_called_once_with("owner/repo", 1)
+    mock_connector.fetch_pull_request_details.assert_called_once_with("owner/repo", 1)
     assert count > 0

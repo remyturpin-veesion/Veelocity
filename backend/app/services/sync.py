@@ -128,6 +128,15 @@ class SyncService:
                     repo_data["full_name"], pr_data["number"]
                 )
                 count += await self._upsert_commits(repo.id, pr.id, commits)
+
+                # List-pulls does not return additions/deletions; fetch single PR
+                details = await self._connector.fetch_pull_request_details(
+                    repo_data["full_name"], pr_data["number"]
+                )
+                if details:
+                    pr.additions = details.get("additions", 0)
+                    pr.deletions = details.get("deletions", 0)
+                    pr.commits_count = details.get("commits_count", 0)
                 
                 # Mark PR as having details synced
                 pr.details_synced_at = datetime.utcnow()
