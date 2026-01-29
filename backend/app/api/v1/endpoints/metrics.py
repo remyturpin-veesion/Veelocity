@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.services.metrics.anomalies import AnomalyDetectionService
 from app.services.metrics.benchmarks import BenchmarkService
 from app.services.metrics.comparison import ComparisonService
+from app.services.metrics.correlation import CorrelationService
 from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
 from app.services.insights.recommendation_engine import RecommendationEngine
@@ -691,4 +692,35 @@ async def get_recommendations(
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
         "recommendations": [r.to_dict() for r in recommendations],
+    }
+
+
+@router.get("/correlations")
+async def get_correlations(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "week",
+    repo_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get pairwise Pearson correlations between deployment frequency, throughput,
+    and lead time (by period). Requires at least 3 aligned periods per pair.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = CorrelationService(db)
+    pairs = await service.get_correlations(
+        start_date=start_date,
+        end_date=end_date,
+        period=period,
+        repo_id=repo_id,
+    )
+
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "period": period,
+        "pairs": pairs,
     }

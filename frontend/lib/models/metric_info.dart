@@ -33,6 +33,7 @@ class MetricInfo {
     'pr_health': prHealth,
     'reviewer_workload': reviewerWorkload,
     'recommendations': recommendations,
+    'correlations': correlations,
   };
 
   static const deploymentFrequency = MetricInfo(
@@ -194,5 +195,22 @@ class MetricInfo {
     ],
     icon: Icons.lightbulb_outline,
     color: Colors.amber,
+  );
+
+  static const correlations = MetricInfo(
+    id: 'correlations',
+    name: 'Correlation Analysis',
+    description:
+        'Pairwise Pearson correlations between deployment frequency, throughput, and lead time over time. Helps spot relationships (e.g. more deployments vs lower lead time).',
+    calculation:
+        'Time-series by period (week): deployment count, throughput count, median lead time. Align periods, compute Pearson r per pair. Requires ≥3 periods.',
+    unit: '—',
+    tips: [
+      'Positive r: metrics move together',
+      'Negative r: one up when the other is down',
+      'Near 0: little linear relationship',
+    ],
+    icon: Icons.show_chart,
+    color: Colors.teal,
   );
 }

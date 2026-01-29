@@ -550,8 +550,20 @@ Response:
 - **Router:** Added nested route `/team/developer/:login`
 - **Team screen:** Developer cards now navigate to profile page (`context.go('/team/developer/${developer.login}')`); bottom sheet removed in favor of full-page profile
 
-### Feature 11: Correlation Analysis
-**Status:** Not started | **Priority:** P2 | **Estimated:** 4-5 days
+### Feature 11: Correlation Analysis (COMPLETED - Jan 29, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Backend:**
+  - `backend/app/services/metrics/correlation.py` — CorrelationService: aligns time-series by period (deployment frequency, throughput, lead time by period), computes Pearson correlation per pair; returns list of {metric_a, metric_b, correlation, period_count}.
+  - `DORAMetricsService.get_lead_time_by_period()` — returns list of {period, median_hours} for correlation (lead time grouped by deployment period).
+  - `GET /api/v1/metrics/correlations` — query params: start_date, end_date, period (day/week/month), repo_id.
+- **Tests:** `backend/tests/services/test_correlation.py` — 8 tests (_align_series, _pearson, get_correlations with mocks).
+- **Frontend:**
+  - `frontend/lib/models/correlation.dart` — CorrelationPair, CorrelationsResponse, metricLabel().
+  - `frontend/lib/screens/correlations_screen.dart` — CorrelationsScreen with breadcrumb, empty state, list of correlation cards (metric pair, r, period count).
+  - MetricsService.getCorrelations(), correlationsProvider.
+  - Route `/insights/correlations`, side nav under Insights (MetricInfo.correlations, icon show_chart).
 
 ---
 
@@ -809,4 +821,4 @@ Response:
 **Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 3 - Feature 11: Correlation Analysis
+**Next Up:** Phase 4 - Feature 12: Alert Rules Engine

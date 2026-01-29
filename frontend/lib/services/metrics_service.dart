@@ -4,6 +4,7 @@ import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_health.dart';
+import '../models/correlation.dart';
 import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
 
@@ -142,6 +143,32 @@ class MetricsService {
     );
 
     return RecommendationsResponse.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  /// Get pairwise correlations between deployment frequency, throughput, lead time.
+  Future<CorrelationsResponse> getCorrelations({
+    DateTime? startDate,
+    DateTime? endDate,
+    String period = 'week',
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{'period': period};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+    final response = await _dio.get(
+      '/api/v1/metrics/correlations',
+      queryParameters: queryParams,
+    );
+    return CorrelationsResponse.fromJson(
       response.data as Map<String, dynamic>,
     );
   }

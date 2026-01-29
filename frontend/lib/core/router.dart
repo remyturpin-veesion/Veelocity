@@ -12,6 +12,7 @@ import '../screens/metrics/pr_review_time_screen.dart';
 import '../screens/metrics/throughput_screen.dart';
 import '../screens/pr_detail_screen.dart';
 import '../screens/pr_health_screen.dart';
+import '../screens/correlations_screen.dart';
 import '../screens/recommendations_screen.dart';
 import '../screens/reviewer_workload_screen.dart';
 import '../services/providers.dart';
@@ -133,6 +134,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _buildFadePage(
               state,
               const RecommendationsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/insights/correlations',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const CorrelationsScreen(),
             ),
           ),
           GoRoute(

@@ -7,6 +7,7 @@ import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_detail.dart';
 import '../models/pr_health.dart';
+import '../models/correlation.dart';
 import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
 import '../models/sync_coverage.dart';
@@ -532,6 +533,20 @@ final recommendationsProvider =
   return service.getRecommendations(
     startDate: period.startDate,
     endDate: period.endDate,
+    repoId: repoId,
+  );
+});
+
+/// Provider for metric correlations (deployment frequency, throughput, lead time).
+final correlationsProvider = FutureProvider<CorrelationsResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+  final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
+  return service.getCorrelations(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    period: 'week',
     repoId: repoId,
   );
 });

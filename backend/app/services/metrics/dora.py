@@ -272,6 +272,54 @@ class DORAMetricsService:
             "median_hours": round(median_hours, 2),
         }
 
+    async def get_lead_time_by_period(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        period: Literal["day", "week", "month"] = "week",
+        repo_id: int | None = None,
+        author_login: str | None = None,
+    ) -> list[dict]:
+        """
+        Lead time median per period (for correlation analysis).
+
+        Returns list of {"period": str, "median_hours": float} sorted by period.
+        """
+        from datetime import datetime as dt
+
+        result = await self.get_lead_time_for_changes(
+            start_date, end_date, repo_id, author_login
+        )
+        measurements = result.get("measurements") or []
+
+        def get_period_key(iso_str: str) -> str:
+            try:
+                d = dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                return ""
+            if period == "day":
+                return d.strftime("%Y-%m-%d")
+            if period == "week":
+                return d.strftime("%Y-W%W")
+            return d.strftime("%Y-%m")
+
+        by_period: dict[str, list[float]] = {}
+        for m in measurements:
+            key = get_period_key(m.get("deployed_at") or "")
+            if not key:
+                continue
+            hours = m.get("lead_time_hours")
+            if hours is None:
+                continue
+            by_period.setdefault(key, []).append(float(hours))
+
+        out = []
+        for key in sorted(by_period.keys()):
+            times = sorted(by_period[key])
+            median = times[len(times) // 2] if times else 0.0
+            out.append({"period": key, "median_hours": round(median, 2)})
+        return out
+
     def _group_by_period(
         self, dates: list[datetime], period: Literal["day", "week", "month"]
     ) -> list[dict]:
