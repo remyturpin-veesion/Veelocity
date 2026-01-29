@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/alert.dart';
 import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
@@ -33,6 +34,7 @@ class DashboardScreen extends ConsumerWidget {
     // Watch Phase 2 insight providers (optional; don't block dashboard)
     final recommendationsAsync = ref.watch(recommendationsProvider);
     final reliabilityAsync = ref.watch(deploymentReliabilityProvider);
+    final alertsAsync = ref.watch(alertsProvider);
 
     // Show loading if any critical metric is loading
     if (deploymentFreqAsync.isLoading || leadTimeAsync.isLoading) {
@@ -58,6 +60,7 @@ class DashboardScreen extends ConsumerWidget {
       leadTimeAnomaliesAsync.value,
       recommendationsAsync.value,
       reliabilityAsync.value,
+      alertsAsync.value,
     );
   }
 
@@ -151,6 +154,7 @@ class DashboardScreen extends ConsumerWidget {
     AnomalyResponse? leadTimeAnomalies,
     RecommendationsResponse? recommendations,
     DeploymentReliability? reliability,
+    AlertsResponse? alerts,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
 
@@ -200,6 +204,12 @@ class DashboardScreen extends ConsumerWidget {
           if (reliability != null && reliability.totalRuns > 0)
             _buildReliabilityCard(context, reliability),
           if (reliability != null && reliability.totalRuns > 0)
+            const SizedBox(height: 24),
+
+          // Active alerts (Phase 4 - Alert Rules Engine)
+          if (alerts != null && alerts.alerts.isNotEmpty)
+            _buildAlertsCard(context, alerts),
+          if (alerts != null && alerts.alerts.isNotEmpty)
             const SizedBox(height: 24),
 
           // DORA Metrics Section
@@ -561,6 +571,144 @@ class DashboardScreen extends ConsumerWidget {
                       '${reliability.stabilityScore.toStringAsFixed(0)}% stability · '
                       '${reliability.failureRate.toStringAsFixed(1)}% failure rate '
                       '(${reliability.totalRuns} runs)',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertsCard(BuildContext context, AlertsResponse alerts) {
+    final theme = Theme.of(context);
+    final highCount = alerts.alerts.where((a) => a.severity == 'high').length;
+    final total = alerts.alerts.length;
+    final color = highCount > 0 ? Colors.red : Colors.orange;
+
+    return Card(
+      elevation: 2,
+      color: color.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withOpacity(0.3), width: 2),
+      ),
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Active Alerts'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: alerts.alerts
+                      .map(
+                        (a) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: a.severity == 'high'
+                                          ? Colors.red.withOpacity(0.2)
+                                          : Colors.orange.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      a.severity.toUpperCase(),
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color: a.severity == 'high'
+                                            ? Colors.red
+                                            : Colors.orange,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      a.title,
+                                      style:
+                                          theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                a.message,
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notification_important,
+                  color: color,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active alerts',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      highCount > 0
+                          ? '$total alert${total == 1 ? '' : 's'} ($highCount high)'
+                          : '$total alert${total == 1 ? '' : 's'}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

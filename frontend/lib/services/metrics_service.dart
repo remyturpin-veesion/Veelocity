@@ -4,6 +4,7 @@ import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_health.dart';
+import '../models/alert.dart';
 import '../models/correlation.dart';
 import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
@@ -169,6 +170,31 @@ class MetricsService {
       queryParameters: queryParams,
     );
     return CorrelationsResponse.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  /// Get active alerts (rule evaluations) for the period.
+  Future<AlertsResponse> getAlerts({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? repoId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (repoId != null) {
+      queryParams['repo_id'] = repoId;
+    }
+    final response = await _dio.get(
+      '/api/v1/alerts',
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
+    return AlertsResponse.fromJson(
       response.data as Map<String, dynamic>,
     );
   }

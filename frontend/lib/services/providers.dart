@@ -7,6 +7,7 @@ import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/pr_detail.dart';
 import '../models/pr_health.dart';
+import '../models/alert.dart';
 import '../models/correlation.dart';
 import '../models/recommendation.dart';
 import '../models/reviewer_workload.dart';
@@ -547,6 +548,19 @@ final correlationsProvider = FutureProvider<CorrelationsResponse>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     period: 'week',
+    repoId: repoId,
+  );
+});
+
+/// Provider for active alerts (rule evaluations).
+final alertsProvider = FutureProvider<AlertsResponse>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
+  final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
+  return service.getAlerts(
+    startDate: period.startDate,
+    endDate: period.endDate,
     repoId: repoId,
   );
 });

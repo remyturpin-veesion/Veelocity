@@ -1,6 +1,16 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import actions, connectors, developers, github, linear, metrics, repositories, sync
+from app.api.v1.endpoints import (
+    actions,
+    alerts,
+    connectors,
+    developers,
+    github,
+    linear,
+    metrics,
+    repositories,
+    sync,
+)
 
 api_router = APIRouter()
 
@@ -11,6 +21,7 @@ api_router.include_router(linear.router)
 api_router.include_router(metrics.router)
 api_router.include_router(repositories.router)
 api_router.include_router(developers.router)
+api_router.include_router(alerts.router)
 api_router.include_router(sync.router)
 
 

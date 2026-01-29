@@ -567,10 +567,21 @@ Response:
 
 ---
 
-## Phase 4: Proactive Alerts & Notifications (Weeks 7-8) - STATUS: Planned
+## Phase 4: Proactive Alerts & Notifications (Weeks 7-8) - STATUS: In Progress
 
-### Feature 12: Alert Rules Engine
-**Status:** Not started | **Priority:** P2 | **Estimated:** 5-6 days
+### Feature 12: Alert Rules Engine (COMPLETED - Jan 29, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Backend:**
+  - `backend/app/services/insights/alerts.py` — AlertsService: evaluates fixed rules against current metrics; Alert dataclass (rule_id, title, message, severity, metric, current_value, threshold). Rules: deployment frequency <1/week (high), lead time >48h (high), PR review time >24h (medium), throughput 0 (medium), reviewer bottleneck (medium).
+  - `GET /api/v1/alerts` — query params: start_date, end_date, repo_id. Returns { start_date, end_date, alerts: [...] }.
+  - New router `app/api/v1/endpoints/alerts.py` included in api_router.
+- **Tests:** `backend/tests/services/test_alerts.py` — 3 tests (Alert.to_dict, get_alerts empty when healthy, get_alerts deployment_frequency_low).
+- **Frontend:**
+  - `frontend/lib/models/alert.dart` — Alert, AlertsResponse.
+  - MetricsService.getAlerts(), alertsProvider (period + repo filters).
+  - Dashboard: "Active alerts" card when alerts.alerts.isNotEmpty (red if any high, else orange); tap opens dialog listing alerts with severity badge, title, message.
 
 ### Feature 13: Email/Webhook Notifications
 **Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
@@ -821,4 +832,4 @@ Response:
 **Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 4 - Feature 12: Alert Rules Engine
+**Next Up:** Phase 4 - Feature 13: Email/Webhook Notifications
