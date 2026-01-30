@@ -11,6 +11,7 @@ import 'settings_dialog.dart';
 import 'metrics_side_nav.dart';
 import 'period_selector.dart';
 import 'repo_multi_selector.dart';
+import 'team_multi_selector.dart';
 
 /// Base scaffold providing consistent layout across all screens.
 ///
@@ -44,8 +45,10 @@ class BaseScaffold extends ConsumerWidget {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
     final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
     final selectedDeveloperLogins = ref.watch(selectedDeveloperLoginsProvider);
+    final selectedTeamIds = ref.watch(selectedTeamIdsProvider);
     final reposAsync = ref.watch(repositoriesProvider);
     final developersAsync = ref.watch(developersProvider);
+    final teamsAsync = ref.watch(linearTeamsProvider);
     final currentTab = ref.watch(mainTabProvider);
 
     return Scaffold(
@@ -196,6 +199,26 @@ class BaseScaffold extends ConsumerWidget {
                           ref
                               .read(selectedDeveloperLoginsProvider.notifier)
                               .state = logins;
+                        },
+                      ),
+                    )
+                  else if (currentTab == MainTab.linear)
+                    teamsAsync.when(
+                      loading: () => const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      error: (_, __) => const Text(
+                        'Error loading teams',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      data: (teams) => TeamMultiSelector(
+                        teams: teams,
+                        selectedTeamIds: selectedTeamIds,
+                        onChanged: (ids) {
+                          ref.read(selectedTeamIdsProvider.notifier).state =
+                              ids;
                         },
                       ),
                     )

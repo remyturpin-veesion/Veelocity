@@ -21,12 +21,21 @@ class LinearMetricsService:
     def __init__(self, db: AsyncSession):
         self._db = db
 
+    def _team_filter(self, team_id: int | None, team_ids: list[int] | None):
+        """Resolve team filter: team_ids if non-empty, else single team_id, else None."""
+        if team_ids:
+            return list(team_ids)
+        if team_id is not None:
+            return [team_id]
+        return None
+
     async def get_issues_completed(
         self,
         start_date: datetime,
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         team_id: int | None = None,
+        team_ids: list[int] | None = None,
     ) -> dict:
         """
         Count of issues with completed_at in the period, grouped by period.
@@ -38,8 +47,9 @@ class LinearMetricsService:
                 LinearIssue.completed_at.isnot(None),
             )
         )
-        if team_id is not None:
-            query = query.where(LinearIssue.team_id == team_id)
+        ids = self._team_filter(team_id, team_ids)
+        if ids:
+            query = query.where(LinearIssue.team_id.in_(ids))
 
         result = await self._db.execute(query)
         dates = [row[0] for row in result.all() if row[0]]
@@ -61,6 +71,7 @@ class LinearMetricsService:
     async def get_backlog(
         self,
         team_id: int | None = None,
+        team_ids: list[int] | None = None,
     ) -> dict:
         """
         Count of open issues (completed_at and canceled_at both null).
@@ -71,8 +82,9 @@ class LinearMetricsService:
                 LinearIssue.canceled_at.is_(None),
             )
         )
-        if team_id is not None:
-            query = query.where(LinearIssue.team_id == team_id)
+        ids = self._team_filter(team_id, team_ids)
+        if ids:
+            query = query.where(LinearIssue.team_id.in_(ids))
 
         result = await self._db.execute(query)
         count = result.scalar() or 0
@@ -84,6 +96,7 @@ class LinearMetricsService:
         start_date: datetime,
         end_date: datetime,
         team_id: int | None = None,
+        team_ids: list[int] | None = None,
     ) -> dict:
         """
         For completed issues: time from started_at to completed_at.
@@ -100,8 +113,9 @@ class LinearMetricsService:
                 )
             )
         )
-        if team_id is not None:
-            query = query.where(LinearIssue.team_id == team_id)
+        ids = self._team_filter(team_id, team_ids)
+        if ids:
+            query = query.where(LinearIssue.team_id.in_(ids))
 
         result = await self._db.execute(query)
         rows = result.all()
@@ -133,16 +147,17 @@ class LinearMetricsService:
         start_date: datetime,
         end_date: datetime,
         team_id: int | None = None,
+        team_ids: list[int] | None = None,
     ) -> dict:
         """
         Single response for dashboard: issues completed, backlog, time-in-state.
         """
         issues_completed = await self.get_issues_completed(
-            start_date, end_date, period="week", team_id=team_id
+            start_date, end_date, period="week", team_id=team_id, team_ids=team_ids
         )
-        backlog = await self.get_backlog(team_id=team_id)
+        backlog = await self.get_backlog(team_id=team_id, team_ids=team_ids)
         time_in_state = await self.get_time_in_state(
-            start_date, end_date, team_id=team_id
+            start_date, end_date, team_id=team_id, team_ids=team_ids
         )
 
         return {

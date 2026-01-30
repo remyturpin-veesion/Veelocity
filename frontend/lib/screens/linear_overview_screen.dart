@@ -15,9 +15,8 @@ class LinearOverviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final overviewAsync = ref.watch(linearOverviewProvider);
     final coverageAsync = ref.watch(syncCoverageProvider);
-    final teamsAsync = ref.watch(linearTeamsProvider);
-    final issuesAsync =
-        ref.watch(linearIssuesProvider(LinearIssuesFilter.none));
+    final linearFilter = ref.watch(linearIssuesFilterProvider);
+    final issuesAsync = ref.watch(linearIssuesProvider(linearFilter));
     final selectedPeriod = ref.watch(selectedPeriodProvider);
 
     return SingleChildScrollView(
@@ -87,7 +86,8 @@ class LinearOverviewScreen extends ConsumerWidget {
                   ref.invalidate(syncCoverageProvider);
                   ref.invalidate(linearOverviewProvider);
                   ref.invalidate(linearTeamsProvider);
-                  ref.invalidate(linearIssuesProvider(LinearIssuesFilter.none));
+                  ref.invalidate(linearIssuesProvider(
+                      ref.read(linearIssuesFilterProvider)));
                 },
               );
             },
@@ -167,38 +167,6 @@ class LinearOverviewScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 32),
-
-          // Teams (optional)
-          teamsAsync.when(
-            data: (teams) {
-              if (teams.isEmpty) return const SizedBox.shrink();
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Teams',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: teams
-                        .map((t) => Chip(
-                              label: Text('${t.name} (${t.key})'),
-                              avatar: const Icon(Icons.group, size: 18),
-                            ))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
 
           // Recent issues (optional, first 10)
           issuesAsync.when(

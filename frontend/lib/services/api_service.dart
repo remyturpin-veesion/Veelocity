@@ -162,15 +162,18 @@ class ApiService {
   }
 
   /// Get Linear issues (paginated, optional filters).
+  /// [teamIds]: when non-empty, filter to these team IDs (one or more).
   Future<Map<String, dynamic>> getLinearIssues({
-    int? teamId,
+    List<int>? teamIds,
     String? state,
     bool? linked,
     int page = 1,
     int limit = 20,
   }) async {
     final queryParams = <String, dynamic>{'page': page, 'limit': limit};
-    if (teamId != null) queryParams['team_id'] = teamId;
+    if (teamIds != null && teamIds.isNotEmpty) {
+      queryParams['team_ids'] = teamIds;
+    }
     if (state != null) queryParams['state'] = state;
     if (linked != null) queryParams['linked'] = linked;
 

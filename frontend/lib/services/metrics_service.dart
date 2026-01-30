@@ -503,10 +503,11 @@ class MetricsService {
   }
 
   /// Get Linear overview (issues completed, backlog, time-in-state).
+  /// [teamIds]: when non-empty, filter to these team IDs (one or more).
   Future<LinearOverview> getLinearOverview({
     DateTime? startDate,
     DateTime? endDate,
-    int? teamId,
+    List<int>? teamIds,
   }) async {
     final queryParams = <String, dynamic>{};
     if (startDate != null) {
@@ -515,8 +516,8 @@ class MetricsService {
     if (endDate != null) {
       queryParams['end_date'] = endDate.toIso8601String();
     }
-    if (teamId != null) {
-      queryParams['team_id'] = teamId;
+    if (teamIds != null && teamIds.isNotEmpty) {
+      queryParams['team_ids'] = teamIds;
     }
     final response = await _dio.get(
       '/api/v1/metrics/linear/overview',
@@ -530,7 +531,7 @@ class MetricsService {
     DateTime? startDate,
     DateTime? endDate,
     String period = 'week',
-    int? teamId,
+    List<int>? teamIds,
   }) async {
     final queryParams = <String, dynamic>{'period': period};
     if (startDate != null) {
@@ -539,8 +540,8 @@ class MetricsService {
     if (endDate != null) {
       queryParams['end_date'] = endDate.toIso8601String();
     }
-    if (teamId != null) {
-      queryParams['team_id'] = teamId;
+    if (teamIds != null && teamIds.isNotEmpty) {
+      queryParams['team_ids'] = teamIds;
     }
     final response = await _dio.get(
       '/api/v1/metrics/linear/issues-completed',
@@ -552,8 +553,9 @@ class MetricsService {
   }
 
   /// Get Linear backlog count (open issues).
-  Future<LinearBacklog> getLinearBacklog({int? teamId}) async {
-    final queryParams = teamId != null ? {'team_id': teamId} : null;
+  Future<LinearBacklog> getLinearBacklog({List<int>? teamIds}) async {
+    final queryParams =
+        teamIds != null && teamIds.isNotEmpty ? {'team_ids': teamIds} : null;
     final response = await _dio.get(
       '/api/v1/metrics/linear/backlog',
       queryParameters: queryParams,
@@ -565,7 +567,7 @@ class MetricsService {
   Future<LinearTimeInState> getLinearTimeInState({
     DateTime? startDate,
     DateTime? endDate,
-    int? teamId,
+    List<int>? teamIds,
   }) async {
     final queryParams = <String, dynamic>{};
     if (startDate != null) {
@@ -574,8 +576,8 @@ class MetricsService {
     if (endDate != null) {
       queryParams['end_date'] = endDate.toIso8601String();
     }
-    if (teamId != null) {
-      queryParams['team_id'] = teamId;
+    if (teamIds != null && teamIds.isNotEmpty) {
+      queryParams['team_ids'] = teamIds;
     }
     final response = await _dio.get(
       '/api/v1/metrics/linear/time-in-state',

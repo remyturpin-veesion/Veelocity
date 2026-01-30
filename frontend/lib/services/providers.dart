@@ -62,6 +62,12 @@ final selectedDeveloperLoginsProvider = StateProvider<Set<String>>((ref) {
   return {};
 });
 
+/// State provider for selected Linear team IDs (multi-selection).
+/// Empty set means "all teams".
+final selectedTeamIdsProvider = StateProvider<Set<int>>((ref) {
+  return {};
+});
+
 /// State provider for last refresh time.
 final lastRefreshTimeProvider = StateProvider<DateTime?>((ref) {
   return null;
@@ -587,7 +593,7 @@ final linearIssuesProvider =
         (ref, filter) async {
   final api = ref.read(apiServiceProvider);
   final data = await api.getLinearIssues(
-    teamId: filter.teamId,
+    teamIds: filter.teamIds,
     state: filter.state,
     linked: filter.linked,
     page: 1,
@@ -601,33 +607,61 @@ final linearIssuesProvider =
 
 /// Filter params for Linear issues list (used as family key).
 class LinearIssuesFilter {
-  final int? teamId;
+  final List<int>? teamIds;
   final String? state;
   final bool? linked;
 
-  const LinearIssuesFilter({this.teamId, this.state, this.linked});
+  const LinearIssuesFilter({this.teamIds, this.state, this.linked});
 
   static const none = LinearIssuesFilter();
+
+  /// Filter from current selected teams (non-empty = filter to those teams).
+  static LinearIssuesFilter fromSelected(Set<int> ids) =>
+      LinearIssuesFilter(teamIds: ids.isEmpty ? null : ids.toList());
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is LinearIssuesFilter &&
-          teamId == other.teamId &&
+          _listEquals(teamIds, other.teamIds) &&
           state == other.state &&
           linked == other.linked;
 
+  static bool _listEquals(List<int>? a, List<int>? b) {
+    if (a == b) return true;
+    if (a == null || b == null || a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   @override
-  int get hashCode => Object.hash(teamId, state, linked);
+  int get hashCode => Object.hash(
+        teamIds == null ? null : Object.hashAll(teamIds!),
+        state,
+        linked,
+      );
 }
+
+/// Current Linear issues filter from selected teams (for family key).
+final linearIssuesFilterProvider = Provider<LinearIssuesFilter>((ref) {
+  final ids = ref.watch(selectedTeamIdsProvider);
+  return LinearIssuesFilter.fromSelected(ids);
+});
+
+/// Resolved team IDs for Linear API: list when non-empty (one or more teams), else null (all teams).
+List<int>? _resolvedTeamIds(Set<int> ids) => ids.isEmpty ? null : ids.toList();
 
 /// Provider for Linear overview (dashboard block and Linear overview screen).
 final linearOverviewProvider = FutureProvider<LinearOverview>((ref) async {
   final service = ref.read(metricsServiceProvider);
   final period = ref.watch(selectedPeriodProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearOverview(
     startDate: period.startDate,
     endDate: period.endDate,
+    teamIds: _resolvedTeamIds(teamIds),
   );
 });
 
@@ -636,17 +670,20 @@ final linearIssuesCompletedProvider =
     FutureProvider<LinearIssuesCompleted>((ref) async {
   final service = ref.read(metricsServiceProvider);
   final period = ref.watch(selectedPeriodProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearIssuesCompleted(
     startDate: period.startDate,
     endDate: period.endDate,
     period: 'week',
+    teamIds: _resolvedTeamIds(teamIds),
   );
 });
 
 /// Provider for Linear backlog count.
 final linearBacklogProvider = FutureProvider<LinearBacklog>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  return service.getLinearBacklog();
+  final teamIds = ref.watch(selectedTeamIdsProvider);
+  return service.getLinearBacklog(teamIds: _resolvedTeamIds(teamIds));
 });
 
 /// Provider for Linear time-in-state metric.
@@ -654,8 +691,10 @@ final linearTimeInStateProvider =
     FutureProvider<LinearTimeInState>((ref) async {
   final service = ref.read(metricsServiceProvider);
   final period = ref.watch(selectedPeriodProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearTimeInState(
     startDate: period.startDate,
     endDate: period.endDate,
+    teamIds: _resolvedTeamIds(teamIds),
   );
 });

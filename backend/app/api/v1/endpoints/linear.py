@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,6 +49,7 @@ async def get_teams(
 @router.get("/issues", response_model=PaginatedResponse[dict[str, Any]])
 async def get_issues(
     team_id: int | None = None,
+    team_ids: list[int] | None = Query(None),
     state: str | None = None,
     linked: bool | None = None,
     pagination: PaginationParams = Depends(get_pagination_params),
@@ -56,17 +57,18 @@ async def get_issues(
 ):
     """
     List Linear issues with optional filters.
-    
-    - team_id: Filter by team
+
+    - team_id / team_ids: Filter by team(s)
     - state: Filter by state (e.g., "Done", "In Progress")
     - linked: Filter by PR link status (true=linked, false=not linked)
     """
     query = select(LinearIssue)
     count_query = select(func.count(LinearIssue.id))
 
-    if team_id is not None:
-        query = query.where(LinearIssue.team_id == team_id)
-        count_query = count_query.where(LinearIssue.team_id == team_id)
+    ids = team_ids if team_ids else ([team_id] if team_id is not None else None)
+    if ids:
+        query = query.where(LinearIssue.team_id.in_(ids))
+        count_query = count_query.where(LinearIssue.team_id.in_(ids))
 
     if state is not None:
         query = query.where(LinearIssue.state == state)
