@@ -130,7 +130,9 @@ class BaseScaffold extends ConsumerWidget {
                             Icon(
                               currentTab == MainTab.dashboard
                                   ? Icons.folder_outlined
-                                  : Icons.people_outline,
+                                  : currentTab == MainTab.team
+                                      ? Icons.people_outline
+                                      : Icons.inbox,
                               size: 16,
                               color: Theme.of(context)
                                   .colorScheme
@@ -141,7 +143,9 @@ class BaseScaffold extends ConsumerWidget {
                             Text(
                               currentTab == MainTab.dashboard
                                   ? 'Repositories'
-                                  : 'Developers',
+                                  : currentTab == MainTab.team
+                                      ? 'Developers'
+                                      : 'Linear',
                               style: Theme.of(context)
                                   .textTheme
                                   .labelLarge
@@ -155,7 +159,7 @@ class BaseScaffold extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        // Show repo selector in Dashboard mode, developer selector in Team mode
+                        // Show repo selector in Dashboard mode, developer selector in Team mode, none for Linear
                         if (currentTab == MainTab.dashboard)
                           reposAsync.when(
                             loading: () => const SizedBox(
@@ -177,7 +181,7 @@ class BaseScaffold extends ConsumerWidget {
                               },
                             ),
                           )
-                        else
+                        else if (currentTab == MainTab.team)
                           developersAsync.when(
                             loading: () => const SizedBox(
                               width: 24,
@@ -198,7 +202,9 @@ class BaseScaffold extends ConsumerWidget {
                                     .state = logins;
                               },
                             ),
-                          ),
+                          )
+                        else
+                          const SizedBox.shrink(),
                       ],
                     ),
                   ),
@@ -247,6 +253,13 @@ class _NavigationTabs extends StatelessWidget {
             label: 'Team',
             isSelected: isHome && currentTab == MainTab.team,
             onTap: () => context.go('/team?tab=team'),
+          ),
+          _buildNavTab(
+            context,
+            icon: Icons.inbox,
+            label: 'Linear',
+            isSelected: isHome && currentTab == MainTab.linear,
+            onTap: () => context.go('/linear?tab=linear'),
           ),
         ],
       ),

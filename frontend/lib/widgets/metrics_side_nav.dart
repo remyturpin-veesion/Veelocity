@@ -64,6 +64,18 @@ class MetricsSideNav extends StatelessWidget {
       route: '/metrics/throughput',
     ),
     const _MetricNavItem(
+      info: MetricInfo.linearIssuesCompleted,
+      route: '/metrics/linear/issues-completed',
+    ),
+    const _MetricNavItem(
+      info: MetricInfo.linearBacklog,
+      route: '/metrics/linear/backlog',
+    ),
+    const _MetricNavItem(
+      info: MetricInfo.linearTimeInState,
+      route: '/metrics/linear/time-in-state',
+    ),
+    const _MetricNavItem(
       info: MetricInfo.prHealth,
       route: '/metrics/pr-health',
     ),

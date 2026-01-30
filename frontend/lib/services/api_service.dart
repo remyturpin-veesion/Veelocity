@@ -103,6 +103,38 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Get Linear teams (paginated).
+  Future<Map<String, dynamic>> getLinearTeams({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _dio.get(
+      '/api/v1/linear/teams',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Get Linear issues (paginated, optional filters).
+  Future<Map<String, dynamic>> getLinearIssues({
+    int? teamId,
+    String? state,
+    bool? linked,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, dynamic>{'page': page, 'limit': limit};
+    if (teamId != null) queryParams['team_id'] = teamId;
+    if (state != null) queryParams['state'] = state;
+    if (linked != null) queryParams['linked'] = linked;
+
+    final response = await _dio.get(
+      '/api/v1/linear/issues',
+      queryParameters: queryParams,
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Get PR detail for Individual PR Explorer (reviews, comments, commits, optional health).
   Future<PRDetail> getPRDetail(int prId, {bool includeHealth = true}) async {
     final response = await _dio.get(

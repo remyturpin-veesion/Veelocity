@@ -34,6 +34,9 @@ class MetricInfo {
     'reviewer_workload': reviewerWorkload,
     'recommendations': recommendations,
     'correlations': correlations,
+    'linear_issues_completed': linearIssuesCompleted,
+    'linear_backlog': linearBacklog,
+    'linear_time_in_state': linearTimeInState,
   };
 
   static const deploymentFrequency = MetricInfo(
@@ -212,5 +215,56 @@ class MetricInfo {
     ],
     icon: Icons.show_chart,
     color: Colors.teal,
+  );
+
+  static const linearIssuesCompleted = MetricInfo(
+    id: 'linear_issues_completed',
+    name: 'Issues Completed',
+    description:
+        'Count of Linear issues completed (closed) per time period. Shows delivery velocity from your issue tracker.',
+    calculation:
+        'Issues with completed_at in the selected period, grouped by day/week/month. Requires Linear sync.',
+    unit: 'issues per period',
+    tips: [
+      'Track trends to see if throughput is stable or growing',
+      'Combine with backlog to understand flow',
+      'Filter by team to compare teams',
+    ],
+    icon: Icons.check_circle_outline,
+    color: Colors.teal,
+  );
+
+  static const linearBacklog = MetricInfo(
+    id: 'linear_backlog',
+    name: 'Backlog',
+    description:
+        'Number of open Linear issues (not completed or canceled). Indicates work in progress and queue size.',
+    calculation:
+        'Count of issues where completed_at and canceled_at are both null. Optional filter by team.',
+    unit: 'open issues',
+    tips: [
+      'Monitor backlog growth vs completion rate',
+      'Use WIP limits to avoid overload',
+      'Break down by team to balance load',
+    ],
+    icon: Icons.inbox,
+    color: Colors.orange,
+  );
+
+  static const linearTimeInState = MetricInfo(
+    id: 'linear_time_in_state',
+    name: 'Time in State',
+    description:
+        'Time from when an issue is started to when it is completed. Measures how long work stays in progress.',
+    calculation:
+        'For each completed issue: completed_at minus started_at. Report average and median in hours.',
+    unit: 'hours',
+    tips: [
+      'Lower time in state indicates faster flow',
+      'Identify blockers that keep issues in progress long',
+      'Compare with cycle time (includes PR merge) for full picture',
+    ],
+    icon: Icons.schedule,
+    color: Colors.deepPurple,
   );
 }

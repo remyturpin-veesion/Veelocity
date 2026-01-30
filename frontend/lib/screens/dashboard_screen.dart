@@ -5,6 +5,7 @@ import '../models/alert.dart';
 import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
+import '../models/linear_metrics.dart';
 import '../models/recommendation.dart';
 import '../services/dashboard_preferences_provider.dart';
 import '../services/providers.dart';
@@ -36,6 +37,7 @@ class DashboardScreen extends ConsumerWidget {
     final recommendationsAsync = ref.watch(recommendationsProvider);
     final reliabilityAsync = ref.watch(deploymentReliabilityProvider);
     final alertsAsync = ref.watch(alertsProvider);
+    final linearOverviewAsync = ref.watch(linearOverviewProvider);
 
     // Show loading if any critical metric is loading
     if (deploymentFreqAsync.isLoading || leadTimeAsync.isLoading) {
@@ -62,6 +64,7 @@ class DashboardScreen extends ConsumerWidget {
       recommendationsAsync.value,
       reliabilityAsync.value,
       alertsAsync.value,
+      linearOverviewAsync,
     );
   }
 
@@ -156,6 +159,7 @@ class DashboardScreen extends ConsumerWidget {
     RecommendationsResponse? recommendations,
     DeploymentReliability? reliability,
     AlertsResponse? alerts,
+    AsyncValue<LinearOverview> linearOverviewAsync,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
     final prefs = ref.watch(dashboardPreferencesProvider);
@@ -382,7 +386,159 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
             ),
+            const SizedBox(height: 32),
           ],
+
+          // Linear section (issues completed, backlog, time-in-state)
+          _buildLinearSection(context, ref, linearOverviewAsync),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinearSection(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<LinearOverview> linearOverviewAsync,
+  ) {
+    return linearOverviewAsync.when(
+      loading: () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Linear',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Issues and backlog',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          const SizedBox(height: 24),
+          const Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+              SizedBox(width: 400, child: KPISkeletonCard()),
+            ],
+          ),
+        ],
+      ),
+      error: (err, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Linear',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.grey[600]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Linear data unavailable. Check connection and sync.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      data: (overview) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Linear',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('/linear'),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('View all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Issues and backlog',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          const SizedBox(height: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 600;
+              final cardWidth = isWide
+                  ? (constraints.maxWidth - 16) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  SizedBox(
+                    width: cardWidth,
+                    child: KPICard(
+                      title: 'Issues completed',
+                      value: '${overview.issuesCompleted}',
+                      subtitle:
+                          '${overview.issuesCompletedPerWeek.toStringAsFixed(1)}/week avg',
+                      icon: Icons.check_circle_outline,
+                      color: Colors.teal,
+                      onTap: () => context
+                          .go('/metrics/linear/issues-completed?tab=dashboard'),
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: KPICard(
+                      title: 'Backlog',
+                      value: '${overview.backlogCount}',
+                      subtitle: 'open issues',
+                      icon: Icons.inbox,
+                      color: Colors.orange,
+                      onTap: () =>
+                          context.go('/metrics/linear/backlog?tab=dashboard'),
+                    ),
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: KPICard(
+                      title: 'Time in state',
+                      value: _formatDuration(overview.timeInStateAverageHours),
+                      subtitle:
+                          '${overview.timeInStateCount} issues · median ${_formatDuration(overview.timeInStateMedianHours)}',
+                      icon: Icons.schedule,
+                      color: Colors.deepPurple,
+                      onTap: () => context
+                          .go('/metrics/linear/time-in-state?tab=dashboard'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );

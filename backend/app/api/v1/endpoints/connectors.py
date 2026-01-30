@@ -6,6 +6,7 @@ from app.connectors.factory import (
     create_github_connector,
     create_linear_connector,
 )
+from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.connector import ConnectorStatus, SyncResult
 from app.services.linking import LinkingService
@@ -36,7 +37,14 @@ async def get_connectors_status():
     linear = create_linear_connector()
     if linear:
         connected = await linear.test_connection()
-        statuses.append(ConnectorStatus(name="linear", connected=connected))
+        display_name = settings.linear_workspace_name or None
+        statuses.append(
+            ConnectorStatus(
+                name="linear",
+                connected=connected,
+                display_name=display_name if display_name else None,
+            )
+        )
         await linear.close()
 
     return statuses

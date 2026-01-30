@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.github import (
     Commit,
@@ -53,6 +54,7 @@ class ConnectorSyncState(BaseModel):
     """Sync state for a connector."""
 
     connector_name: str
+    display_name: str | None = None  # Optional label e.g. "Veesion Linear"
     last_sync_at: datetime | None
     last_full_sync_at: datetime | None
 
@@ -676,6 +678,11 @@ async def get_sync_coverage(
     connectors = [
         ConnectorSyncState(
             connector_name=s.connector_name,
+            display_name=(
+                settings.linear_workspace_name or None
+                if s.connector_name == "linear"
+                else None
+            ),
             last_sync_at=s.last_sync_at,
             last_full_sync_at=s.last_full_sync_at,
         )

@@ -68,7 +68,8 @@ Single-user tool. No User/Organization models, no JWT, no sessions.
 All API tokens (GitHub, Linear) configured via `.env` file, not through UI:
 - `GITHUB_TOKEN`
 - `GITHUB_REPOS` (comma-separated: "owner/repo1,owner/repo2")
-- `LINEAR_API_KEY`
+- `LINEAR_API_KEY` — use the Veesion Linear workspace API key (Linear → Settings → API)
+- `LINEAR_WORKSPACE_NAME` — optional display name (e.g. `"Veesion Linear"`) shown in connector status and Data Coverage
 - `DEPLOYMENT_PATTERNS` (comma-separated: "deploy,release,publish")
 
 ### Sync Architecture

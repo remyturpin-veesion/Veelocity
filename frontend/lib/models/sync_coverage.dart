@@ -35,11 +35,13 @@ class SyncCoverage {
 
 class ConnectorState {
   final String connectorName;
+  final String? displayName; // Optional label e.g. "Veesion Linear"
   final DateTime? lastSyncAt;
   final DateTime? lastFullSyncAt;
 
   ConnectorState({
     required this.connectorName,
+    this.displayName,
     this.lastSyncAt,
     this.lastFullSyncAt,
   });
@@ -47,6 +49,7 @@ class ConnectorState {
   factory ConnectorState.fromJson(Map<String, dynamic> json) {
     return ConnectorState(
       connectorName: json['connector_name'] as String,
+      displayName: json['display_name'] as String?,
       lastSyncAt: json['last_sync_at'] != null
           ? DateTime.parse(json['last_sync_at'] as String)
           : null,

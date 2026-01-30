@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     github_token: str | None = None
     github_repos: str = ""  # Comma-separated: "owner/repo1,owner/repo2"
 
-    # Linear
+    # Linear (use Veesion Linear workspace API key)
     linear_api_key: str | None = None
+    linear_workspace_name: str = ""  # Optional display name e.g. "Veesion Linear"
 
     # Sync
     deployment_patterns: str = "deploy,release,publish"  # Comma-separated

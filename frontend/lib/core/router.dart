@@ -7,6 +7,9 @@ import '../screens/developer_profile_screen.dart';
 import '../screens/metrics/cycle_time_screen.dart';
 import '../screens/metrics/deployment_frequency_screen.dart';
 import '../screens/metrics/lead_time_screen.dart';
+import '../screens/metrics/linear_backlog_screen.dart';
+import '../screens/metrics/linear_issues_completed_screen.dart';
+import '../screens/metrics/linear_time_in_state_screen.dart';
 import '../screens/metrics/pr_merge_time_screen.dart';
 import '../screens/metrics/pr_review_time_screen.dart';
 import '../screens/metrics/throughput_screen.dart';
@@ -31,8 +34,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (tab == 'team' || path.startsWith('/team')) {
               ref.read(mainTabProvider.notifier).state = MainTab.team;
+            } else if (tab == 'linear' || path.startsWith('/linear')) {
+              ref.read(mainTabProvider.notifier).state = MainTab.linear;
             } else {
-              // Default to dashboard for all other cases
               ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
             }
           });
@@ -71,6 +75,36 @@ final routerProvider = Provider<GoRouter>((ref) {
                 },
               ),
             ],
+          ),
+          // Linear overview (third tab)
+          GoRoute(
+            path: '/linear',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const AppShell(),
+            ),
+          ),
+          // Linear metric detail screens
+          GoRoute(
+            path: '/metrics/linear/issues-completed',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const LinearIssuesCompletedScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/metrics/linear/backlog',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const LinearBacklogScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/metrics/linear/time-in-state',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const LinearTimeInStateScreen(),
+            ),
           ),
           // Metric detail screens
           GoRoute(

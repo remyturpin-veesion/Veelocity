@@ -21,5 +21,6 @@ class ConnectorStatus(BaseModel):
 
     name: str
     connected: bool
+    display_name: str | None = None  # Optional label e.g. "Veesion Linear"
     last_sync: datetime | None = None
     last_sync_items: int | None = None

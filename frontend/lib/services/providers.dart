@@ -11,13 +11,14 @@ import '../models/pr_health.dart';
 import '../models/alert.dart';
 import '../models/correlation.dart';
 import '../models/recommendation.dart';
+import '../models/linear_metrics.dart';
 import '../models/reviewer_workload.dart';
 import '../models/sync_coverage.dart';
 import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 
 /// Navigation tab enumeration for top-level navigation.
-enum MainTab { dashboard, team }
+enum MainTab { dashboard, team, linear }
 
 /// State provider for the current main navigation tab.
 final mainTabProvider = StateProvider<MainTab>((ref) {
@@ -563,5 +564,98 @@ final alertsProvider = FutureProvider<AlertsResponse>((ref) async {
     startDate: period.startDate,
     endDate: period.endDate,
     repoId: repoId,
+  );
+});
+
+// ============================================================================
+// Linear providers
+// ============================================================================
+
+/// Provider for Linear teams list.
+final linearTeamsProvider = FutureProvider<List<LinearTeam>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final data = await api.getLinearTeams(limit: 100);
+  final items = data['items'] as List<dynamic>? ?? [];
+  return items
+      .map((e) => LinearTeam.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+/// Provider for Linear issues list (first page, optional filters via family).
+final linearIssuesProvider =
+    FutureProvider.family<List<LinearIssue>, LinearIssuesFilter>(
+        (ref, filter) async {
+  final api = ref.read(apiServiceProvider);
+  final data = await api.getLinearIssues(
+    teamId: filter.teamId,
+    state: filter.state,
+    linked: filter.linked,
+    page: 1,
+    limit: 50,
+  );
+  final items = data['items'] as List<dynamic>? ?? [];
+  return items
+      .map((e) => LinearIssue.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+/// Filter params for Linear issues list (used as family key).
+class LinearIssuesFilter {
+  final int? teamId;
+  final String? state;
+  final bool? linked;
+
+  const LinearIssuesFilter({this.teamId, this.state, this.linked});
+
+  static const none = LinearIssuesFilter();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LinearIssuesFilter &&
+          teamId == other.teamId &&
+          state == other.state &&
+          linked == other.linked;
+
+  @override
+  int get hashCode => Object.hash(teamId, state, linked);
+}
+
+/// Provider for Linear overview (dashboard block and Linear overview screen).
+final linearOverviewProvider = FutureProvider<LinearOverview>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  return service.getLinearOverview(
+    startDate: period.startDate,
+    endDate: period.endDate,
+  );
+});
+
+/// Provider for Linear issues completed (time series).
+final linearIssuesCompletedProvider =
+    FutureProvider<LinearIssuesCompleted>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  return service.getLinearIssuesCompleted(
+    startDate: period.startDate,
+    endDate: period.endDate,
+    period: 'week',
+  );
+});
+
+/// Provider for Linear backlog count.
+final linearBacklogProvider = FutureProvider<LinearBacklog>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  return service.getLinearBacklog();
+});
+
+/// Provider for Linear time-in-state metric.
+final linearTimeInStateProvider =
+    FutureProvider<LinearTimeInState>((ref) async {
+  final service = ref.read(metricsServiceProvider);
+  final period = ref.watch(selectedPeriodProvider);
+  return service.getLinearTimeInState(
+    startDate: period.startDate,
+    endDate: period.endDate,
   );
 });

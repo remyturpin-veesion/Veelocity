@@ -7,6 +7,7 @@ import '../models/pr_health.dart';
 import '../models/alert.dart';
 import '../models/correlation.dart';
 import '../models/recommendation.dart';
+import '../models/linear_metrics.dart';
 import '../models/reviewer_workload.dart';
 
 /// Service for fetching DORA and development metrics from the API.
@@ -497,6 +498,90 @@ class MetricsService {
     );
 
     return ReviewerWorkloadResponse.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  /// Get Linear overview (issues completed, backlog, time-in-state).
+  Future<LinearOverview> getLinearOverview({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? teamId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (teamId != null) {
+      queryParams['team_id'] = teamId;
+    }
+    final response = await _dio.get(
+      '/api/v1/metrics/linear/overview',
+      queryParameters: queryParams,
+    );
+    return LinearOverview.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get Linear issues completed per period (time series).
+  Future<LinearIssuesCompleted> getLinearIssuesCompleted({
+    DateTime? startDate,
+    DateTime? endDate,
+    String period = 'week',
+    int? teamId,
+  }) async {
+    final queryParams = <String, dynamic>{'period': period};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (teamId != null) {
+      queryParams['team_id'] = teamId;
+    }
+    final response = await _dio.get(
+      '/api/v1/metrics/linear/issues-completed',
+      queryParameters: queryParams,
+    );
+    return LinearIssuesCompleted.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  /// Get Linear backlog count (open issues).
+  Future<LinearBacklog> getLinearBacklog({int? teamId}) async {
+    final queryParams = teamId != null ? {'team_id': teamId} : null;
+    final response = await _dio.get(
+      '/api/v1/metrics/linear/backlog',
+      queryParameters: queryParams,
+    );
+    return LinearBacklog.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get Linear time-in-state (started to completed).
+  Future<LinearTimeInState> getLinearTimeInState({
+    DateTime? startDate,
+    DateTime? endDate,
+    int? teamId,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (startDate != null) {
+      queryParams['start_date'] = startDate.toIso8601String();
+    }
+    if (endDate != null) {
+      queryParams['end_date'] = endDate.toIso8601String();
+    }
+    if (teamId != null) {
+      queryParams['team_id'] = teamId;
+    }
+    final response = await _dio.get(
+      '/api/v1/metrics/linear/time-in-state',
+      queryParameters: queryParams,
+    );
+    return LinearTimeInState.fromJson(
       response.data as Map<String, dynamic>,
     );
   }

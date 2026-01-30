@@ -15,6 +15,7 @@ from app.services.metrics.development import DevelopmentMetricsService
 from app.services.metrics.dora import DORAMetricsService
 from app.services.insights.recommendation_engine import RecommendationEngine
 from app.services.metrics.pr_health import PRHealthService
+from app.services.metrics.linear_metrics import LinearMetricsService
 from app.services.metrics.reviewer_workload import ReviewerWorkloadService
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -724,3 +725,82 @@ async def get_correlations(
         "period": period,
         "pairs": pairs,
     }
+
+
+# ============================================================================
+# Linear-native metrics
+# ============================================================================
+
+
+@router.get("/linear/overview")
+async def get_linear_overview(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get Linear overview for dashboard: issues completed, backlog, time-in-state.
+
+    Query params: start_date, end_date (default last 30 days), team_id (optional).
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = LinearMetricsService(db)
+    return await service.get_overview(start_date, end_date, team_id=team_id)
+
+
+@router.get("/linear/issues-completed")
+async def get_linear_issues_completed(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "week",
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get issues completed per period (time series).
+
+    Query params: start_date, end_date, period, team_id (optional).
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = LinearMetricsService(db)
+    return await service.get_issues_completed(
+        start_date, end_date, period=period, team_id=team_id
+    )
+
+
+@router.get("/linear/backlog")
+async def get_linear_backlog(
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get current backlog count (open issues). Optional team_id filter.
+    """
+    service = LinearMetricsService(db)
+    return await service.get_backlog(team_id=team_id)
+
+
+@router.get("/linear/time-in-state")
+async def get_linear_time_in_state(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get average/median time from issue started to completed.
+
+    Query params: start_date, end_date (default last 30 days), team_id (optional).
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = LinearMetricsService(db)
+    return await service.get_time_in_state(
+        start_date, end_date, team_id=team_id
+    )
