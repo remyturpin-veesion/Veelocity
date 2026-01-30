@@ -2,6 +2,9 @@ import 'package:dio/dio.dart';
 import '../core/config.dart';
 import '../models/pr_detail.dart';
 
+/// Export format for metrics report.
+enum ExportFormat { json, csv }
+
 class ApiService {
   late final Dio _dio;
 
@@ -111,5 +114,27 @@ class ApiService {
       throw Exception(data['error'] as String);
     }
     return PRDetail.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Build full URL for export report (JSON or CSV). Use with url_launcher to open or download.
+  String getExportReportUrl({
+    required DateTime startDate,
+    required DateTime endDate,
+    int? repoId,
+    required ExportFormat format,
+  }) {
+    final params = <String, String>{
+      'start_date': startDate.toIso8601String(),
+      'end_date': endDate.toIso8601String(),
+      'format': format == ExportFormat.csv ? 'csv' : 'json',
+    };
+    if (repoId != null) {
+      params['repo_id'] = repoId.toString();
+    }
+    final query = params.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    return '${AppConfig.apiBaseUrl}/api/v1/export/report?$query';
   }
 }

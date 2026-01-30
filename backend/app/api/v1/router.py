@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     alerts,
     connectors,
     developers,
+    export,
     github,
     linear,
     metrics,
@@ -22,6 +23,7 @@ api_router.include_router(metrics.router)
 api_router.include_router(repositories.router)
 api_router.include_router(developers.router)
 api_router.include_router(alerts.router)
+api_router.include_router(export.router)
 api_router.include_router(sync.router)
 
 

@@ -18,7 +18,8 @@ Transform Veelocity from a "metrics dashboard" into a "developer intelligence pl
 - 🎉 **PHASE 1 COMPLETE!**
 - ✅ Phase 2 dashboard integration: Recommendations + Deployment Reliability summary cards on main dashboard (Jan 29, 2026)
 - ✅ Phase 4, Feature 13: Email/Webhook Notifications (Jan 30, 2026)
-- 📋 Phase 5: Planned
+- ✅ Phase 5, Feature 14: Export & Reporting (Jan 30, 2026)
+- 📋 Phase 5: Feature 15 Dashboard Customization planned
 
 ---
 
@@ -610,10 +611,25 @@ Response:
 
 ---
 
-## Phase 5: Export & Polish (Weeks 9-10) - STATUS: Planned
+## Phase 5: Export & Polish (Weeks 9-10) - STATUS: In Progress
 
-### Feature 14: Export & Reporting
-**Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
+### Feature 14: Export & Reporting (COMPLETED - Jan 30, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Backend** (`backend/app/services/export_report.py`):
+  - `build_report(db, start_date, end_date, repo_id)` — aggregates DORA metrics (deployment frequency, lead time, deployment reliability), development metrics (PR review time, PR merge time, throughput), alerts, and recommendations for the period. Returns a single report dict.
+  - `report_to_csv(report)` — flattens report to one summary row (period, numeric metrics, alert_count, recommendation_count); returns CSV string with header row.
+- **API** (`backend/app/api/v1/endpoints/export.py`):
+  - `GET /api/v1/export/report` — query params: start_date, end_date, repo_id, format=json|csv. Default period: last 30 days. format=json returns full report object; format=csv returns text/csv with Content-Disposition attachment.
+- **Frontend:**
+  - `ApiService.getExportReportUrl(startDate, endDate, repoId, format)` — builds full URL for export (JSON or CSV). Used with url_launcher to open/download.
+  - Export button in filter bar (BaseScaffold): PopupMenuButton with "Export as JSON" and "Export as CSV". Uses current period and repo filter; opens URL in browser (CSV triggers download via Content-Disposition).
+- **Tests:**
+  - `backend/tests/services/test_export_report.py` — report_to_csv (header + row, empty report), build_report (mocked services, structure).
+  - `backend/tests/api/test_export.py` — GET report format=json (200 + structure), format=csv (200 + Content-Disposition + CSV body). get_db overridden to avoid real DB.
+
+**Usage:** Use the download icon in the filter bar (next to period selector) → "Export as JSON" or "Export as CSV" to download the metrics report for the current period and repo filter.
 
 ### Feature 15: Dashboard Customization
 **Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
@@ -851,7 +867,7 @@ Response:
 
 ---
 
-**Current Phase:** 5 of 5 | **Current Feature:** 13 of 15
+**Current Phase:** 5 of 5 | **Current Feature:** 14 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 5 - Feature 14: Export & Reporting (or Feature 15: Dashboard Customization)
+**Next Up:** Phase 5 - Feature 15: Dashboard Customization

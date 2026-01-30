@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/api_service.dart';
 import '../services/providers.dart';
 import '../services/theme_provider.dart';
 import 'developer_multi_selector.dart';
@@ -83,6 +85,14 @@ class BaseScaffold extends ConsumerWidget {
                             ref.read(selectedPeriodProvider.notifier).state =
                                 period;
                           },
+                        ),
+                        const SizedBox(width: 8),
+                        _ExportReportButton(
+                          startDate: selectedPeriod.startDate,
+                          endDate: selectedPeriod.endDate,
+                          repoId: selectedRepoIds.length == 1
+                              ? selectedRepoIds.first
+                              : null,
                         ),
                         const _ThemeModeButton(),
                       ],
@@ -277,6 +287,66 @@ class _NavigationTabs extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Button to export metrics report as JSON or CSV.
+class _ExportReportButton extends ConsumerWidget {
+  const _ExportReportButton({
+    required this.startDate,
+    required this.endDate,
+    this.repoId,
+  });
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final int? repoId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final api = ref.read(apiServiceProvider);
+
+    return PopupMenuButton<String>(
+      tooltip: 'Export report',
+      icon: const Icon(Icons.download),
+      onSelected: (value) async {
+        final format = value == 'csv' ? ExportFormat.csv : ExportFormat.json;
+        final url = api.getExportReportUrl(
+          startDate: startDate,
+          endDate: endDate,
+          repoId: repoId,
+          format: format,
+        );
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'json',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.code, size: 20),
+              SizedBox(width: 8),
+              Text('Export as JSON'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'csv',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.table_chart, size: 20),
+              SizedBox(width: 8),
+              Text('Export as CSV'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
