@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/providers.dart';
 import '../services/theme_provider.dart';
+import 'dashboard_customize_dialog.dart';
 import 'developer_multi_selector.dart';
 import 'metrics_side_nav.dart';
 import 'period_selector.dart';
@@ -94,6 +95,13 @@ class BaseScaffold extends ConsumerWidget {
                               ? selectedRepoIds.first
                               : null,
                         ),
+                        if (isHome)
+                          IconButton(
+                            icon: const Icon(Icons.dashboard_customize),
+                            tooltip: 'Customize dashboard',
+                            onPressed: () =>
+                                DashboardCustomizeDialog.show(context),
+                          ),
                         const _ThemeModeButton(),
                       ],
                     ),

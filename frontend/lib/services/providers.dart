@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_service.dart';
+import 'dashboard_preferences_provider.dart';
 import 'metrics_service.dart';
 import '../models/anomaly.dart';
 import '../models/developer.dart';

@@ -19,7 +19,7 @@ Transform Veelocity from a "metrics dashboard" into a "developer intelligence pl
 - ✅ Phase 2 dashboard integration: Recommendations + Deployment Reliability summary cards on main dashboard (Jan 29, 2026)
 - ✅ Phase 4, Feature 13: Email/Webhook Notifications (Jan 30, 2026)
 - ✅ Phase 5, Feature 14: Export & Reporting (Jan 30, 2026)
-- 📋 Phase 5: Feature 15 Dashboard Customization planned
+- ✅ Phase 5, Feature 15: Dashboard Customization (Jan 30, 2026)
 
 ---
 
@@ -611,7 +611,7 @@ Response:
 
 ---
 
-## Phase 5: Export & Polish (Weeks 9-10) - STATUS: In Progress
+## Phase 5: Export & Polish (Weeks 9-10) - STATUS: Complete
 
 ### Feature 14: Export & Reporting (COMPLETED - Jan 30, 2026)
 **Status:** Done | **Priority:** P2
@@ -631,8 +631,23 @@ Response:
 
 **Usage:** Use the download icon in the filter bar (next to period selector) → "Export as JSON" or "Export as CSV" to download the metrics report for the current period and repo filter.
 
-### Feature 15: Dashboard Customization
-**Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
+### Feature 15: Dashboard Customization (COMPLETED - Jan 30, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Model** (`frontend/lib/models/dashboard_preferences.dart`):
+  - `DashboardPreferences` — booleans for summary cards (anomalies, recommendations, reliability, alerts) and KPI cards (deployment frequency, lead time, PR review time, PR merge time, cycle time, throughput). Default: all true. `toJson` / `fromJson` for persistence.
+- **Persistence** (`frontend/lib/services/dashboard_preferences_provider.dart`):
+  - `DashboardPreferencesNotifier` — StateNotifier that loads/saves from SharedPreferences (key `dashboard_preferences`, JSON). Setters per toggle and `resetToDefaults()`.
+  - `dashboardPreferencesProvider` — StateNotifierProvider.
+- **Dialog** (`frontend/lib/widgets/dashboard_customize_dialog.dart`):
+  - `DashboardCustomizeDialog` — AlertDialog with "Summary cards" (Anomalies, Recommendations, Deployment reliability, Active alerts) and "KPI cards" (6 metrics). SwitchListTile per option. "Reset to default" and "Done". `DashboardCustomizeDialog.show(context)`.
+- **Filter bar** (`frontend/lib/widgets/base_scaffold.dart`):
+  - Customize icon button (dashboard_customize) when `isHome`, tooltip "Customize dashboard", opens `DashboardCustomizeDialog.show(context)`.
+- **Dashboard** (`frontend/lib/screens/dashboard_screen.dart`):
+  - Watches `dashboardPreferencesProvider`; shows/hides summary cards and KPI cards per prefs. DORA and Development section headers only shown if at least one card in that section is visible.
+
+**Usage:** Click the customize (dashboard_customize) icon in the filter bar on the dashboard → toggle summary cards and KPI cards → Done. Preferences persist across sessions.
 
 ---
 
@@ -867,7 +882,7 @@ Response:
 
 ---
 
-**Current Phase:** 5 of 5 | **Current Feature:** 14 of 15
+**Current Phase:** 5 of 5 | **Current Feature:** 15 of 15 ✅
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 5 - Feature 15: Dashboard Customization
+**Next Up:** All 15 features complete. Optional: further polish, export formats, or new metrics.

@@ -6,6 +6,7 @@ import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/recommendation.dart';
+import '../services/dashboard_preferences_provider.dart';
 import '../services/providers.dart';
 import '../widgets/anomaly_badge.dart';
 import '../widgets/kpi_card.dart';
@@ -157,6 +158,7 @@ class DashboardScreen extends ConsumerWidget {
     AlertsResponse? alerts,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final prefs = ref.watch(dashboardPreferencesProvider);
 
     // Aggregate all anomalies
     final allAnomalies = <Anomaly>[
@@ -183,185 +185,204 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Anomaly Summary Card (if any anomalies detected)
-          if (aggregatedSummary.hasAnomalies)
+          // Anomaly Summary Card (if any anomalies detected and prefs allow)
+          if (prefs.showSectionAnomalies && aggregatedSummary.hasAnomalies)
             _buildAnomalyCard(
               context,
               aggregatedSummary,
               allAnomalies,
             ),
-          if (aggregatedSummary.hasAnomalies) const SizedBox(height: 24),
+          if (prefs.showSectionAnomalies && aggregatedSummary.hasAnomalies)
+            const SizedBox(height: 24),
 
           // Recommendations summary (Phase 2 integration)
-          if (recommendations != null &&
+          if (prefs.showSectionRecommendations &&
+              recommendations != null &&
               recommendations.recommendations.isNotEmpty)
             _buildRecommendationsCard(context, recommendations),
-          if (recommendations != null &&
+          if (prefs.showSectionRecommendations &&
+              recommendations != null &&
               recommendations.recommendations.isNotEmpty)
             const SizedBox(height: 24),
 
           // Deployment reliability summary (Phase 2 integration)
-          if (reliability != null && reliability.totalRuns > 0)
+          if (prefs.showSectionReliability &&
+              reliability != null &&
+              reliability.totalRuns > 0)
             _buildReliabilityCard(context, reliability),
-          if (reliability != null && reliability.totalRuns > 0)
+          if (prefs.showSectionReliability &&
+              reliability != null &&
+              reliability.totalRuns > 0)
             const SizedBox(height: 24),
 
           // Active alerts (Phase 4 - Alert Rules Engine)
-          if (alerts != null && alerts.alerts.isNotEmpty)
+          if (prefs.showSectionAlerts &&
+              alerts != null &&
+              alerts.alerts.isNotEmpty)
             _buildAlertsCard(context, alerts),
-          if (alerts != null && alerts.alerts.isNotEmpty)
+          if (prefs.showSectionAlerts &&
+              alerts != null &&
+              alerts.alerts.isNotEmpty)
             const SizedBox(height: 24),
 
-          // DORA Metrics Section
-          Text(
-            'DORA Metrics',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Last ${selectedPeriod.days} days performance',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-          ),
-          const SizedBox(height: 24),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 600;
-              final cardWidth = isWide
-                  ? (constraints.maxWidth - 16) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  if (deploymentFreq != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'Deployment Frequency',
-                        value: '${deploymentFreq.average}/week',
-                        subtitle: '${deploymentFreq.total} total deployments',
-                        icon: Icons.rocket_launch,
-                        color: Colors.blue,
-                        trend: deploymentFreq.trend,
-                        benchmark: deploymentFreq.benchmark,
-                        onTap: () => context
-                            .go('/metrics/deployment-frequency?tab=dashboard'),
+          // DORA Metrics Section (only if at least one KPI is visible)
+          if (prefs.showKpiDeploymentFrequency || prefs.showKpiLeadTime) ...[
+            Text(
+              'DORA Metrics',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Last ${selectedPeriod.days} days performance',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+            const SizedBox(height: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 600;
+                final cardWidth = isWide
+                    ? (constraints.maxWidth - 16) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    if (prefs.showKpiDeploymentFrequency &&
+                        deploymentFreq != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'Deployment Frequency',
+                          value: '${deploymentFreq.average}/week',
+                          subtitle: '${deploymentFreq.total} total deployments',
+                          icon: Icons.rocket_launch,
+                          color: Colors.blue,
+                          trend: deploymentFreq.trend,
+                          benchmark: deploymentFreq.benchmark,
+                          onTap: () => context.go(
+                              '/metrics/deployment-frequency?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                  if (leadTime != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'Lead Time for Changes',
-                        value: _formatDuration(leadTime.averageHours),
-                        subtitle:
-                            'Median: ${_formatDuration(leadTime.medianHours)}',
-                        icon: Icons.timer,
-                        color: Colors.green,
-                        trend: leadTime.trend,
-                        benchmark: leadTime.benchmark,
-                        onTap: () =>
-                            context.go('/metrics/lead-time?tab=dashboard'),
+                    if (prefs.showKpiLeadTime && leadTime != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'Lead Time for Changes',
+                          value: _formatDuration(leadTime.averageHours),
+                          subtitle:
+                              'Median: ${_formatDuration(leadTime.medianHours)}',
+                          icon: Icons.timer,
+                          color: Colors.green,
+                          trend: leadTime.trend,
+                          benchmark: leadTime.benchmark,
+                          onTap: () =>
+                              context.go('/metrics/lead-time?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 32),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+          ],
 
-          // Development Metrics Section
-          Text(
-            'Development Metrics',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'PR and cycle time analysis',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-          ),
-          const SizedBox(height: 24),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 600;
-              final cardWidth = isWide
-                  ? (constraints.maxWidth - 16) / 2
-                  : constraints.maxWidth;
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  if (prReviewTime != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'PR Review Time',
-                        value: _formatDuration(prReviewTime.averageHours),
-                        subtitle: '${prReviewTime.count} PRs reviewed',
-                        icon: Icons.rate_review,
-                        color: Colors.orange,
-                        trend: prReviewTime.trend,
-                        benchmark: prReviewTime.benchmark,
-                        onTap: () =>
-                            context.go('/metrics/pr-review-time?tab=dashboard'),
+          // Development Metrics Section (only if at least one KPI is visible)
+          if (prefs.showKpiPrReviewTime ||
+              prefs.showKpiPrMergeTime ||
+              prefs.showKpiCycleTime ||
+              prefs.showKpiThroughput) ...[
+            Text(
+              'Development Metrics',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'PR and cycle time analysis',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+            const SizedBox(height: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 600;
+                final cardWidth = isWide
+                    ? (constraints.maxWidth - 16) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    if (prefs.showKpiPrReviewTime && prReviewTime != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'PR Review Time',
+                          value: _formatDuration(prReviewTime.averageHours),
+                          subtitle: '${prReviewTime.count} PRs reviewed',
+                          icon: Icons.rate_review,
+                          color: Colors.orange,
+                          trend: prReviewTime.trend,
+                          benchmark: prReviewTime.benchmark,
+                          onTap: () => context
+                              .go('/metrics/pr-review-time?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                  if (prMergeTime != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'PR Merge Time',
-                        value: _formatDuration(prMergeTime.averageHours),
-                        subtitle: '${prMergeTime.count} PRs merged',
-                        icon: Icons.merge,
-                        color: Colors.purple,
-                        trend: prMergeTime.trend,
-                        benchmark: prMergeTime.benchmark,
-                        onTap: () =>
-                            context.go('/metrics/pr-merge-time?tab=dashboard'),
+                    if (prefs.showKpiPrMergeTime && prMergeTime != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'PR Merge Time',
+                          value: _formatDuration(prMergeTime.averageHours),
+                          subtitle: '${prMergeTime.count} PRs merged',
+                          icon: Icons.merge,
+                          color: Colors.purple,
+                          trend: prMergeTime.trend,
+                          benchmark: prMergeTime.benchmark,
+                          onTap: () => context
+                              .go('/metrics/pr-merge-time?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                  if (cycleTime != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'Cycle Time',
-                        value: _formatDuration(cycleTime.averageHours),
-                        subtitle: '${cycleTime.count} issues completed',
-                        icon: Icons.loop,
-                        color: Colors.teal,
-                        benchmark: cycleTime.benchmark,
-                        onTap: () =>
-                            context.go('/metrics/cycle-time?tab=dashboard'),
+                    if (prefs.showKpiCycleTime && cycleTime != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'Cycle Time',
+                          value: _formatDuration(cycleTime.averageHours),
+                          subtitle: '${cycleTime.count} issues completed',
+                          icon: Icons.loop,
+                          color: Colors.teal,
+                          benchmark: cycleTime.benchmark,
+                          onTap: () =>
+                              context.go('/metrics/cycle-time?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                  if (throughput != null)
-                    SizedBox(
-                      width: cardWidth,
-                      child: KPICard(
-                        title: 'Throughput',
-                        value: '${throughput.average}/week',
-                        subtitle: '${throughput.total} PRs merged total',
-                        icon: Icons.speed,
-                        color: Colors.indigo,
-                        trend: throughput.trend,
-                        benchmark: throughput.benchmark,
-                        onTap: () =>
-                            context.go('/metrics/throughput?tab=dashboard'),
+                    if (prefs.showKpiThroughput && throughput != null)
+                      SizedBox(
+                        width: cardWidth,
+                        child: KPICard(
+                          title: 'Throughput',
+                          value: '${throughput.average}/week',
+                          subtitle: '${throughput.total} PRs merged total',
+                          icon: Icons.speed,
+                          color: Colors.indigo,
+                          trend: throughput.trend,
+                          benchmark: throughput.benchmark,
+                          onTap: () =>
+                              context.go('/metrics/throughput?tab=dashboard'),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
-          ),
+                  ],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
