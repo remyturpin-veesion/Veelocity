@@ -135,7 +135,7 @@ class DashboardScreen extends ConsumerWidget {
     Throughput? throughput,
     AsyncValue<LinearOverview> linearOverviewAsync,
   ) {
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final dateRange = ref.watch(selectedDateRangeProvider);
     final prefs = ref.watch(dashboardPreferencesProvider);
 
     return SingleChildScrollView(
@@ -178,7 +178,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Last ${selectedPeriod.days} days performance',
+              '${dateRange.summaryLabel} performance',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[600],
                   ),

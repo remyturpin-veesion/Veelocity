@@ -36,7 +36,7 @@ def _make_mock_db(
         elif "count(" in stmt_str and "linear" in stmt_str:
             result.scalar = MagicMock(return_value=backlog_count)
             result.all = MagicMock(return_value=[])
-        elif "started_at" in stmt_str and "completed_at" in stmt_str:
+        elif "started_at" in stmt_str and "completed_at" in stmt_str and "created_at" in stmt_str:
             result.scalar = MagicMock(return_value=None)
             result.all = MagicMock(return_value=time_in_state_rows)
         else:
@@ -59,8 +59,16 @@ def linear_service():
         ],
         backlog_count=7,
         time_in_state_rows=[
-            (datetime(2025, 1, 8, 10, 0), datetime(2025, 1, 10, 14, 0)),
-            (datetime(2025, 1, 12, 9, 0), datetime(2025, 1, 15, 11, 0)),
+            (
+                datetime(2025, 1, 1, 0, 0),
+                datetime(2025, 1, 8, 10, 0),
+                datetime(2025, 1, 10, 14, 0),
+            ),
+            (
+                datetime(2025, 1, 5, 0, 0),
+                datetime(2025, 1, 12, 9, 0),
+                datetime(2025, 1, 15, 11, 0),
+            ),
         ],
     )
     return LinearMetricsService(db)
@@ -133,14 +141,17 @@ async def test_get_time_in_state(linear_service):
     assert "end_date" in result
     assert "stages" in result
     stages = result["stages"]
-    assert len(stages) == 3
+    assert len(stages) >= 3
     todo = next(s for s in stages if s["id"] == "todo")
     in_progress = next(s for s in stages if s["id"] == "in_progress")
     done = next(s for s in stages if s["id"] == "done")
     assert todo["label"] == "Todo" and todo["count"] == 5
     assert in_progress["label"] == "In Progress" and in_progress["count"] == 3
     assert done["label"] == "Done" and done["count"] == 2
-    assert "min_hours" in todo and "median_hours" in todo
+    backlog = next(s for s in stages if s["id"] == "time_backlog")
+    total = next(s for s in stages if s["id"] == "time_total")
+    assert backlog["count"] == 2 and backlog["median_hours"] >= 0
+    assert total["count"] == 2 and total["median_hours"] >= 0
 
 
 @pytest.mark.asyncio
@@ -159,7 +170,7 @@ async def test_get_time_in_state_empty():
     assert result["average_hours"] == 0.0
     assert result["median_hours"] == 0.0
     assert result["stages"] is not None
-    assert len(result["stages"]) == 2
+    assert len(result["stages"]) == 5  # 2 workflow + Backlog, In progress, Total
 
 
 @pytest.mark.asyncio

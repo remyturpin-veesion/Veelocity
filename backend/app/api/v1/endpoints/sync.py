@@ -1,10 +1,10 @@
 """Sync status and data coverage endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,6 +17,7 @@ from app.models.github import (
     Workflow,
     WorkflowRun,
 )
+from app.models.linear import LinearIssue
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -781,6 +782,86 @@ async def get_sync_diagnostic(
 
     await github.close()
     return SyncDiagnosticResponse(repos=results)
+
+
+class DailyCountItem(BaseModel):
+    """Count for a single day."""
+
+    date: str  # YYYY-MM-DD
+    count: int
+
+
+class DailyCoverageResponse(BaseModel):
+    """Daily counts per category for data coverage charts."""
+
+    github: list[DailyCountItem]  # PRs created per day
+    github_actions: list[DailyCountItem]  # Workflow runs per day
+    linear: list[DailyCountItem]  # Issues created per day
+
+
+@router.get("/coverage/daily", response_model=DailyCoverageResponse)
+async def get_daily_coverage(
+    db: AsyncSession = Depends(get_db),
+    days: int = Query(90, ge=7, le=365),
+) -> DailyCoverageResponse:
+    """Get count of imported data per day per category (GitHub PRs, workflow runs, Linear issues)."""
+    end = datetime.utcnow().date()
+    start = end - timedelta(days=days)
+
+    # GitHub: PRs created per day (cast to date for PostgreSQL)
+    pr_date = cast(PullRequest.created_at, Date)
+    pr_by_day = await db.execute(
+        select(pr_date.label("day"), func.count(PullRequest.id).label("count"))
+        .where(pr_date >= start)
+        .where(pr_date <= end)
+        .group_by(pr_date)
+        .order_by(pr_date)
+    )
+    pr_rows = pr_by_day.all()
+    # Build full date range so frontend has a point for every day
+    github_map = {row.day: row.count for row in pr_rows}
+    github_list = [
+        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=github_map.get(start + timedelta(days=i), 0))
+        for i in range((end - start).days + 1)
+    ]
+
+    # GitHub Actions: workflow runs (created_at) per day
+    run_date = cast(WorkflowRun.created_at, Date)
+    runs_by_day = await db.execute(
+        select(run_date.label("day"), func.count(WorkflowRun.id).label("count"))
+        .where(run_date >= start)
+        .where(run_date <= end)
+        .group_by(run_date)
+        .order_by(run_date)
+    )
+    runs_rows = runs_by_day.all()
+    runs_map = {row.day: row.count for row in runs_rows}
+    github_actions_list = [
+        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=runs_map.get(start + timedelta(days=i), 0))
+        for i in range((end - start).days + 1)
+    ]
+
+    # Linear: issues created per day
+    issue_date = cast(LinearIssue.created_at, Date)
+    issues_by_day = await db.execute(
+        select(issue_date.label("day"), func.count(LinearIssue.id).label("count"))
+        .where(issue_date >= start)
+        .where(issue_date <= end)
+        .group_by(issue_date)
+        .order_by(issue_date)
+    )
+    issues_rows = issues_by_day.all()
+    issues_map = {row.day: row.count for row in issues_rows}
+    linear_list = [
+        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=issues_map.get(start + timedelta(days=i), 0))
+        for i in range((end - start).days + 1)
+    ]
+
+    return DailyCoverageResponse(
+        github=github_list,
+        github_actions=github_actions_list,
+        linear=linear_list,
+    )
 
 
 @router.get("/coverage", response_model=SyncCoverageResponse)

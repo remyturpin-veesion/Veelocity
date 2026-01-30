@@ -9,9 +9,11 @@ import 'dashboard_customize_dialog.dart';
 import 'developer_multi_selector.dart';
 import 'settings_dialog.dart';
 import 'metrics_side_nav.dart';
+import 'date_range_picker.dart';
 import 'period_selector.dart';
 import 'repo_multi_selector.dart';
 import 'team_multi_selector.dart';
+import '../models/date_range.dart';
 
 /// Base scaffold providing consistent layout across all screens.
 ///
@@ -42,7 +44,7 @@ class BaseScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final dateRange = ref.watch(selectedDateRangeProvider);
     final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
     final selectedDeveloperLogins = ref.watch(selectedDeveloperLoginsProvider);
     final selectedTeamIds = ref.watch(selectedTeamIdsProvider);
@@ -75,16 +77,20 @@ class BaseScaffold extends ConsumerWidget {
                     isHome: isHome,
                   ),
                   const Spacer(),
+                  const DateRangePicker(),
+                  const SizedBox(width: 12),
                   PeriodSelector(
-                    selected: selectedPeriod,
-                    onChanged: (period) {
-                      ref.read(selectedPeriodProvider.notifier).state = period;
+                    selectedPreset:
+                        dateRange is PresetDateRange ? dateRange.period : null,
+                    onPresetSelected: (period) {
+                      ref.read(selectedDateRangeProvider.notifier).state =
+                          PresetDateRange(period);
                     },
                   ),
                   const SizedBox(width: 8),
                   _ExportReportButton(
-                    startDate: selectedPeriod.startDate,
-                    endDate: selectedPeriod.endDate,
+                    startDate: dateRange.startDate,
+                    endDate: dateRange.endDate,
                     repoId: selectedRepoIds.length == 1
                         ? selectedRepoIds.first
                         : null,

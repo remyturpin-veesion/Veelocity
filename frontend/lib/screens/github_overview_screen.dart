@@ -25,7 +25,7 @@ class GitHubOverviewScreen extends ConsumerWidget {
     final prMergeTimeAsync = ref.watch(prMergeTimeProvider);
     final cycleTimeAsync = ref.watch(cycleTimeProvider);
     final throughputAsync = ref.watch(throughputProvider);
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final dateRange = ref.watch(selectedDateRangeProvider);
 
     if (deploymentFreqAsync.isLoading || leadTimeAsync.isLoading) {
       return _buildLoadingState();
@@ -147,7 +147,7 @@ class GitHubOverviewScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Last ${selectedPeriod.days} days',
+            dateRange.summaryLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey[600],
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/linear_metrics.dart';
 import '../../models/metric_info.dart';
 import '../../services/providers.dart';
+import '../../widgets/time_in_state_stage_multi_selector.dart';
 import 'metric_detail_screen.dart';
 
 /// Detail screen for Linear Time in State metric.
@@ -51,7 +52,7 @@ class LinearTimeInStateScreen extends ConsumerWidget {
               ],
             ),
           ),
-          data: (data) => _buildContent(context, data),
+          data: (data) => _buildContent(context, ref, data),
         );
       },
       multiRepoChartBuilder: null,
@@ -115,8 +116,9 @@ class LinearTimeInStateScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, LinearTimeInState data) {
-    if (data.count == 0) {
+  Widget _buildContent(
+      BuildContext context, WidgetRef ref, LinearTimeInState data) {
+    if (data.stages.isEmpty) {
       return Card(
         elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -150,6 +152,11 @@ class LinearTimeInStateScreen extends ConsumerWidget {
       );
     }
 
+    final selectedStageIds = ref.watch(selectedTimeInStateStageIdsProvider);
+    final visibleStages = selectedStageIds.isEmpty
+        ? data.stages
+        : data.stages.where((s) => selectedStageIds.contains(s.id)).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -161,26 +168,45 @@ class LinearTimeInStateScreen extends ConsumerWidget {
               ),
         ),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (int i = 0; i < data.stages.length; i++) ...[
-                  _WorkflowStageCard(
-                    stage: data.stages[i],
-                    formatDuration: formatDuration,
-                    color: Colors.deepPurple,
+        TimeInStateStageMultiSelector(
+          stages: data.stages,
+          selectedStageIds: selectedStageIds,
+          onChanged: (ids) {
+            ref.read(selectedTimeInStateStageIdsProvider.notifier).state = ids;
+          },
+        ),
+        const SizedBox(height: 16),
+        if (visibleStages.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'No status selected. Use the filters above to show cards.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
                   ),
-                  if (i < data.stages.length - 1)
-                    _WorkflowArrow(color: Colors.deepPurple),
+            ),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < visibleStages.length; i++) ...[
+                    _WorkflowStageCard(
+                      stage: visibleStages[i],
+                      formatDuration: formatDuration,
+                      color: Colors.deepPurple,
+                    ),
+                    if (i < visibleStages.length - 1)
+                      _WorkflowArrow(color: Colors.deepPurple),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -216,7 +242,7 @@ class _WorkflowStageCard extends StatelessWidget {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        width: 220,
+        width: 240,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,14 +271,28 @@ class _WorkflowStageCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _StatRow(label: 'Issues', value: '${stage.count}'),
+            // Issues count: compact at top
+            Text(
+              '${stage.count} issues',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
             if (hasTimeStats) ...[
-              _StatRow(
-                  label: 'Median', value: formatDuration(stage.medianHours)),
-              _StatRow(
-                  label: 'Average', value: formatDuration(stage.averageHours)),
-              _StatRow(label: 'Min', value: formatDuration(stage.minHours)),
-              _StatRow(label: 'Max', value: formatDuration(stage.maxHours)),
+              const SizedBox(height: 12),
+              // Median: primary stat
+              _PrimaryTimeRow(
+                label: 'Median',
+                value: formatDuration(stage.medianHours),
+                color: color,
+              ),
+              const SizedBox(height: 8),
+              // Min – Max: secondary row
+              _MinMaxRow(
+                min: formatDuration(stage.minHours),
+                max: formatDuration(stage.maxHours),
+                color: color,
+              ),
             ] else if (!hasCount)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -290,33 +330,92 @@ class _WorkflowArrow extends StatelessWidget {
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value});
+class _PrimaryTimeRow extends StatelessWidget {
+  const _PrimaryTimeRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   final String label;
   final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color.withValues(alpha: 0.9),
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MinMaxRow extends StatelessWidget {
+  const _MinMaxRow({
+    required this.min,
+    required this.max,
+    required this.color,
+  });
+
+  final String min;
+  final String max;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Min',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+            Text(
+              min,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'Max',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+            Text(
+              max,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

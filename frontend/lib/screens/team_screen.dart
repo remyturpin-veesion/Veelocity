@@ -61,7 +61,7 @@ class TeamScreen extends ConsumerWidget {
       );
     }
 
-    final period = ref.watch(selectedPeriodProvider);
+    final dateRange = ref.watch(selectedDateRangeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -76,7 +76,7 @@ class TeamScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Last ${period.days} days',
+            dateRange.summaryLabel,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
                 ),

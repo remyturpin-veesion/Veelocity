@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
 
+/// Named colors for data coverage and metrics (GitHub, GitHub Actions, Linear).
+class AppColors {
+  AppColors._();
+
+  static const Color github = Colors.purple;
+  static const Color deployment = Colors.green;
+  static const Color linear = Colors.teal;
+}
+
 /// Extension to get theme-aware color variants.
 extension ThemeAwareColor on Color {
   /// Returns a readable text color variant based on theme brightness.

@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_service.dart';
-import 'dashboard_preferences_provider.dart';
 import 'metrics_service.dart';
 import '../models/anomaly.dart';
+import '../models/date_range.dart';
 import '../models/developer.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
@@ -40,9 +40,14 @@ final metricsServiceProvider = Provider<MetricsService>((ref) {
   return MetricsService();
 });
 
-/// State provider for selected time period.
+/// State provider for selected time period (preset only; legacy).
 final selectedPeriodProvider = StateProvider<TimePeriod>((ref) {
   return TimePeriod.days30;
+});
+
+/// State provider for selected date range (preset or custom). All metrics use this.
+final selectedDateRangeProvider = StateProvider<DateRange>((ref) {
+  return PresetDateRange(TimePeriod.days30);
 });
 
 /// State provider for selected repository (legacy - single selection).
@@ -68,6 +73,12 @@ final selectedTeamIdsProvider = StateProvider<Set<int>>((ref) {
   return {};
 });
 
+/// State provider for selected Time-in-State stage IDs (multi-selection).
+/// Empty set means "all stages" (show all cards).
+final selectedTimeInStateStageIdsProvider = StateProvider<Set<String>>((ref) {
+  return {};
+});
+
 /// State provider for last refresh time.
 final lastRefreshTimeProvider = StateProvider<DateTime?>((ref) {
   return null;
@@ -76,7 +87,7 @@ final lastRefreshTimeProvider = StateProvider<DateTime?>((ref) {
 /// Provider for fetching DORA metrics with filters.
 final doraMetricsProvider = FutureProvider<DORAMetrics>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -84,8 +95,8 @@ final doraMetricsProvider = FutureProvider<DORAMetrics>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getDORAMetrics(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -94,7 +105,7 @@ final doraMetricsProvider = FutureProvider<DORAMetrics>((ref) async {
 final developmentMetricsProvider =
     FutureProvider<DevelopmentMetrics>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -102,8 +113,8 @@ final developmentMetricsProvider =
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getDevelopmentMetrics(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -121,7 +132,7 @@ final repositoriesProvider = FutureProvider<List<RepoOption>>((ref) async {
 /// Provider for fetching developers with filters.
 final developersProvider = FutureProvider<DevelopersResponse>((ref) async {
   final service = ref.read(apiServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -129,8 +140,8 @@ final developersProvider = FutureProvider<DevelopersResponse>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   final data = await service.getDevelopers(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
   return DevelopersResponse.fromJson(data);
@@ -140,7 +151,7 @@ final developersProvider = FutureProvider<DevelopersResponse>((ref) async {
 final developerStatsProvider =
     FutureProvider.family<DeveloperStats, String>((ref, login) async {
   final service = ref.read(apiServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -149,8 +160,8 @@ final developerStatsProvider =
 
   final data = await service.getDeveloperStats(
     login,
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
   return DeveloperStats.fromJson(data);
@@ -163,6 +174,13 @@ final syncCoverageProvider = FutureProvider<SyncCoverage>((ref) async {
   return SyncCoverage.fromJson(data);
 });
 
+/// Provider for daily coverage (counts by day per category) for Data Coverage charts.
+final dailyCoverageProvider = FutureProvider<DailyCoverage>((ref) async {
+  final service = ref.read(apiServiceProvider);
+  final data = await service.getDailyCoverage(days: 90);
+  return DailyCoverage.fromJson(data);
+});
+
 // ============================================================================
 // Individual Metric Providers
 // ============================================================================
@@ -171,7 +189,7 @@ final syncCoverageProvider = FutureProvider<SyncCoverage>((ref) async {
 final deploymentFrequencyProvider =
     FutureProvider<DeploymentFrequency>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -179,8 +197,8 @@ final deploymentFrequencyProvider =
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getDeploymentFrequency(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     includeTrend: true,
     includeBenchmark: true,
@@ -191,14 +209,14 @@ final deploymentFrequencyProvider =
 final deploymentReliabilityProvider =
     FutureProvider<DeploymentReliability>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getDeploymentReliability(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -206,7 +224,7 @@ final deploymentReliabilityProvider =
 /// Provider for fetching lead time metric.
 final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -214,8 +232,8 @@ final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getLeadTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     includeTrend: true,
     includeBenchmark: true,
@@ -225,7 +243,7 @@ final leadTimeProvider = FutureProvider<LeadTimeForChanges>((ref) async {
 /// Provider for fetching PR review time metric.
 final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -233,8 +251,8 @@ final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getPRReviewTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     includeTrend: true,
     includeBenchmark: true,
@@ -244,7 +262,7 @@ final prReviewTimeProvider = FutureProvider<PRReviewTime>((ref) async {
 /// Provider for fetching PR merge time metric.
 final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -252,8 +270,8 @@ final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getPRMergeTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     includeTrend: true,
     includeBenchmark: true,
@@ -263,11 +281,11 @@ final prMergeTimeProvider = FutureProvider<PRMergeTime>((ref) async {
 /// Provider for fetching cycle time metric.
 final cycleTimeProvider = FutureProvider<CycleTime>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getCycleTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     includeBenchmark: true,
   );
 });
@@ -275,7 +293,7 @@ final cycleTimeProvider = FutureProvider<CycleTime>((ref) async {
 /// Provider for fetching throughput metric.
 final throughputProvider = FutureProvider<Throughput>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   // If empty or multiple repos selected, fetch aggregated data (repoId = null)
@@ -283,8 +301,8 @@ final throughputProvider = FutureProvider<Throughput>((ref) async {
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getThroughput(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     includeTrend: true,
     includeBenchmark: true,
@@ -299,11 +317,11 @@ final throughputProvider = FutureProvider<Throughput>((ref) async {
 final deploymentFrequencyByRepoProvider =
     FutureProvider.family<DeploymentFrequency, int?>((ref, repoId) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getDeploymentFrequency(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -312,11 +330,11 @@ final deploymentFrequencyByRepoProvider =
 final leadTimeByRepoProvider =
     FutureProvider.family<LeadTimeForChanges, int?>((ref, repoId) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getLeadTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -325,11 +343,11 @@ final leadTimeByRepoProvider =
 final prReviewTimeByRepoProvider =
     FutureProvider.family<PRReviewTime, int?>((ref, repoId) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getPRReviewTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -338,11 +356,11 @@ final prReviewTimeByRepoProvider =
 final prMergeTimeByRepoProvider =
     FutureProvider.family<PRMergeTime, int?>((ref, repoId) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getPRMergeTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -351,11 +369,11 @@ final prMergeTimeByRepoProvider =
 final throughputByRepoProvider =
     FutureProvider.family<Throughput, int?>((ref, repoId) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getThroughput(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -369,11 +387,11 @@ final leadTimeByDeveloperProvider =
     FutureProvider.family<LeadTimeForChanges, String?>(
         (ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getLeadTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     authorLogin: authorLogin,
   );
 });
@@ -382,11 +400,11 @@ final leadTimeByDeveloperProvider =
 final prReviewTimeByDeveloperProvider =
     FutureProvider.family<PRReviewTime, String?>((ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getPRReviewTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     authorLogin: authorLogin,
   );
 });
@@ -395,11 +413,11 @@ final prReviewTimeByDeveloperProvider =
 final prMergeTimeByDeveloperProvider =
     FutureProvider.family<PRMergeTime, String?>((ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getPRMergeTime(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     authorLogin: authorLogin,
   );
 });
@@ -408,11 +426,11 @@ final prMergeTimeByDeveloperProvider =
 final throughputByDeveloperProvider =
     FutureProvider.family<Throughput, String?>((ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getThroughput(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     authorLogin: authorLogin,
   );
 });
@@ -422,11 +440,11 @@ final deploymentFrequencyByDeveloperProvider =
     FutureProvider.family<DeploymentFrequency, String?>(
         (ref, authorLogin) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
 
   return service.getDeploymentFrequency(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     authorLogin: authorLogin,
   );
 });
@@ -439,7 +457,7 @@ final deploymentFrequencyByDeveloperProvider =
 final deploymentFrequencyAnomaliesProvider =
     FutureProvider<AnomalyResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final repoIds = ref.watch(selectedRepoIdsProvider);
   final devLogins = ref.watch(selectedDeveloperLoginsProvider);
 
@@ -449,8 +467,8 @@ final deploymentFrequencyAnomaliesProvider =
 
   return service.getAnomalies(
     metric: 'deployment_frequency',
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     authorLogin: authorLogin,
   );
@@ -460,7 +478,7 @@ final deploymentFrequencyAnomaliesProvider =
 final throughputAnomaliesProvider =
     FutureProvider<AnomalyResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final repoIds = ref.watch(selectedRepoIdsProvider);
   final devLogins = ref.watch(selectedDeveloperLoginsProvider);
 
@@ -469,8 +487,8 @@ final throughputAnomaliesProvider =
 
   return service.getAnomalies(
     metric: 'throughput',
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     authorLogin: authorLogin,
   );
@@ -479,7 +497,7 @@ final throughputAnomaliesProvider =
 /// Provider for lead time anomalies.
 final leadTimeAnomaliesProvider = FutureProvider<AnomalyResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final repoIds = ref.watch(selectedRepoIdsProvider);
   final devLogins = ref.watch(selectedDeveloperLoginsProvider);
 
@@ -488,8 +506,8 @@ final leadTimeAnomaliesProvider = FutureProvider<AnomalyResponse>((ref) async {
 
   return service.getAnomalies(
     metric: 'lead_time',
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     authorLogin: authorLogin,
   );
@@ -498,7 +516,7 @@ final leadTimeAnomaliesProvider = FutureProvider<AnomalyResponse>((ref) async {
 /// Provider for fetching PR health scores.
 final prHealthProvider = FutureProvider<PRHealthResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final repoIds = ref.watch(selectedRepoIdsProvider);
   final devLogins = ref.watch(selectedDeveloperLoginsProvider);
 
@@ -506,8 +524,8 @@ final prHealthProvider = FutureProvider<PRHealthResponse>((ref) async {
   final authorLogin = devLogins.isEmpty ? null : devLogins.first;
 
   return service.getPRHealth(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
     authorLogin: authorLogin,
     includeSummary: true,
@@ -518,14 +536,14 @@ final prHealthProvider = FutureProvider<PRHealthResponse>((ref) async {
 final reviewerWorkloadProvider =
     FutureProvider<ReviewerWorkloadResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getReviewerWorkload(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -534,14 +552,14 @@ final reviewerWorkloadProvider =
 final recommendationsProvider =
     FutureProvider<RecommendationsResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
 
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
 
   return service.getRecommendations(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -549,12 +567,12 @@ final recommendationsProvider =
 /// Provider for metric correlations (deployment frequency, throughput, lead time).
 final correlationsProvider = FutureProvider<CorrelationsResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
   return service.getCorrelations(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     period: 'week',
     repoId: repoId,
   );
@@ -563,12 +581,12 @@ final correlationsProvider = FutureProvider<CorrelationsResponse>((ref) async {
 /// Provider for active alerts (rule evaluations).
 final alertsProvider = FutureProvider<AlertsResponse>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final selectedRepoIds = ref.watch(selectedRepoIdsProvider);
   final repoId = selectedRepoIds.length == 1 ? selectedRepoIds.first : null;
   return service.getAlerts(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     repoId: repoId,
   );
 });
@@ -656,11 +674,11 @@ List<int>? _resolvedTeamIds(Set<int> ids) => ids.isEmpty ? null : ids.toList();
 /// Provider for Linear overview (dashboard block and Linear overview screen).
 final linearOverviewProvider = FutureProvider<LinearOverview>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearOverview(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     teamIds: _resolvedTeamIds(teamIds),
   );
 });
@@ -669,11 +687,11 @@ final linearOverviewProvider = FutureProvider<LinearOverview>((ref) async {
 final linearIssuesCompletedProvider =
     FutureProvider<LinearIssuesCompleted>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearIssuesCompleted(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     period: 'week',
     teamIds: _resolvedTeamIds(teamIds),
   );
@@ -690,11 +708,11 @@ final linearBacklogProvider = FutureProvider<LinearBacklog>((ref) async {
 final linearTimeInStateProvider =
     FutureProvider<LinearTimeInState>((ref) async {
   final service = ref.read(metricsServiceProvider);
-  final period = ref.watch(selectedPeriodProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
   final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearTimeInState(
-    startDate: period.startDate,
-    endDate: period.endDate,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
     teamIds: _resolvedTeamIds(teamIds),
   );
 });

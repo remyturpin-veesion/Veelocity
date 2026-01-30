@@ -17,7 +17,7 @@ class LinearOverviewScreen extends ConsumerWidget {
     final coverageAsync = ref.watch(syncCoverageProvider);
     final linearFilter = ref.watch(linearIssuesFilterProvider);
     final issuesAsync = ref.watch(linearIssuesProvider(linearFilter));
-    final selectedPeriod = ref.watch(selectedPeriodProvider);
+    final dateRange = ref.watch(selectedDateRangeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -134,7 +134,7 @@ class LinearOverviewScreen extends ConsumerWidget {
                         title: 'Issues completed',
                         value: '${overview.issuesCompleted}',
                         subtitle:
-                            'Last ${selectedPeriod.days} days · ${overview.issuesCompletedPerWeek.toStringAsFixed(1)}/week',
+                            '${dateRange.summaryLabel} · ${overview.issuesCompletedPerWeek.toStringAsFixed(1)}/week',
                         icon: Icons.check_circle_outline,
                         color: Colors.teal,
                         onTap: () =>

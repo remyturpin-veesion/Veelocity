@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'services/theme_provider.dart';
+import 'widgets/selections_hydrator.dart';
 
 void main() {
-  runApp(const ProviderScope(child: VeelocityApp()));
+  runApp(const ProviderScope(
+    child: SelectionsHydrator(child: VeelocityApp()),
+  ));
 }
 
 class VeelocityApp extends ConsumerWidget {

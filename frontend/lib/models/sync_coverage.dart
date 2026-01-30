@@ -205,3 +205,45 @@ enum SyncStatus {
 String _formatDate(DateTime date) {
   return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
+
+/// Daily count for one date (for coverage charts).
+class DailyCountItem {
+  final String date; // YYYY-MM-DD
+  final int count;
+
+  DailyCountItem({required this.date, required this.count});
+
+  factory DailyCountItem.fromJson(Map<String, dynamic> json) {
+    return DailyCountItem(
+      date: json['date'] as String,
+      count: json['count'] as int,
+    );
+  }
+}
+
+/// Daily coverage per category (GitHub PRs, workflow runs, Linear issues).
+class DailyCoverage {
+  final List<DailyCountItem> github;
+  final List<DailyCountItem> githubActions;
+  final List<DailyCountItem> linear;
+
+  DailyCoverage({
+    required this.github,
+    required this.githubActions,
+    required this.linear,
+  });
+
+  factory DailyCoverage.fromJson(Map<String, dynamic> json) {
+    return DailyCoverage(
+      github: (json['github'] as List<dynamic>)
+          .map((e) => DailyCountItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      githubActions: (json['github_actions'] as List<dynamic>)
+          .map((e) => DailyCountItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      linear: (json['linear'] as List<dynamic>)
+          .map((e) => DailyCountItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}

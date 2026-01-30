@@ -163,6 +163,36 @@ async def test_linear_time_in_state_returns_200_and_structure(client):
                         "median_hours": 0.0,
                         "average_hours": 0.0,
                     },
+                    {
+                        "id": "time_backlog",
+                        "label": "Backlog (created → started)",
+                        "position": 1000.0,
+                        "count": 8,
+                        "min_hours": 2.0,
+                        "max_hours": 48.0,
+                        "median_hours": 24.0,
+                        "average_hours": 20.0,
+                    },
+                    {
+                        "id": "time_in_progress",
+                        "label": "In progress (started → completed)",
+                        "position": 1001.0,
+                        "count": 8,
+                        "min_hours": 12.0,
+                        "max_hours": 72.0,
+                        "median_hours": 30.0,
+                        "average_hours": 36.0,
+                    },
+                    {
+                        "id": "time_total",
+                        "label": "Total (created → completed)",
+                        "position": 1002.0,
+                        "count": 8,
+                        "min_hours": 14.0,
+                        "max_hours": 96.0,
+                        "median_hours": 54.0,
+                        "average_hours": 56.0,
+                    },
                 ],
             }
         )
@@ -178,7 +208,9 @@ async def test_linear_time_in_state_returns_200_and_structure(client):
         assert data["min_hours"] == 12.0
         assert data["max_hours"] == 72.0
         assert "stages" in data
-        assert len(data["stages"]) == 3
+        assert len(data["stages"]) == 6  # 3 workflow + 3 derived (Backlog, In progress, Total)
         assert data["stages"][0]["id"] == "todo"
         assert data["stages"][1]["id"] == "in_progress"
         assert data["stages"][2]["id"] == "done"
+        assert any(s["id"] == "time_backlog" for s in data["stages"])
+        assert any(s["id"] == "time_total" for s in data["stages"])

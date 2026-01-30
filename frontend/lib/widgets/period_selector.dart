@@ -15,15 +15,16 @@ enum TimePeriod {
   DateTime get endDate => DateTime.now();
 }
 
-/// A segmented button for selecting time periods.
+/// A segmented button for selecting time periods (7 / 30 / 90 days).
+/// [selectedPreset] is null when the current range is custom.
 class PeriodSelector extends StatelessWidget {
-  final TimePeriod selected;
-  final ValueChanged<TimePeriod> onChanged;
+  final TimePeriod? selectedPreset;
+  final ValueChanged<TimePeriod> onPresetSelected;
 
   const PeriodSelector({
     super.key,
-    required this.selected,
-    required this.onChanged,
+    required this.selectedPreset,
+    required this.onPresetSelected,
   });
 
   @override
@@ -35,10 +36,10 @@ class PeriodSelector extends StatelessWidget {
           label: Text(period.label),
         );
       }).toList(),
-      selected: {selected},
+      selected: selectedPreset != null ? {selectedPreset!} : {},
       onSelectionChanged: (selection) {
         if (selection.isNotEmpty) {
-          onChanged(selection.first);
+          onPresetSelected(selection.first);
         }
       },
       style: const ButtonStyle(

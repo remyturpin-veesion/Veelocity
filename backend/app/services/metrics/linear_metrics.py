@@ -166,9 +166,13 @@ class LinearMetricsService:
                     "average_hours": 0.0,
                 })
 
-        # Overall time-in-state (completed issues: started→completed) for summary cards
+        # Derived time-in-state (Backlog, In progress, Total) for completed issues
         query = (
-            select(LinearIssue.started_at, LinearIssue.completed_at)
+            select(
+                LinearIssue.created_at,
+                LinearIssue.started_at,
+                LinearIssue.completed_at,
+            )
             .where(
                 and_(
                     LinearIssue.started_at.isnot(None),
@@ -182,11 +186,19 @@ class LinearMetricsService:
             query = query.where(LinearIssue.team_id.in_(ids))
         result = await self._db.execute(query)
         rows = result.all()
-        in_progress_hours = []
-        for started_at, completed_at in rows:
-            if started_at and completed_at:
-                delta = (completed_at - started_at).total_seconds()
-                in_progress_hours.append(round(delta / 3600, 2))
+        backlog_hours: list[float] = []
+        in_progress_hours: list[float] = []
+        total_hours: list[float] = []
+        for created_at, started_at, completed_at in rows:
+            if not started_at or not completed_at:
+                continue
+            in_progress_delta = (completed_at - started_at).total_seconds()
+            in_progress_hours.append(round(in_progress_delta / 3600, 2))
+            if created_at:
+                backlog_delta = (started_at - created_at).total_seconds()
+                backlog_hours.append(round(backlog_delta / 3600, 2))
+                total_delta = (completed_at - created_at).total_seconds()
+                total_hours.append(round(total_delta / 3600, 2))
 
         def stats(hours: list[float]) -> dict:
             if not hours:
@@ -206,6 +218,32 @@ class LinearMetricsService:
                 "median_hours": round(sorted_h[n // 2], 2),
                 "average_hours": round(sum(hours) / n, 2),
             }
+
+        # Append derived stages (Backlog, In progress, Total) with full time stats
+        # Use time_ prefix so ids don't clash with workflow state "In Progress" -> in_progress
+        stages.extend([
+            {
+                "id": "time_backlog",
+                "label": "Backlog (created → started)",
+                "position": 1000.0,
+                "count": len(backlog_hours),
+                **stats(backlog_hours),
+            },
+            {
+                "id": "time_in_progress",
+                "label": "In progress (started → completed)",
+                "position": 1001.0,
+                "count": len(in_progress_hours),
+                **stats(in_progress_hours),
+            },
+            {
+                "id": "time_total",
+                "label": "Total (created → completed)",
+                "position": 1002.0,
+                "count": len(total_hours),
+                **stats(total_hours),
+            },
+        ])
 
         overall = stats(in_progress_hours)
 

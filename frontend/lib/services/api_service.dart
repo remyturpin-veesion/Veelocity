@@ -126,6 +126,16 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Get daily data counts per category (GitHub PRs, workflow runs, Linear issues) for charts.
+  /// [days] defaults to 90.
+  Future<Map<String, dynamic>> getDailyCoverage({int days = 90}) async {
+    final response = await _dio.get(
+      '/api/v1/sync/coverage/daily',
+      queryParameters: {'days': days},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Force import data for a single day or date range (GitHub PRs and/or Linear issues).
   /// [connector] is "github", "linear", or "all".
   Future<Map<String, dynamic>> triggerImportRange({
