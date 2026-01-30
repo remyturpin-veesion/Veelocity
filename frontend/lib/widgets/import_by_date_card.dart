@@ -33,16 +33,22 @@ extension on ImportConnector {
 /// Card with optional sync status and expandable "Import by date" form.
 /// When [syncStatusRow] is non-null, the card shows that row + an "Import" button
 /// that expands to reveal the date/source form. When null, the form is always visible.
+/// When [initialConnector] is [ImportConnector.github] or [ImportConnector.linear],
+/// the source is preselected and locked (no dropdown).
 class ImportByDateCard extends ConsumerStatefulWidget {
   final VoidCallback? onImportComplete;
 
   /// When set, shown at the top of the card; an "Import" button beside it expands the form.
   final Widget? syncStatusRow;
 
+  /// Preselects the source. When github or linear, the source is locked (dropdown hidden).
+  final ImportConnector? initialConnector;
+
   const ImportByDateCard({
     super.key,
     this.onImportComplete,
     this.syncStatusRow,
+    this.initialConnector,
   });
 
   @override
@@ -54,16 +60,21 @@ class _ImportByDateCardState extends ConsumerState<ImportByDateCard> {
 
   late DateTime _startDate;
   DateTime? _endDate;
-  ImportConnector _connector = ImportConnector.all;
+  late ImportConnector _connector;
   bool _loading = false;
   bool _useRange = false;
   bool _expanded = false;
+
+  bool get _isConnectorLocked =>
+      widget.initialConnector == ImportConnector.github ||
+      widget.initialConnector == ImportConnector.linear;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, now.day);
+    _connector = widget.initialConnector ?? ImportConnector.all;
   }
 
   Future<void> _pickStartDate() async {
@@ -162,11 +173,7 @@ class _ImportByDateCardState extends ConsumerState<ImportByDateCard> {
               onPressed: _loading ? null : _pickStartDate,
               child: Text(_dateFormat.format(_startDate)),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
+            const SizedBox(width: 24),
             Checkbox(
               value: _useRange,
               onChanged: _loading
@@ -198,20 +205,28 @@ class _ImportByDateCardState extends ConsumerState<ImportByDateCard> {
           children: [
             const Text('Source:'),
             const SizedBox(width: 12),
-            DropdownButton<ImportConnector>(
-              value: _connector,
-              items: ImportConnector.values
-                  .map((c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(c.label),
-                      ))
-                  .toList(),
-              onChanged: _loading
-                  ? null
-                  : (c) {
-                      if (c != null) setState(() => _connector = c);
-                    },
-            ),
+            if (_isConnectorLocked)
+              Text(
+                _connector.label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+              )
+            else
+              DropdownButton<ImportConnector>(
+                value: _connector,
+                items: ImportConnector.values
+                    .map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c.label),
+                        ))
+                    .toList(),
+                onChanged: _loading
+                    ? null
+                    : (c) {
+                        if (c != null) setState(() => _connector = c);
+                      },
+              ),
           ],
         ),
         const SizedBox(height: 16),

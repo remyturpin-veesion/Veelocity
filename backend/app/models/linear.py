@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -23,6 +23,24 @@ class LinearTeam(Base):
     )
 
     issues: Mapped[list["LinearIssue"]] = relationship(back_populates="team")
+    workflow_states: Mapped[list["LinearWorkflowState"]] = relationship(
+        back_populates="team", order_by="LinearWorkflowState.position"
+    )
+
+
+class LinearWorkflowState(Base):
+    """Linear workflow state (e.g. Todo, In Progress, In Review, Done) per team."""
+
+    __tablename__ = "linear_workflow_states"
+    __table_args__ = (UniqueConstraint("team_id", "linear_id", name="uq_linear_workflow_state_team_linear_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("linear_teams.id"), index=True)
+    linear_id: Mapped[str] = mapped_column(String(50), index=True)
+    name: Mapped[str] = mapped_column(String(100))  # e.g., "Todo", "In Progress"
+    position: Mapped[float] = mapped_column(Float, default=0.0)
+
+    team: Mapped["LinearTeam"] = relationship(back_populates="workflow_states")
 
 
 class LinearIssue(Base):

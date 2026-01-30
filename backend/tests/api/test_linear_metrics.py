@@ -130,6 +130,40 @@ async def test_linear_time_in_state_returns_200_and_structure(client):
                 "count": 8,
                 "average_hours": 36.0,
                 "median_hours": 30.0,
+                "min_hours": 12.0,
+                "max_hours": 72.0,
+                "stages": [
+                    {
+                        "id": "todo",
+                        "label": "Todo",
+                        "position": 0.0,
+                        "count": 23,
+                        "min_hours": 0.0,
+                        "max_hours": 0.0,
+                        "median_hours": 0.0,
+                        "average_hours": 0.0,
+                    },
+                    {
+                        "id": "in_progress",
+                        "label": "In Progress",
+                        "position": 1.0,
+                        "count": 12,
+                        "min_hours": 0.0,
+                        "max_hours": 0.0,
+                        "median_hours": 0.0,
+                        "average_hours": 0.0,
+                    },
+                    {
+                        "id": "done",
+                        "label": "Done",
+                        "position": 2.0,
+                        "count": 8,
+                        "min_hours": 0.0,
+                        "max_hours": 0.0,
+                        "median_hours": 0.0,
+                        "average_hours": 0.0,
+                    },
+                ],
             }
         )
         mock_service_class.return_value = mock_service
@@ -141,3 +175,10 @@ async def test_linear_time_in_state_returns_200_and_structure(client):
         assert data["count"] == 8
         assert data["average_hours"] == 36.0
         assert data["median_hours"] == 30.0
+        assert data["min_hours"] == 12.0
+        assert data["max_hours"] == 72.0
+        assert "stages" in data
+        assert len(data["stages"]) == 3
+        assert data["stages"][0]["id"] == "todo"
+        assert data["stages"][1]["id"] == "in_progress"
+        assert data["stages"][2]["id"] == "done"

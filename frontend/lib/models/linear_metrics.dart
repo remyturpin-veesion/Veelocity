@@ -101,13 +101,16 @@ class LinearBacklog {
   }
 }
 
-/// Time from issue started to completed.
+/// Time from issue created→started (backlog) and started→completed (in progress).
 class LinearTimeInState {
   final String startDate;
   final String endDate;
   final int count;
   final double averageHours;
   final double medianHours;
+  final double minHours;
+  final double maxHours;
+  final List<LinearTimeInStateStage> stages;
 
   LinearTimeInState({
     required this.startDate,
@@ -115,15 +118,61 @@ class LinearTimeInState {
     required this.count,
     required this.averageHours,
     required this.medianHours,
+    required this.minHours,
+    required this.maxHours,
+    required this.stages,
   });
 
   factory LinearTimeInState.fromJson(Map<String, dynamic> json) {
+    final stagesList = json['stages'] as List<dynamic>? ?? [];
     return LinearTimeInState(
       startDate: json['start_date'] as String,
       endDate: json['end_date'] as String,
       count: json['count'] as int,
       averageHours: (json['average_hours'] as num).toDouble(),
       medianHours: (json['median_hours'] as num).toDouble(),
+      minHours: (json['min_hours'] as num?)?.toDouble() ?? 0.0,
+      maxHours: (json['max_hours'] as num?)?.toDouble() ?? 0.0,
+      stages: stagesList
+          .map(
+              (e) => LinearTimeInStateStage.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// One workflow stage (e.g. Todo, In Progress, In Review) with issue count and optional time stats.
+class LinearTimeInStateStage {
+  final String id;
+  final String label;
+  final int count;
+  final double minHours;
+  final double maxHours;
+  final double medianHours;
+  final double averageHours;
+  final double? position;
+
+  LinearTimeInStateStage({
+    required this.id,
+    required this.label,
+    required this.count,
+    required this.minHours,
+    required this.maxHours,
+    required this.medianHours,
+    required this.averageHours,
+    this.position,
+  });
+
+  factory LinearTimeInStateStage.fromJson(Map<String, dynamic> json) {
+    return LinearTimeInStateStage(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      count: json['count'] as int,
+      minHours: (json['min_hours'] as num).toDouble(),
+      maxHours: (json['max_hours'] as num).toDouble(),
+      medianHours: (json['median_hours'] as num).toDouble(),
+      averageHours: (json['average_hours'] as num).toDouble(),
+      position: (json['position'] as num?)?.toDouble(),
     );
   }
 }

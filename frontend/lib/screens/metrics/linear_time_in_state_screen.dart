@@ -6,6 +6,7 @@ import '../../services/providers.dart';
 import 'metric_detail_screen.dart';
 
 /// Detail screen for Linear Time in State metric.
+/// Shows workflow stages (Backlog → In progress) with filters and stats (min, max, median, average).
 class LinearTimeInStateScreen extends ConsumerWidget {
   const LinearTimeInStateScreen({super.key});
 
@@ -20,6 +21,8 @@ class LinearTimeInStateScreen extends ConsumerWidget {
         return metricAsync.when(
           loading: () => const Row(
             children: [
+              Expanded(child: _SkeletonStatCard()),
+              SizedBox(width: 12),
               Expanded(child: _SkeletonStatCard()),
               SizedBox(width: 12),
               Expanded(child: _SkeletonStatCard()),
@@ -59,9 +62,9 @@ class LinearTimeInStateScreen extends ConsumerWidget {
   Widget _buildSummary(BuildContext context, LinearTimeInState data) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 500;
+        final isWide = constraints.maxWidth > 600;
         final cardWidth = isWide
-            ? (constraints.maxWidth - 24) / 3
+            ? (constraints.maxWidth - 36) / 4
             : (constraints.maxWidth - 12) / 2;
 
         return Wrap(
@@ -83,6 +86,17 @@ class LinearTimeInStateScreen extends ConsumerWidget {
                 label: 'Median',
                 value: formatDuration(data.medianHours),
                 icon: Icons.analytics_outlined,
+                color: Colors.deepPurple,
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: SummaryStatCard(
+                label: 'Min / Max',
+                value: data.count > 0
+                    ? '${formatDuration(data.minHours)} / ${formatDuration(data.maxHours)}'
+                    : '—',
+                icon: Icons.straighten,
                 color: Colors.deepPurple,
               ),
             ),
@@ -124,7 +138,7 @@ class LinearTimeInStateScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Complete Linear issues (with started_at set) in the selected period.',
+                'Complete Linear issues (with started_at set) in the selected period. Use period and team filters above.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey[600],
                     ),
@@ -136,44 +150,174 @@ class LinearTimeInStateScreen extends ConsumerWidget {
       );
     }
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Workflow by status',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < data.stages.length; i++) ...[
+                  _WorkflowStageCard(
+                    stage: data.stages[i],
+                    formatDuration: formatDuration,
+                    color: Colors.deepPurple,
+                  ),
+                  if (i < data.stages.length - 1)
+                    _WorkflowArrow(color: Colors.deepPurple),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String formatDuration(double hours) {
+    if (hours == 0) return 'N/A';
+    if (hours < 1) return '${(hours * 60).round()}m';
+    if (hours < 24) return '${hours.toStringAsFixed(1)}h';
+    return '${(hours / 24).toStringAsFixed(1)}d';
+  }
+}
+
+class _WorkflowStageCard extends StatelessWidget {
+  const _WorkflowStageCard({
+    required this.stage,
+    required this.formatDuration,
+    required this.color,
+  });
+
+  final LinearTimeInStateStage stage;
+  final String Function(double) formatDuration;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCount = stage.count > 0;
+    final hasTimeStats = hasCount &&
+        (stage.medianHours > 0 ||
+            stage.averageHours > 0 ||
+            stage.minHours > 0 ||
+            stage.maxHours > 0);
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.schedule,
-              size: 48,
-              color: Colors.deepPurple.withValues(alpha: 0.5),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child:
+                      Icon(Icons.account_tree_outlined, color: color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    stage.label,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            Text(
-              'Time from started to completed',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${data.count} issues in the selected period.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-              textAlign: TextAlign.center,
-            ),
+            _StatRow(label: 'Issues', value: '${stage.count}'),
+            if (hasTimeStats) ...[
+              _StatRow(
+                  label: 'Median', value: formatDuration(stage.medianHours)),
+              _StatRow(
+                  label: 'Average', value: formatDuration(stage.averageHours)),
+              _StatRow(label: 'Min', value: formatDuration(stage.minHours)),
+              _StatRow(label: 'Max', value: formatDuration(stage.maxHours)),
+            ] else if (!hasCount)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'No issues',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
 
-  String formatDuration(double hours) {
-    if (hours == 0) return 'N/A';
-    if (hours < 1) return '${(hours * 60).round()}m';
-    if (hours < 24) return '${hours.toStringAsFixed(1)}h';
-    return '${(hours / 24).toStringAsFixed(1)}d';
+class _WorkflowArrow extends StatelessWidget {
+  const _WorkflowArrow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Center(
+        child: Icon(
+          Icons.arrow_forward,
+          size: 28,
+          color: color.withValues(alpha: 0.6),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

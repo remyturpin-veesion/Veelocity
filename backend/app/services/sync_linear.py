@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.linear import LinearConnector
-from app.models.linear import LinearIssue, LinearTeam
+from app.models.linear import LinearIssue, LinearTeam, LinearWorkflowState
 from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
@@ -106,22 +106,62 @@ class SyncLinearService:
         return count
 
     async def _upsert_teams(self, teams: list[dict]) -> int:
-        """Insert or update teams."""
+        """Insert or update teams and their workflow states."""
         count = 0
         for data in teams:
+            workflow_states = data.pop("workflow_states", [])
+            team_data = {
+                "linear_id": data["linear_id"],
+                "name": data["name"],
+                "key": data["key"],
+            }
             result = await self._db.execute(
-                select(LinearTeam).where(LinearTeam.linear_id == data["linear_id"])
+                select(LinearTeam).where(LinearTeam.linear_id == team_data["linear_id"])
             )
             existing = result.scalar_one_or_none()
 
             if existing:
-                for key, value in data.items():
+                for key, value in team_data.items():
                     if key != "linear_id":
                         setattr(existing, key, value)
+                team_id = existing.id
             else:
-                self._db.add(LinearTeam(**data))
+                team = LinearTeam(**team_data)
+                self._db.add(team)
+                await self._db.flush()
+                team_id = team.id
             count += 1
+            count += await self._upsert_workflow_states(team_id, workflow_states)
 
+        await self._db.flush()
+        return count
+
+    async def _upsert_workflow_states(
+        self, team_id: int, workflow_states: list[dict]
+    ) -> int:
+        """Insert or update workflow states for a team."""
+        count = 0
+        for s in workflow_states:
+            result = await self._db.execute(
+                select(LinearWorkflowState).where(
+                    LinearWorkflowState.team_id == team_id,
+                    LinearWorkflowState.linear_id == s["linear_id"],
+                )
+            )
+            existing = result.scalar_one_or_none()
+            row = {
+                "team_id": team_id,
+                "linear_id": s["linear_id"],
+                "name": s["name"],
+                "position": s.get("position", 0),
+            }
+            if existing:
+                for key, value in row.items():
+                    if key != "team_id" and key != "linear_id":
+                        setattr(existing, key, value)
+            else:
+                self._db.add(LinearWorkflowState(**row))
+            count += 1
         await self._db.flush()
         return count
 

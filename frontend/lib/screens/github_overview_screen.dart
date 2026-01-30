@@ -34,6 +34,8 @@ class GitHubOverviewScreen extends ConsumerWidget {
       return _buildErrorState(context, ref, deploymentFreqAsync.error!);
     }
 
+    final coverageAsync = ref.watch(syncCoverageProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -54,17 +56,85 @@ class GitHubOverviewScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Import by date (datepicker + import button)
-          ImportByDateCard(
-            onImportComplete: () {
-              ref.invalidate(syncCoverageProvider);
-              ref.invalidate(deploymentFrequencyProvider);
-              ref.invalidate(leadTimeProvider);
-              ref.invalidate(prReviewTimeProvider);
-              ref.invalidate(prMergeTimeProvider);
-              ref.invalidate(cycleTimeProvider);
-              ref.invalidate(throughputProvider);
+          // Sync status + Import by date (GitHub only, source preselected)
+          coverageAsync.when(
+            data: (coverage) {
+              final githubList = coverage.connectors
+                  .where((c) => c.connectorName == 'github')
+                  .toList();
+              final syncStatusRow = githubList.isEmpty
+                  ? null
+                  : () {
+                      final c = githubList.first;
+                      final displayName =
+                          (c.displayName != null && c.displayName!.isNotEmpty)
+                              ? c.displayName!
+                              : c.connectorName;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.sync,
+                            color: c.isRecent ? Colors.green : Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            displayName,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Last sync: ${c.timeSinceSync}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ],
+                      );
+                    }();
+              return ImportByDateCard(
+                syncStatusRow: syncStatusRow,
+                initialConnector: ImportConnector.github,
+                onImportComplete: () {
+                  ref.invalidate(syncCoverageProvider);
+                  ref.invalidate(deploymentFrequencyProvider);
+                  ref.invalidate(leadTimeProvider);
+                  ref.invalidate(prReviewTimeProvider);
+                  ref.invalidate(prMergeTimeProvider);
+                  ref.invalidate(cycleTimeProvider);
+                  ref.invalidate(throughputProvider);
+                },
+              );
             },
+            loading: () => ImportByDateCard(
+              initialConnector: ImportConnector.github,
+              onImportComplete: () {
+                ref.invalidate(syncCoverageProvider);
+                ref.invalidate(deploymentFrequencyProvider);
+                ref.invalidate(leadTimeProvider);
+                ref.invalidate(prReviewTimeProvider);
+                ref.invalidate(prMergeTimeProvider);
+                ref.invalidate(cycleTimeProvider);
+                ref.invalidate(throughputProvider);
+              },
+            ),
+            error: (_, __) => ImportByDateCard(
+              initialConnector: ImportConnector.github,
+              onImportComplete: () {
+                ref.invalidate(syncCoverageProvider);
+                ref.invalidate(deploymentFrequencyProvider);
+                ref.invalidate(leadTimeProvider);
+                ref.invalidate(prReviewTimeProvider);
+                ref.invalidate(prMergeTimeProvider);
+                ref.invalidate(cycleTimeProvider);
+                ref.invalidate(throughputProvider);
+              },
+            ),
           ),
           const SizedBox(height: 24),
 

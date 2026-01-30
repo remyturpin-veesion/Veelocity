@@ -82,6 +82,7 @@ class LinearOverviewScreen extends ConsumerWidget {
                     }();
               return ImportByDateCard(
                 syncStatusRow: syncStatusRow,
+                initialConnector: ImportConnector.linear,
                 onImportComplete: () {
                   ref.invalidate(syncCoverageProvider);
                   ref.invalidate(linearOverviewProvider);
@@ -91,8 +92,12 @@ class LinearOverviewScreen extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const ImportByDateCard(),
-            error: (_, __) => const ImportByDateCard(),
+            loading: () => const ImportByDateCard(
+              initialConnector: ImportConnector.linear,
+            ),
+            error: (_, __) => const ImportByDateCard(
+              initialConnector: ImportConnector.linear,
+            ),
           ),
           const SizedBox(height: 24),
 

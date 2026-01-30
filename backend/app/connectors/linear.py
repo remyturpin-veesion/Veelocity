@@ -45,7 +45,7 @@ class LinearConnector(BaseConnector):
             return False
 
     async def fetch_teams(self) -> list[dict]:
-        """Fetch all teams."""
+        """Fetch all teams with their workflow states (ordered by position)."""
         query = """
         {
             teams {
@@ -53,6 +53,13 @@ class LinearConnector(BaseConnector):
                     id
                     name
                     key
+                    states {
+                        nodes {
+                            id
+                            name
+                            position
+                        }
+                    }
                 }
             }
         }
@@ -69,6 +76,14 @@ class LinearConnector(BaseConnector):
                 "linear_id": team["id"],
                 "name": team["name"],
                 "key": team["key"],
+                "workflow_states": [
+                    {
+                        "linear_id": s["id"],
+                        "name": s["name"],
+                        "position": float(s.get("position", 0)),
+                    }
+                    for s in (team.get("states") or {}).get("nodes") or []
+                ],
             }
             for team in teams
         ]

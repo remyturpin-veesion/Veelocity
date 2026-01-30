@@ -8,13 +8,18 @@ import pytest
 from app.services.metrics.linear_metrics import LinearMetricsService
 
 
-def _make_mock_db(completed_dates=None, backlog_count=0, time_in_state_rows=None):
-    """Create a mock DB that returns configurable results for Linear metrics queries.
-    get_overview calls get_issues_completed (1 execute), get_backlog (1 execute),
-    get_time_in_state (1 execute). We return results in that order per execute call.
-    """
+def _make_mock_db(
+    completed_dates=None,
+    backlog_count=0,
+    time_in_state_rows=None,
+    workflow_state_rows=None,
+    state_count_rows=None,
+):
+    """Create a mock DB for Linear metrics. get_time_in_state calls: workflow states, count by state, time query."""
     completed_dates = completed_dates or []
     time_in_state_rows = time_in_state_rows or []
+    workflow_state_rows = workflow_state_rows or [("Todo", 0.0), ("In Progress", 1.0), ("Done", 2.0)]
+    state_count_rows = state_count_rows or [("Todo", 5), ("In Progress", 3), ("Done", 2)]
     call_order = [0]
 
     async def execute(stmt):
@@ -22,18 +27,21 @@ def _make_mock_db(completed_dates=None, backlog_count=0, time_in_state_rows=None
         idx = call_order[0]
         call_order[0] += 1
         stmt_str = str(stmt).lower()
-        if "count(" in stmt_str and "linear" in stmt_str:
+        if "linear_workflow_states" in stmt_str:
+            result.scalar = MagicMock(return_value=None)
+            result.all = MagicMock(return_value=workflow_state_rows)
+        elif ("group by" in stmt_str or "group_by" in stmt_str) and "state" in stmt_str:
+            result.scalar = MagicMock(return_value=None)
+            result.all = MagicMock(return_value=state_count_rows)
+        elif "count(" in stmt_str and "linear" in stmt_str:
             result.scalar = MagicMock(return_value=backlog_count)
             result.all = MagicMock(return_value=[])
         elif "started_at" in stmt_str and "completed_at" in stmt_str:
             result.scalar = MagicMock(return_value=None)
             result.all = MagicMock(return_value=time_in_state_rows)
         else:
-            # issues completed: list of (completed_at,)
             result.scalar = MagicMock(return_value=None)
-            result.all = MagicMock(
-                return_value=[(d,) for d in completed_dates]
-            )
+            result.all = MagicMock(return_value=[(d,) for d in completed_dates])
         return result
 
     db = AsyncMock()
@@ -51,14 +59,8 @@ def linear_service():
         ],
         backlog_count=7,
         time_in_state_rows=[
-            (
-                datetime(2025, 1, 8, 10, 0),
-                datetime(2025, 1, 10, 14, 0),
-            ),
-            (
-                datetime(2025, 1, 12, 9, 0),
-                datetime(2025, 1, 15, 11, 0),
-            ),
+            (datetime(2025, 1, 8, 10, 0), datetime(2025, 1, 10, 14, 0)),
+            (datetime(2025, 1, 12, 9, 0), datetime(2025, 1, 15, 11, 0)),
         ],
     )
     return LinearMetricsService(db)
@@ -116,7 +118,7 @@ async def test_get_backlog_empty():
 
 @pytest.mark.asyncio
 async def test_get_time_in_state(linear_service):
-    """Computes average and median from started->completed deltas."""
+    """Returns workflow state columns in order and overall time-in-state for completed issues."""
     start = datetime(2025, 1, 1)
     end = datetime(2025, 1, 31)
 
@@ -125,14 +127,30 @@ async def test_get_time_in_state(linear_service):
     assert result["count"] == 2
     assert result["average_hours"] > 0
     assert result["median_hours"] > 0
+    assert "min_hours" in result
+    assert "max_hours" in result
     assert "start_date" in result
     assert "end_date" in result
+    assert "stages" in result
+    stages = result["stages"]
+    assert len(stages) == 3
+    todo = next(s for s in stages if s["id"] == "todo")
+    in_progress = next(s for s in stages if s["id"] == "in_progress")
+    done = next(s for s in stages if s["id"] == "done")
+    assert todo["label"] == "Todo" and todo["count"] == 5
+    assert in_progress["label"] == "In Progress" and in_progress["count"] == 3
+    assert done["label"] == "Done" and done["count"] == 2
+    assert "min_hours" in todo and "median_hours" in todo
 
 
 @pytest.mark.asyncio
 async def test_get_time_in_state_empty():
-    """When no completed issues with started_at, returns zeros."""
-    db = _make_mock_db(time_in_state_rows=[])
+    """When no completed issues, overall is zero; stages still from workflow states."""
+    db = _make_mock_db(
+        time_in_state_rows=[],
+        workflow_state_rows=[("Todo", 0.0), ("Done", 1.0)],
+        state_count_rows=[("Todo", 1), ("Done", 0)],
+    )
     service = LinearMetricsService(db)
     start = datetime(2025, 1, 1)
     end = datetime(2025, 1, 31)
@@ -140,6 +158,8 @@ async def test_get_time_in_state_empty():
     assert result["count"] == 0
     assert result["average_hours"] == 0.0
     assert result["median_hours"] == 0.0
+    assert result["stages"] is not None
+    assert len(result["stages"]) == 2
 
 
 @pytest.mark.asyncio
