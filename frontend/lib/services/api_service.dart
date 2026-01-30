@@ -48,6 +48,29 @@ class ApiService {
     await _dio.post('/api/v1/connectors/sync');
   }
 
+  /// Get public/masked settings (no secrets). Keys: github_configured, github_repos, linear_configured, linear_workspace_name, storage_available.
+  Future<Map<String, dynamic>> getSettings() async {
+    final response = await _dio.get('/api/v1/settings');
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// Update settings. Only include keys that changed; leave blank to keep current. Secrets are encrypted at rest.
+  Future<Map<String, dynamic>> updateSettings({
+    String? githubToken,
+    String? githubRepos,
+    String? linearApiKey,
+    String? linearWorkspaceName,
+  }) async {
+    final body = <String, dynamic>{};
+    if (githubToken != null) body['github_token'] = githubToken;
+    if (githubRepos != null) body['github_repos'] = githubRepos;
+    if (linearApiKey != null) body['linear_api_key'] = linearApiKey;
+    if (linearWorkspaceName != null)
+      body['linear_workspace_name'] = linearWorkspaceName;
+    final response = await _dio.put('/api/v1/settings', data: body);
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Get all developers with basic stats.
   Future<Map<String, dynamic>> getDevelopers({
     DateTime? startDate,

@@ -11,6 +11,7 @@ from app.connectors.factory import (
     create_linear_connector,
 )
 from app.core.database import async_session_maker
+from app.services.credentials import CredentialsService
 from app.models.github import PullRequest, Repository
 from app.services.insights.alerts import AlertsService
 from app.services.insights.notifications import send_alert_notifications
@@ -116,8 +117,9 @@ async def run_sync():
                 f"{repos_needing_full_sync}. Running fast sync (PRs only)."
             )
 
+        creds = await CredentialsService(db).get_credentials()
         # GitHub connector (PRs, reviews, comments, commits)
-        github = create_github_connector()
+        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
         if github:
             # If any repo needs full sync, do fast sync (PRs only, no details)
             if repos_needing_full_sync:
@@ -130,8 +132,10 @@ async def run_sync():
             logger.info(f"GitHub sync: {items} items, {len(errors)} errors")
 
         # GitHub Actions and Linear in parallel
-        github_actions = create_github_actions_connector()
-        linear = create_linear_connector()
+        github_actions = create_github_actions_connector(
+            token=creds.github_token, repos=creds.github_repos
+        )
+        linear = create_linear_connector(api_key=creds.linear_api_key)
 
         async def sync_actions():
             if not github_actions:
@@ -182,10 +186,11 @@ async def run_full_sync():
     Processes PRs in batches to avoid timeouts.
     """
     async with async_session_maker() as db:
+        creds = await CredentialsService(db).get_credentials()
         total_items = 0
 
         # GitHub - sync PRs first (fast)
-        github = create_github_connector()
+        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
         if github:
             logger.info("Full sync: fetching all PRs...")
             result = await github.sync_all(db, fetch_details=False)
@@ -194,7 +199,9 @@ async def run_full_sync():
             logger.info(f"Full sync: {result.items_synced} PRs synced")
 
         # GitHub Actions
-        github_actions = create_github_actions_connector()
+        github_actions = create_github_actions_connector(
+            token=creds.github_token, repos=creds.github_repos
+        )
         if github_actions:
             result = await github_actions.sync_all(db)
             total_items += result.items_synced
@@ -202,7 +209,7 @@ async def run_full_sync():
             logger.info(f"Full sync: {result.items_synced} workflow runs synced")
 
         # Linear
-        linear = create_linear_connector()
+        linear = create_linear_connector(api_key=creds.linear_api_key)
         if linear:
             result = await linear.sync_all(db)
             total_items += result.items_synced
@@ -271,7 +278,8 @@ async def run_fill_details(batch_size: int = 100):
             f"({total_remaining} total remaining)"
         )
         
-        github = create_github_connector()
+        creds = await CredentialsService(db).get_credentials()
+        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
         if not github:
             return
         

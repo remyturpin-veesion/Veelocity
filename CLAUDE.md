@@ -8,7 +8,7 @@ Veelocity is a single-user developer analytics platform measuring DORA metrics a
 
 **Key characteristics:**
 - Single-user tool (no authentication, no user/org models)
-- All credentials via environment variables (`.env`)
+- GitHub & Linear credentials stored encrypted in the database (Settings UI); only encryption key in `.env`
 - Python 3.11+ backend with FastAPI + PostgreSQL
 - Flutter frontend (web, iOS, Android)
 - Managed with `uv` (Python package manager)
@@ -65,12 +65,12 @@ make logs   # View container logs
 Single-user tool. No User/Organization models, no JWT, no sessions.
 
 ### Credentials Management
-All API tokens (GitHub, Linear) configured via `.env` file, not through UI:
-- `GITHUB_TOKEN`
-- `GITHUB_REPOS` (comma-separated: "owner/repo1,owner/repo2")
-- `LINEAR_API_KEY` — use the Veesion Linear workspace API key (Linear → Settings → API)
-- `LINEAR_WORKSPACE_NAME` — optional display name (e.g. `"Veesion Linear"`) shown in connector status and Data Coverage
-- `DEPLOYMENT_PATTERNS` (comma-separated: "deploy,release,publish")
+GitHub and Linear API keys are stored encrypted in the database. Configure them in the app via **Settings** (gear icon). The backend does not read these from `.env`.
+
+- **Encryption:** Set `VEELOCITY_ENCRYPTION_KEY` in `.env` (Fernet key, base64). Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Without it, the Settings UI cannot save API keys.
+- **GitHub:** API key and repos (comma-separated `owner/repo1,owner/repo2`) — set in Settings.
+- **Linear:** API key (Linear → Settings → API) and optional workspace name — set in Settings.
+- **Sync:** `DEPLOYMENT_PATTERNS` (comma-separated: "deploy,release,publish") remains in `.env`.
 
 ### Sync Architecture
 

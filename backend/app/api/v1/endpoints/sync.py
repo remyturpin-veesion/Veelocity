@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.models.github import (
     Commit,
@@ -195,10 +194,12 @@ async def fill_all_details(
     from app.connectors.factory import create_github_connector
     from app.connectors.rate_limiter import get_rate_limiter
     from app.models.github import PullRequest, Repository
+    from app.services.credentials import CredentialsService
     from app.services.sync import SyncService
     
     logger = logging.getLogger(__name__)
     
+    creds = await CredentialsService(db).get_credentials()
     total_items_synced = 0
     total_prs_processed = 0
     batches_run = 0
@@ -206,7 +207,7 @@ async def fill_all_details(
     try:
         while batches_run < max_batches:
             # Create fresh connector for each batch (resets rate limiter)
-            github = create_github_connector()
+            github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
             if not github:
                 return {"status": "error", "message": "GitHub connector not configured"}
             
@@ -291,11 +292,13 @@ async def fill_all_details(
         return {"status": "error", "message": str(e), "error_type": type(e).__name__}
 
 
-async def _get_github_and_repo(repo_name: str):
+async def _get_github_and_repo(repo_name: str, db: AsyncSession):
     """Helper to get GitHub connector and validate repo."""
     from app.connectors.factory import create_github_connector
+    from app.services.credentials import CredentialsService
 
-    github = create_github_connector()
+    creds = await CredentialsService(db).get_credentials()
+    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
     if not github:
         return None, None, {"status": "error", "message": "GitHub connector not configured"}
 
@@ -328,7 +331,7 @@ async def sync_repo_pull_requests(
     """
     from app.services.sync import SyncService
 
-    github, repo_data, error = await _get_github_and_repo(repo_name)
+    github, repo_data, error = await _get_github_and_repo(repo_name, db)
     if error:
         return error
 
@@ -367,7 +370,7 @@ async def sync_repo_commits(
     from app.models.github import PullRequest, Repository
     from app.services.sync import SyncService
 
-    github, repo_data, error = await _get_github_and_repo(repo_name)
+    github, repo_data, error = await _get_github_and_repo(repo_name, db)
     if error:
         return error
 
@@ -446,7 +449,7 @@ async def sync_repo_reviews(
     from app.models.github import PullRequest, Repository
     from app.services.sync import SyncService
 
-    github, repo_data, error = await _get_github_and_repo(repo_name)
+    github, repo_data, error = await _get_github_and_repo(repo_name, db)
     if error:
         return error
 
@@ -523,7 +526,7 @@ async def sync_repo_comments(
     from app.models.github import PullRequest, Repository
     from app.services.sync import SyncService
 
-    github, repo_data, error = await _get_github_and_repo(repo_name)
+    github, repo_data, error = await _get_github_and_repo(repo_name, db)
     if error:
         return error
 
@@ -592,7 +595,7 @@ async def sync_repo_all(
     """
     from app.services.sync import SyncService
 
-    github, repo_data, error = await _get_github_and_repo(repo_name)
+    github, repo_data, error = await _get_github_and_repo(repo_name, db)
     if error:
         return error
 
@@ -627,15 +630,19 @@ class SyncDiagnosticResponse(BaseModel):
 
 
 @router.get("/diagnostic")
-async def get_sync_diagnostic() -> SyncDiagnosticResponse:
+async def get_sync_diagnostic(
+    db: AsyncSession = Depends(get_db),
+) -> SyncDiagnosticResponse:
     """
     Test GitHub API connectivity for each configured repo.
     
     This helps diagnose why a repo might have no data.
     """
     from app.connectors.factory import create_github_connector
+    from app.services.credentials import CredentialsService
 
-    github = create_github_connector()
+    creds = await CredentialsService(db).get_credentials()
+    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
     if not github:
         return SyncDiagnosticResponse(repos=[])
 
@@ -672,16 +679,18 @@ async def get_sync_coverage(
     db: AsyncSession = Depends(get_db),
 ) -> SyncCoverageResponse:
     """Get data coverage statistics for all repositories."""
+    from app.services.credentials import CredentialsService
+
+    creds = await CredentialsService(db).get_credentials()
     # Get connector sync states
     sync_states_result = await db.execute(select(SyncState))
     sync_states = sync_states_result.scalars().all()
+    linear_display_name = creds.linear_workspace_name.strip() or None
     connectors = [
         ConnectorSyncState(
             connector_name=s.connector_name,
             display_name=(
-                settings.linear_workspace_name or None
-                if s.connector_name == "linear"
-                else None
+                linear_display_name if s.connector_name == "linear" else None
             ),
             last_sync_at=s.last_sync_at,
             last_full_sync_at=s.last_full_sync_at,

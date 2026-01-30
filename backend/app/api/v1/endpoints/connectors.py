@@ -6,43 +6,46 @@ from app.connectors.factory import (
     create_github_connector,
     create_linear_connector,
 )
-from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.connector import ConnectorStatus, SyncResult
+from app.services.credentials import CredentialsService
 from app.services.linking import LinkingService
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
 
 @router.get("/status", response_model=list[ConnectorStatus])
-async def get_connectors_status():
+async def get_connectors_status(db: AsyncSession = Depends(get_db)):
     """Get status of all configured connectors."""
+    creds = await CredentialsService(db).get_credentials()
     statuses = []
 
     # GitHub connector
-    github = create_github_connector()
+    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
     if github:
         connected = await github.test_connection()
         statuses.append(ConnectorStatus(name="github", connected=connected))
         await github.close()
 
     # GitHub Actions connector
-    github_actions = create_github_actions_connector()
+    github_actions = create_github_actions_connector(
+        token=creds.github_token, repos=creds.github_repos
+    )
     if github_actions:
         connected = await github_actions.test_connection()
         statuses.append(ConnectorStatus(name="github_actions", connected=connected))
         await github_actions.close()
 
     # Linear connector
-    linear = create_linear_connector()
+    linear = create_linear_connector(api_key=creds.linear_api_key)
     if linear:
         connected = await linear.test_connection()
-        display_name = settings.linear_workspace_name or None
+        display_name = creds.linear_workspace_name.strip() or None
         statuses.append(
             ConnectorStatus(
                 name="linear",
                 connected=connected,
-                display_name=display_name if display_name else None,
+                display_name=display_name,
             )
         )
         await linear.close()
@@ -61,10 +64,11 @@ async def trigger_sync(
     By default, performs incremental sync (only new/updated data).
     Use ?full=true for a complete resync of all data.
     """
+    creds = await CredentialsService(db).get_credentials()
     results = []
 
     # Sync GitHub data
-    github = create_github_connector()
+    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
     if github:
         if full:
             result = await github.sync_all(db)
@@ -74,7 +78,9 @@ async def trigger_sync(
         await github.close()
 
     # Sync GitHub Actions data
-    github_actions = create_github_actions_connector()
+    github_actions = create_github_actions_connector(
+        token=creds.github_token, repos=creds.github_repos
+    )
     if github_actions:
         if full:
             result = await github_actions.sync_all(db)
@@ -84,7 +90,7 @@ async def trigger_sync(
         await github_actions.close()
 
     # Sync Linear data
-    linear = create_linear_connector()
+    linear = create_linear_connector(api_key=creds.linear_api_key)
     if linear:
         if full:
             result = await linear.sync_all(db)

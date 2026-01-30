@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,13 +19,19 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://veelocity:veelocity@localhost:5433/veelocity"
     )
 
-    # GitHub
+    # GitHub/Linear credentials are stored in the database (encrypted), not read from env.
+    # These fields are kept for backward compatibility but are unused by connectors.
     github_token: str | None = None
-    github_repos: str = ""  # Comma-separated: "owner/repo1,owner/repo2"
-
-    # Linear (use Veesion Linear workspace API key)
+    github_repos: str = ""
     linear_api_key: str | None = None
-    linear_workspace_name: str = ""  # Optional display name e.g. "Veesion Linear"
+    linear_workspace_name: str = ""
+
+    # Encryption for credentials stored in DB (Fernet key, base64). Required to save keys via Settings UI.
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    encryption_key: str | None = Field(
+        default=None,
+        validation_alias="VEELOCITY_ENCRYPTION_KEY",
+    )
 
     # Sync
     deployment_patterns: str = "deploy,release,publish"  # Comma-separated

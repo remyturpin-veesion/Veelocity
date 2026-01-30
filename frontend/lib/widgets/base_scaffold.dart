@@ -7,9 +7,64 @@ import '../services/providers.dart';
 import '../services/theme_provider.dart';
 import 'dashboard_customize_dialog.dart';
 import 'developer_multi_selector.dart';
+import 'settings_dialog.dart';
 import 'metrics_side_nav.dart';
 import 'period_selector.dart';
 import 'repo_multi_selector.dart';
+
+/// Persistent app logo shown on the far left on all pages.
+/// Kept separate from the metrics side nav so it does not blink when switching
+/// between Dashboard, GitHub, and Linear (where the side nav is hidden on home).
+class AppLogo extends StatelessWidget {
+  const AppLogo({super.key});
+
+  static const double width = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: width,
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(
+          right: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+      child: Center(
+        child: Tooltip(
+          message: 'Dashboard',
+          preferBelow: false,
+          waitDuration: const Duration(milliseconds: 300),
+          child: InkWell(
+            onTap: () => context.go('/?tab=dashboard'),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.dashboard_rounded,
+                size: 24,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Base scaffold providing consistent layout across all screens.
 ///
@@ -48,178 +103,205 @@ class BaseScaffold extends ConsumerWidget {
     final currentTab = ref.watch(mainTabProvider);
 
     return Scaffold(
-      body: Row(
+      body: Stack(
         children: [
-          // Metrics navigation sidebar (hidden on Dashboard home; contextual for GitHub/Linear)
-          MetricsSideNav(
-            currentMetricId: currentMetricId,
-            isHome: isHome,
-            currentTab: currentTab,
-          ),
-          // Main content
-          Expanded(
-            child: Column(
+          // Main area: sidebar (when visible) + content — starts after logo
+          Positioned(
+            left: AppLogo.width,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: Row(
               children: [
-                // Period selector bar
-                if (showFilters)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        // Navigation tabs
-                        _NavigationTabs(
-                          currentTab: currentTab,
-                          isHome: isHome,
-                        ),
-                        const Spacer(),
-                        PeriodSelector(
-                          selected: selectedPeriod,
-                          onChanged: (period) {
-                            ref.read(selectedPeriodProvider.notifier).state =
-                                period;
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _ExportReportButton(
-                          startDate: selectedPeriod.startDate,
-                          endDate: selectedPeriod.endDate,
-                          repoId: selectedRepoIds.length == 1
-                              ? selectedRepoIds.first
-                              : null,
-                        ),
-                        if (isHome && currentTab == MainTab.dashboard)
-                          IconButton(
-                            icon: const Icon(Icons.dashboard_customize),
-                            tooltip: 'Customize dashboard',
-                            onPressed: () =>
-                                DashboardCustomizeDialog.show(context),
-                          ),
-                        const _ThemeModeButton(),
-                      ],
-                    ),
-                  ),
-                // Entity selector section (repos or developers)
-                if (showFilters)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              currentTab == MainTab.dashboard ||
-                                      currentTab == MainTab.github
-                                  ? Icons.folder_outlined
-                                  : currentTab == MainTab.team
-                                      ? Icons.people_outline
-                                      : currentTab == MainTab.alerts
-                                          ? Icons.notifications_active
-                                          : Icons.inbox,
-                              size: 16,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7),
+                // Metrics navigation sidebar (hidden on Dashboard home; contextual for GitHub/Linear)
+                MetricsSideNav(
+                  currentMetricId: currentMetricId,
+                  isHome: isHome,
+                  currentTab: currentTab,
+                ),
+                // Main content
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Period selector bar
+                      if (showFilters)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              currentTab == MainTab.dashboard ||
-                                      currentTab == MainTab.github
-                                  ? 'Repositories'
-                                  : currentTab == MainTab.team
-                                      ? 'Developers'
-                                      : currentTab == MainTab.alerts
-                                          ? 'Alerts'
-                                          : 'Linear',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
-                                  ?.copyWith(
+                          ),
+                          child: Row(
+                            children: [
+                              // Navigation tabs
+                              _NavigationTabs(
+                                currentTab: currentTab,
+                                isHome: isHome,
+                              ),
+                              const Spacer(),
+                              PeriodSelector(
+                                selected: selectedPeriod,
+                                onChanged: (period) {
+                                  ref
+                                      .read(selectedPeriodProvider.notifier)
+                                      .state = period;
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              _ExportReportButton(
+                                startDate: selectedPeriod.startDate,
+                                endDate: selectedPeriod.endDate,
+                                repoId: selectedRepoIds.length == 1
+                                    ? selectedRepoIds.first
+                                    : null,
+                              ),
+                              if (isHome && currentTab == MainTab.dashboard)
+                                IconButton(
+                                  icon: const Icon(Icons.dashboard_customize),
+                                  tooltip: 'Customize dashboard',
+                                  onPressed: () =>
+                                      DashboardCustomizeDialog.show(context),
+                                ),
+                              const _ThemeModeButton(),
+                              IconButton(
+                                icon: const Icon(Icons.settings),
+                                tooltip: 'Settings',
+                                onPressed: () => SettingsDialog.show(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Entity selector section (repos or developers)
+                      if (showFilters)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.3),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    currentTab == MainTab.dashboard ||
+                                            currentTab == MainTab.github
+                                        ? Icons.folder_outlined
+                                        : currentTab == MainTab.team
+                                            ? Icons.people_outline
+                                            : currentTab == MainTab.alerts
+                                                ? Icons.notifications_active
+                                                : Icons.inbox,
+                                    size: 16,
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurface
                                         .withValues(alpha: 0.7),
                                   ),
-                            ),
-                          ],
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    currentTab == MainTab.dashboard ||
+                                            currentTab == MainTab.github
+                                        ? 'Repositories'
+                                        : currentTab == MainTab.team
+                                            ? 'Developers'
+                                            : currentTab == MainTab.alerts
+                                                ? 'Alerts'
+                                                : 'Linear',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Show repo selector in Dashboard and GitHub, developer selector in Team, none for Linear
+                              if (currentTab == MainTab.dashboard ||
+                                  currentTab == MainTab.github)
+                                reposAsync.when(
+                                  loading: () => const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                  error: (_, __) => const Text(
+                                    'Error loading repositories',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                  data: (repos) => RepoMultiSelector(
+                                    repos: repos,
+                                    selectedRepoIds: selectedRepoIds,
+                                    onChanged: (ids) {
+                                      ref
+                                          .read(
+                                              selectedRepoIdsProvider.notifier)
+                                          .state = ids;
+                                    },
+                                  ),
+                                )
+                              else if (currentTab == MainTab.team)
+                                developersAsync.when(
+                                  loading: () => const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                  error: (_, __) => const Text(
+                                    'Error loading developers',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                  data: (response) => DeveloperMultiSelector(
+                                    developers: response.developers,
+                                    selectedLogins: selectedDeveloperLogins,
+                                    onChanged: (logins) {
+                                      ref
+                                          .read(selectedDeveloperLoginsProvider
+                                              .notifier)
+                                          .state = logins;
+                                    },
+                                  ),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        // Show repo selector in Dashboard and GitHub, developer selector in Team, none for Linear
-                        if (currentTab == MainTab.dashboard ||
-                            currentTab == MainTab.github)
-                          reposAsync.when(
-                            loading: () => const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            error: (_, __) => const Text(
-                              'Error loading repositories',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                            data: (repos) => RepoMultiSelector(
-                              repos: repos,
-                              selectedRepoIds: selectedRepoIds,
-                              onChanged: (ids) {
-                                ref
-                                    .read(selectedRepoIdsProvider.notifier)
-                                    .state = ids;
-                              },
-                            ),
-                          )
-                        else if (currentTab == MainTab.team)
-                          developersAsync.when(
-                            loading: () => const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            error: (_, __) => const Text(
-                              'Error loading developers',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                            data: (response) => DeveloperMultiSelector(
-                              developers: response.developers,
-                              selectedLogins: selectedDeveloperLogins,
-                              onChanged: (logins) {
-                                ref
-                                    .read(selectedDeveloperLoginsProvider
-                                        .notifier)
-                                    .state = logins;
-                              },
-                            ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-                      ],
-                    ),
+                      // Content
+                      Expanded(child: child),
+                    ],
                   ),
-                // Content
-                Expanded(child: child),
+                ),
               ],
             ),
+          ),
+          // App logo fixed top-left so it never moves when sidebar appears/disappears
+          const Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AppLogo(),
           ),
         ],
       ),
