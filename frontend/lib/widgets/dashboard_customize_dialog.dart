@@ -33,40 +33,6 @@ class DashboardCustomizeDialog extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Summary cards',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              title: const Text('Anomalies'),
-              subtitle: const Text('Show anomaly summary when detected'),
-              value: prefs.showSectionAnomalies,
-              onChanged: (v) => notifier.setSectionAnomalies(v),
-            ),
-            SwitchListTile(
-              title: const Text('Recommendations'),
-              subtitle: const Text('Show smart recommendations'),
-              value: prefs.showSectionRecommendations,
-              onChanged: (v) => notifier.setSectionRecommendations(v),
-            ),
-            SwitchListTile(
-              title: const Text('Deployment reliability'),
-              subtitle: const Text('Stability, failure rate, MTTR'),
-              value: prefs.showSectionReliability,
-              onChanged: (v) => notifier.setSectionReliability(v),
-            ),
-            SwitchListTile(
-              title: const Text('Active alerts'),
-              subtitle:
-                  const Text('Alert rules (e.g. low deployment frequency)'),
-              value: prefs.showSectionAlerts,
-              onChanged: (v) => notifier.setSectionAlerts(v),
-            ),
-            const SizedBox(height: 16),
-            Text(
               'KPI cards',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,

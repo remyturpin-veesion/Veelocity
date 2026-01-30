@@ -93,15 +93,26 @@ class _ReviewerWorkloadScreenState
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Breadcrumb(label: 'Dashboard', route: '/'),
-          const SizedBox(height: 16),
-          _buildSummaryCards(response.summary),
-          const SizedBox(height: 24),
-          _buildWorkloadTable(context, sortedWorkloads),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SizedBox(
+            width: constraints.maxWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Breadcrumb(
+                  label: 'GitHub',
+                  route: '/github?tab=github',
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCards(response.summary),
+                const SizedBox(height: 24),
+                _buildWorkloadTable(context, sortedWorkloads),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

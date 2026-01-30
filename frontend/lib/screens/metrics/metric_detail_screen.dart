@@ -68,7 +68,12 @@ class MetricDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Breadcrumb(label: 'Dashboard', route: '/'),
+            Breadcrumb(
+              label: _isLinearMetric(metricInfo.id) ? 'Linear' : 'GitHub',
+              route: _isLinearMetric(metricInfo.id)
+                  ? '/linear?tab=linear'
+                  : '/github?tab=github',
+            ),
             const SizedBox(height: 16),
             // Title Section with info button
             Row(
@@ -275,6 +280,12 @@ class MetricDetailScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+bool _isLinearMetric(String metricId) {
+  return metricId == 'linear_issues_completed' ||
+      metricId == 'linear_backlog' ||
+      metricId == 'linear_time_in_state';
 }
 
 /// Show a dialog with metric information.

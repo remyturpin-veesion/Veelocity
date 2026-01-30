@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../models/alert.dart';
-import '../models/anomaly.dart';
 import '../models/development_metrics.dart';
 import '../models/dora_metrics.dart';
 import '../models/linear_metrics.dart';
-import '../models/recommendation.dart';
 import '../services/dashboard_preferences_provider.dart';
 import '../services/providers.dart';
-import '../widgets/anomaly_badge.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
@@ -27,16 +23,6 @@ class DashboardScreen extends ConsumerWidget {
     final cycleTimeAsync = ref.watch(cycleTimeProvider);
     final throughputAsync = ref.watch(throughputProvider);
 
-    // Watch anomaly providers
-    final deploymentAnomaliesAsync =
-        ref.watch(deploymentFrequencyAnomaliesProvider);
-    final throughputAnomaliesAsync = ref.watch(throughputAnomaliesProvider);
-    final leadTimeAnomaliesAsync = ref.watch(leadTimeAnomaliesProvider);
-
-    // Watch Phase 2 insight providers (optional; don't block dashboard)
-    final recommendationsAsync = ref.watch(recommendationsProvider);
-    final reliabilityAsync = ref.watch(deploymentReliabilityProvider);
-    final alertsAsync = ref.watch(alertsProvider);
     final linearOverviewAsync = ref.watch(linearOverviewProvider);
 
     // Show loading if any critical metric is loading
@@ -58,12 +44,6 @@ class DashboardScreen extends ConsumerWidget {
       prMergeTimeAsync.value,
       cycleTimeAsync.value,
       throughputAsync.value,
-      deploymentAnomaliesAsync.value,
-      throughputAnomaliesAsync.value,
-      leadTimeAnomaliesAsync.value,
-      recommendationsAsync.value,
-      reliabilityAsync.value,
-      alertsAsync.value,
       linearOverviewAsync,
     );
   }
@@ -153,89 +133,48 @@ class DashboardScreen extends ConsumerWidget {
     PRMergeTime? prMergeTime,
     CycleTime? cycleTime,
     Throughput? throughput,
-    AnomalyResponse? deploymentAnomalies,
-    AnomalyResponse? throughputAnomalies,
-    AnomalyResponse? leadTimeAnomalies,
-    RecommendationsResponse? recommendations,
-    DeploymentReliability? reliability,
-    AlertsResponse? alerts,
     AsyncValue<LinearOverview> linearOverviewAsync,
   ) {
     final selectedPeriod = ref.watch(selectedPeriodProvider);
     final prefs = ref.watch(dashboardPreferencesProvider);
-
-    // Aggregate all anomalies
-    final allAnomalies = <Anomaly>[
-      if (deploymentAnomalies != null) ...deploymentAnomalies.anomalies,
-      if (throughputAnomalies != null) ...throughputAnomalies.anomalies,
-      if (leadTimeAnomalies != null) ...leadTimeAnomalies.anomalies,
-    ];
-
-    final totalAnomalies = allAnomalies.length;
-    final majorAnomalies =
-        allAnomalies.where((a) => a.severity == AnomalySeverity.major).length;
-    final minorAnomalies =
-        allAnomalies.where((a) => a.severity == AnomalySeverity.minor).length;
-
-    final aggregatedSummary = AnomalySummary(
-      totalCount: totalAnomalies,
-      majorCount: majorAnomalies,
-      minorCount: minorAnomalies,
-      severityScore: minorAnomalies + (majorAnomalies * 3),
-    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Anomaly Summary Card (if any anomalies detected and prefs allow)
-          if (prefs.showSectionAnomalies && aggregatedSummary.hasAnomalies)
-            _buildAnomalyCard(
-              context,
-              aggregatedSummary,
-              allAnomalies,
-            ),
-          if (prefs.showSectionAnomalies && aggregatedSummary.hasAnomalies)
-            const SizedBox(height: 24),
-
-          // Recommendations summary (Phase 2 integration)
-          if (prefs.showSectionRecommendations &&
-              recommendations != null &&
-              recommendations.recommendations.isNotEmpty)
-            _buildRecommendationsCard(context, recommendations),
-          if (prefs.showSectionRecommendations &&
-              recommendations != null &&
-              recommendations.recommendations.isNotEmpty)
-            const SizedBox(height: 24),
-
-          // Deployment reliability summary (Phase 2 integration)
-          if (prefs.showSectionReliability &&
-              reliability != null &&
-              reliability.totalRuns > 0)
-            _buildReliabilityCard(context, reliability),
-          if (prefs.showSectionReliability &&
-              reliability != null &&
-              reliability.totalRuns > 0)
-            const SizedBox(height: 24),
-
-          // Active alerts (Phase 4 - Alert Rules Engine)
-          if (prefs.showSectionAlerts &&
-              alerts != null &&
-              alerts.alerts.isNotEmpty)
-            _buildAlertsCard(context, alerts),
-          if (prefs.showSectionAlerts &&
-              alerts != null &&
-              alerts.alerts.isNotEmpty)
-            const SizedBox(height: 24),
+          // At a glance: key numbers in one compact row
+          _buildAtAGlanceRow(
+            context,
+            deploymentFreq,
+            leadTime,
+            prMergeTime,
+            throughput,
+            linearOverviewAsync,
+          ),
+          const SizedBox(height: 24),
 
           // DORA Metrics Section (only if at least one KPI is visible)
           if (prefs.showKpiDeploymentFrequency || prefs.showKpiLeadTime) ...[
-            Text(
-              'DORA Metrics',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Text(
+                  'DORA Metrics',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(width: 12),
+                TextButton(
+                  onPressed: () => context.go('/github?tab=github'),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
+                  child: const Text('See more in GitHub'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -267,8 +206,8 @@ class DashboardScreen extends ConsumerWidget {
                           color: Colors.blue,
                           trend: deploymentFreq.trend,
                           benchmark: deploymentFreq.benchmark,
-                          onTap: () => context.go(
-                              '/metrics/deployment-frequency?tab=dashboard'),
+                          onTap: () => context
+                              .go('/metrics/deployment-frequency?tab=github'),
                         ),
                       ),
                     if (prefs.showKpiLeadTime && leadTime != null)
@@ -284,7 +223,7 @@ class DashboardScreen extends ConsumerWidget {
                           trend: leadTime.trend,
                           benchmark: leadTime.benchmark,
                           onTap: () =>
-                              context.go('/metrics/lead-time?tab=dashboard'),
+                              context.go('/metrics/lead-time?tab=github'),
                         ),
                       ),
                   ],
@@ -299,11 +238,25 @@ class DashboardScreen extends ConsumerWidget {
               prefs.showKpiPrMergeTime ||
               prefs.showKpiCycleTime ||
               prefs.showKpiThroughput) ...[
-            Text(
-              'Development Metrics',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Text(
+                  'Development Metrics',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(width: 12),
+                TextButton(
+                  onPressed: () => context.go('/github?tab=github'),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
+                  child: const Text('See more in GitHub'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -334,8 +287,8 @@ class DashboardScreen extends ConsumerWidget {
                           color: Colors.orange,
                           trend: prReviewTime.trend,
                           benchmark: prReviewTime.benchmark,
-                          onTap: () => context
-                              .go('/metrics/pr-review-time?tab=dashboard'),
+                          onTap: () =>
+                              context.go('/metrics/pr-review-time?tab=github'),
                         ),
                       ),
                     if (prefs.showKpiPrMergeTime && prMergeTime != null)
@@ -349,8 +302,8 @@ class DashboardScreen extends ConsumerWidget {
                           color: Colors.purple,
                           trend: prMergeTime.trend,
                           benchmark: prMergeTime.benchmark,
-                          onTap: () => context
-                              .go('/metrics/pr-merge-time?tab=dashboard'),
+                          onTap: () =>
+                              context.go('/metrics/pr-merge-time?tab=github'),
                         ),
                       ),
                     if (prefs.showKpiCycleTime && cycleTime != null)
@@ -364,7 +317,7 @@ class DashboardScreen extends ConsumerWidget {
                           color: Colors.teal,
                           benchmark: cycleTime.benchmark,
                           onTap: () =>
-                              context.go('/metrics/cycle-time?tab=dashboard'),
+                              context.go('/metrics/cycle-time?tab=github'),
                         ),
                       ),
                     if (prefs.showKpiThroughput && throughput != null)
@@ -379,7 +332,7 @@ class DashboardScreen extends ConsumerWidget {
                           trend: throughput.trend,
                           benchmark: throughput.benchmark,
                           onTap: () =>
-                              context.go('/metrics/throughput?tab=dashboard'),
+                              context.go('/metrics/throughput?tab=github'),
                         ),
                       ),
                   ],
@@ -473,9 +426,9 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => context.go('/linear'),
+                onPressed: () => context.go('/linear?tab=linear'),
                 icon: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('View all'),
+                label: const Text('See more in Linear'),
               ),
             ],
           ),
@@ -507,7 +460,7 @@ class DashboardScreen extends ConsumerWidget {
                       icon: Icons.check_circle_outline,
                       color: Colors.teal,
                       onTap: () => context
-                          .go('/metrics/linear/issues-completed?tab=dashboard'),
+                          .go('/metrics/linear/issues-completed?tab=linear'),
                     ),
                   ),
                   SizedBox(
@@ -519,7 +472,7 @@ class DashboardScreen extends ConsumerWidget {
                       icon: Icons.inbox,
                       color: Colors.orange,
                       onTap: () =>
-                          context.go('/metrics/linear/backlog?tab=dashboard'),
+                          context.go('/metrics/linear/backlog?tab=linear'),
                     ),
                   ),
                   SizedBox(
@@ -532,7 +485,7 @@ class DashboardScreen extends ConsumerWidget {
                       icon: Icons.schedule,
                       color: Colors.deepPurple,
                       onTap: () => context
-                          .go('/metrics/linear/time-in-state?tab=dashboard'),
+                          .go('/metrics/linear/time-in-state?tab=linear'),
                     ),
                   ),
                 ],
@@ -544,362 +497,80 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAnomalyCard(
+  /// Compact "at a glance" row with key numbers (deployments, lead time, merge time, throughput, Linear).
+  Widget _buildAtAGlanceRow(
     BuildContext context,
-    AnomalySummary summary,
-    List<Anomaly> anomalies,
+    DeploymentFrequency? deploymentFreq,
+    LeadTimeForChanges? leadTime,
+    PRMergeTime? prMergeTime,
+    Throughput? throughput,
+    AsyncValue<LinearOverview> linearOverviewAsync,
   ) {
-    final theme = Theme.of(context);
-    final hasMajor = summary.hasMajorAnomalies;
-    final color = hasMajor ? Colors.red : Colors.orange;
-
+    final items = <Widget>[];
+    if (deploymentFreq != null) {
+      items.add(_GlanceChip(
+        label: 'Deploys',
+        value: '${deploymentFreq.average}/wk',
+        onTap: () => context.go('/metrics/deployment-frequency?tab=github'),
+      ));
+    }
+    if (leadTime != null) {
+      items.add(_GlanceChip(
+        label: 'Lead time',
+        value: _formatDuration(leadTime.averageHours),
+        onTap: () => context.go('/metrics/lead-time?tab=github'),
+      ));
+    }
+    if (prMergeTime != null) {
+      items.add(_GlanceChip(
+        label: 'PR merge',
+        value: _formatDuration(prMergeTime.averageHours),
+        onTap: () => context.go('/metrics/pr-merge-time?tab=github'),
+      ));
+    }
+    if (throughput != null) {
+      items.add(_GlanceChip(
+        label: 'Throughput',
+        value: '${throughput.average}/wk',
+        onTap: () => context.go('/metrics/throughput?tab=github'),
+      ));
+    }
+    final overview = linearOverviewAsync.valueOrNull;
+    if (overview != null) {
+      items.add(_GlanceChip(
+        label: 'Issues done',
+        value: '${overview.issuesCompleted}',
+        onTap: () => context.go('/metrics/linear/issues-completed?tab=linear'),
+      ));
+      items.add(_GlanceChip(
+        label: 'Backlog',
+        value: '${overview.backlogCount}',
+        onTap: () => context.go('/metrics/linear/backlog?tab=linear'),
+      ));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
     return Card(
-      elevation: 2,
-      color: color.withOpacity(0.05),
+      elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: color.withOpacity(0.3), width: 2),
       ),
-      child: InkWell(
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (context) => AnomalyDetailsDialog(
-              anomalies: anomalies,
-              summary: summary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              'At a glance',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  hasMajor ? Icons.error : Icons.warning_amber,
-                  color: color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '⚠️ Anomalies Detected',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      summary.hasMajorAnomalies
-                          ? '${summary.majorCount} major, ${summary.minorCount} minor anomalies found'
-                          : '${summary.minorCount} minor anomalies found',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Arrow
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendationsCard(
-    BuildContext context,
-    RecommendationsResponse response,
-  ) {
-    final theme = Theme.of(context);
-    final highCount =
-        response.recommendations.where((r) => r.priority == 'high').length;
-    final total = response.recommendations.length;
-
-    return Card(
-      elevation: 2,
-      color: Colors.blue.withOpacity(0.05),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blue.withOpacity(0.3), width: 2),
-      ),
-      child: InkWell(
-        onTap: () => context.go('/insights/recommendations'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lightbulb_outline,
-                  color: Colors.blue,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Recommendations',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      highCount > 0
-                          ? '$total recommendations ($highCount high priority)'
-                          : '$total recommendations to improve metrics',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReliabilityCard(
-    BuildContext context,
-    DeploymentReliability reliability,
-  ) {
-    final theme = Theme.of(context);
-    final isHealthy = reliability.stabilityScore >= 90;
-    final color = isHealthy ? Colors.green : Colors.orange;
-
-    return Card(
-      elevation: 2,
-      color: color.withOpacity(0.05),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: color.withOpacity(0.3), width: 2),
-      ),
-      child: InkWell(
-        onTap: () => context.go('/metrics/deployment-frequency?tab=dashboard'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isHealthy ? Icons.check_circle_outline : Icons.warning_amber,
-                  color: color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Deployment reliability',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${reliability.stabilityScore.toStringAsFixed(0)}% stability · '
-                      '${reliability.failureRate.toStringAsFixed(1)}% failure rate '
-                      '(${reliability.totalRuns} runs)',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlertsCard(BuildContext context, AlertsResponse alerts) {
-    final theme = Theme.of(context);
-    final highCount = alerts.alerts.where((a) => a.severity == 'high').length;
-    final total = alerts.alerts.length;
-    final color = highCount > 0 ? Colors.red : Colors.orange;
-
-    return Card(
-      elevation: 2,
-      color: color.withOpacity(0.05),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: color.withOpacity(0.3), width: 2),
-      ),
-      child: InkWell(
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Active Alerts'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: alerts.alerts
-                      .map(
-                        (a) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: a.severity == 'high'
-                                          ? Colors.red.withOpacity(0.2)
-                                          : Colors.orange.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      a.severity.toUpperCase(),
-                                      style:
-                                          theme.textTheme.labelSmall?.copyWith(
-                                        color: a.severity == 'high'
-                                            ? Colors.red
-                                            : Colors.orange,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      a.title,
-                                      style:
-                                          theme.textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                a.message,
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.notification_important,
-                  color: color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Active alerts',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      highCount > 0
-                          ? '$total alert${total == 1 ? '' : 's'} ($highCount high)'
-                          : '$total alert${total == 1 ? '' : 's'}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
+            const SizedBox(width: 4),
+            ...items,
+          ],
         ),
       ),
     );
@@ -915,5 +586,46 @@ class DashboardScreen extends ConsumerWidget {
     } else {
       return '${(hours / 24).toStringAsFixed(1)} days';
     }
+  }
+}
+
+/// Compact chip for the at-a-glance row (label: value, tappable).
+class _GlanceChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _GlanceChip({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$label: ',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

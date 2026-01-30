@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/metric_info.dart';
+import '../services/providers.dart';
 
 /// Navigation item for the metrics sidebar.
 class _MetricNavItem {
@@ -21,8 +22,11 @@ class MetricsSideNav extends StatelessWidget {
   /// ID of the currently displayed metric (null if on home).
   final String? currentMetricId;
 
-  /// Whether we're on the home/dashboard screen.
+  /// Whether we're on the home screen for the current section.
   final bool isHome;
+
+  /// Current main tab; determines which sidebar items to show (GitHub vs Linear). When null, show all (legacy).
+  final MainTab? currentTab;
 
   /// Callback when home is tapped (used when navigating from metric screens).
   final VoidCallback? onHomeTap;
@@ -34,6 +38,7 @@ class MetricsSideNav extends StatelessWidget {
     super.key,
     this.currentMetricId,
     this.isHome = false,
+    this.currentTab,
     this.onHomeTap,
     this.width = 72,
   });
@@ -93,10 +98,36 @@ class MetricsSideNav extends StatelessWidget {
     ),
   ];
 
+  /// GitHub-only items: DORA (0-1), Dev (2-5), Insights (9-12). Indices in _items.
+  static final List<_MetricNavItem> _githubItems = [
+    ..._items.take(2),
+    ..._items.skip(2).take(4),
+    ..._items.skip(9).take(4),
+  ];
+
+  /// Linear-only items: issues completed, backlog, time in state. Indices 6-8 in _items.
+  static final List<_MetricNavItem> _linearItems =
+      _items.skip(6).take(3).toList();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    // Dashboard and Alerts tabs at home: no sidebar (aggregated view)
+    if ((currentTab == MainTab.dashboard || currentTab == MainTab.alerts) &&
+        isHome) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isGitHubSection =
+        currentTab == MainTab.github || currentTab == MainTab.team;
+    final bool isLinearSection = currentTab == MainTab.linear;
+    final List<_MetricNavItem> items = isLinearSection
+        ? _linearItems
+        : isGitHubSection
+            ? _githubItems
+            : _items;
 
     return Container(
       width: width,
@@ -110,7 +141,6 @@ class MetricsSideNav extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Top navigation items
           Positioned(
             top: 0,
             left: 0,
@@ -119,29 +149,40 @@ class MetricsSideNav extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 8),
-                // Home button
                 _buildHomeItem(context, colorScheme),
                 const SizedBox(height: 8),
                 const Divider(height: 1, indent: 8, endIndent: 8),
                 const SizedBox(height: 8),
-                // DORA section
-                const _SectionDivider(label: 'DORA'),
-                ..._items.take(2).map((item) => _buildNavItem(context, item)),
-                const SizedBox(height: 8),
-                // Development section
-                const _SectionDivider(label: 'Dev'),
-                ..._items
-                    .skip(2)
-                    .take(4)
-                    .map((item) => _buildNavItem(context, item)),
-                const SizedBox(height: 8),
-                // Insights section
-                const _SectionDivider(label: 'Insights'),
-                ..._items.skip(6).map((item) => _buildNavItem(context, item)),
+                if (isLinearSection) ...[
+                  ...items.map((item) => _buildNavItem(context, item)),
+                ] else if (isGitHubSection) ...[
+                  const _SectionDivider(label: 'DORA'),
+                  ...items.take(2).map((item) => _buildNavItem(context, item)),
+                  const SizedBox(height: 8),
+                  const _SectionDivider(label: 'Dev'),
+                  ...items
+                      .skip(2)
+                      .take(4)
+                      .map((item) => _buildNavItem(context, item)),
+                  const SizedBox(height: 8),
+                  const _SectionDivider(label: 'Insights'),
+                  ...items.skip(6).map((item) => _buildNavItem(context, item)),
+                ] else ...[
+                  const _SectionDivider(label: 'DORA'),
+                  ..._items.take(2).map((item) => _buildNavItem(context, item)),
+                  const SizedBox(height: 8),
+                  const _SectionDivider(label: 'Dev'),
+                  ..._items
+                      .skip(2)
+                      .take(4)
+                      .map((item) => _buildNavItem(context, item)),
+                  const SizedBox(height: 8),
+                  const _SectionDivider(label: 'Insights'),
+                  ..._items.skip(6).map((item) => _buildNavItem(context, item)),
+                ],
               ],
             ),
           ),
-          // Data Coverage link at bottom
           Positioned(
             bottom: 0,
             left: 0,
@@ -198,8 +239,27 @@ class MetricsSideNav extends StatelessWidget {
   }
 
   Widget _buildHomeItem(BuildContext context, ColorScheme colorScheme) {
+    final String homeTooltip = currentTab == MainTab.team
+        ? 'Team'
+        : currentTab == MainTab.github
+            ? 'GitHub'
+            : currentTab == MainTab.alerts
+                ? 'Alerts'
+                : currentTab == MainTab.linear
+                    ? 'Linear'
+                    : 'Dashboard';
+    final String homeRoute = currentTab == MainTab.team
+        ? '/team?tab=team'
+        : currentTab == MainTab.github
+            ? '/github?tab=github'
+            : currentTab == MainTab.alerts
+                ? '/alerts?tab=alerts'
+                : currentTab == MainTab.linear
+                    ? '/linear?tab=linear'
+                    : '/?tab=dashboard';
+
     return Tooltip(
-      message: 'Dashboard',
+      message: homeTooltip,
       preferBelow: false,
       waitDuration: const Duration(milliseconds: 300),
       child: InkWell(
@@ -209,14 +269,7 @@ class MetricsSideNav extends StatelessWidget {
                 if (onHomeTap != null) {
                   onHomeTap!();
                 } else {
-                  // Preserve tab state when going home
-                  final currentUri = GoRouterState.of(context).uri;
-                  final tabParam = currentUri.queryParameters['tab'];
-                  if (tabParam == 'team') {
-                    context.go('/team?tab=team');
-                  } else {
-                    context.go('/?tab=dashboard');
-                  }
+                  context.go(homeRoute);
                 }
               },
         borderRadius: BorderRadius.circular(8),

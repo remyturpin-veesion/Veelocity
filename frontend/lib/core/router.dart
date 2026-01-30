@@ -34,8 +34,36 @@ final routerProvider = Provider<GoRouter>((ref) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (tab == 'team' || path.startsWith('/team')) {
               ref.read(mainTabProvider.notifier).state = MainTab.team;
-            } else if (tab == 'linear' || path.startsWith('/linear')) {
+            } else if (tab == 'github' || path.startsWith('/github')) {
+              ref.read(mainTabProvider.notifier).state = MainTab.github;
+            } else if (tab == 'alerts' || path.startsWith('/alerts')) {
+              ref.read(mainTabProvider.notifier).state = MainTab.alerts;
+            } else if (tab == 'linear' ||
+                path.startsWith('/linear') ||
+                path.startsWith('/metrics/linear')) {
               ref.read(mainTabProvider.notifier).state = MainTab.linear;
+            } else if (tab == 'dashboard' ||
+                path == '/' ||
+                path == '/dashboard') {
+              ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
+            } else if (path.startsWith('/metrics/') ||
+                path.startsWith('/insights/') ||
+                path.startsWith('/pr/')) {
+              ref.read(mainTabProvider.notifier).state =
+                  tab == 'team' ? MainTab.team : MainTab.github;
+            } else if (path.startsWith('/data-coverage')) {
+              // Preserve tab from query if present
+              if (tab == 'team') {
+                ref.read(mainTabProvider.notifier).state = MainTab.team;
+              } else if (tab == 'linear') {
+                ref.read(mainTabProvider.notifier).state = MainTab.linear;
+              } else if (tab == 'github') {
+                ref.read(mainTabProvider.notifier).state = MainTab.github;
+              } else if (tab == 'alerts') {
+                ref.read(mainTabProvider.notifier).state = MainTab.alerts;
+              } else {
+                ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
+              }
             } else {
               ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
             }
@@ -76,7 +104,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Linear overview (third tab)
+          // GitHub overview
+          GoRoute(
+            path: '/github',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const AppShell(),
+            ),
+          ),
+          // Alerts overview
+          GoRoute(
+            path: '/alerts',
+            pageBuilder: (context, state) => _buildFadePage(
+              state,
+              const AppShell(),
+            ),
+          ),
+          // Linear overview
           GoRoute(
             path: '/linear',
             pageBuilder: (context, state) => _buildFadePage(

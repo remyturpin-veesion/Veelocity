@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
+import 'alerts_overview_screen.dart';
 import 'dashboard_screen.dart';
+import 'github_overview_screen.dart';
 import 'linear_overview_screen.dart';
 import 'team_screen.dart';
 
-/// Main app shell that displays Dashboard, Team, or Linear based on the current tab.
+/// Main app shell that displays Dashboard, Team, GitHub, Alerts, or Linear based on the current tab.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
@@ -17,7 +19,11 @@ class AppShell extends ConsumerWidget {
         ? 0
         : currentTab == MainTab.team
             ? 1
-            : 2;
+            : currentTab == MainTab.github
+                ? 2
+                : currentTab == MainTab.linear
+                    ? 3
+                    : 4;
 
     return BaseScaffold(
       isHome: true,
@@ -26,7 +32,9 @@ class AppShell extends ConsumerWidget {
         children: const [
           DashboardScreen(),
           TeamScreen(),
+          GitHubOverviewScreen(),
           LinearOverviewScreen(),
+          AlertsOverviewScreen(),
         ],
       ),
     );

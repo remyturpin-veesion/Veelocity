@@ -50,10 +50,11 @@ class BaseScaffold extends ConsumerWidget {
     return Scaffold(
       body: Row(
         children: [
-          // Metrics navigation sidebar
+          // Metrics navigation sidebar (hidden on Dashboard home; contextual for GitHub/Linear)
           MetricsSideNav(
             currentMetricId: currentMetricId,
             isHome: isHome,
+            currentTab: currentTab,
           ),
           // Main content
           Expanded(
@@ -95,7 +96,7 @@ class BaseScaffold extends ConsumerWidget {
                               ? selectedRepoIds.first
                               : null,
                         ),
-                        if (isHome)
+                        if (isHome && currentTab == MainTab.dashboard)
                           IconButton(
                             icon: const Icon(Icons.dashboard_customize),
                             tooltip: 'Customize dashboard',
@@ -128,11 +129,14 @@ class BaseScaffold extends ConsumerWidget {
                         Row(
                           children: [
                             Icon(
-                              currentTab == MainTab.dashboard
+                              currentTab == MainTab.dashboard ||
+                                      currentTab == MainTab.github
                                   ? Icons.folder_outlined
                                   : currentTab == MainTab.team
                                       ? Icons.people_outline
-                                      : Icons.inbox,
+                                      : currentTab == MainTab.alerts
+                                          ? Icons.notifications_active
+                                          : Icons.inbox,
                               size: 16,
                               color: Theme.of(context)
                                   .colorScheme
@@ -141,11 +145,14 @@ class BaseScaffold extends ConsumerWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              currentTab == MainTab.dashboard
+                              currentTab == MainTab.dashboard ||
+                                      currentTab == MainTab.github
                                   ? 'Repositories'
                                   : currentTab == MainTab.team
                                       ? 'Developers'
-                                      : 'Linear',
+                                      : currentTab == MainTab.alerts
+                                          ? 'Alerts'
+                                          : 'Linear',
                               style: Theme.of(context)
                                   .textTheme
                                   .labelLarge
@@ -159,8 +166,9 @@ class BaseScaffold extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        // Show repo selector in Dashboard mode, developer selector in Team mode, none for Linear
-                        if (currentTab == MainTab.dashboard)
+                        // Show repo selector in Dashboard and GitHub, developer selector in Team, none for Linear
+                        if (currentTab == MainTab.dashboard ||
+                            currentTab == MainTab.github)
                           reposAsync.when(
                             loading: () => const SizedBox(
                               width: 24,
@@ -256,10 +264,24 @@ class _NavigationTabs extends StatelessWidget {
           ),
           _buildNavTab(
             context,
+            icon: Icons.code,
+            label: 'GitHub',
+            isSelected: isHome && currentTab == MainTab.github,
+            onTap: () => context.go('/github?tab=github'),
+          ),
+          _buildNavTab(
+            context,
             icon: Icons.inbox,
             label: 'Linear',
             isSelected: isHome && currentTab == MainTab.linear,
             onTap: () => context.go('/linear?tab=linear'),
+          ),
+          _buildNavTab(
+            context,
+            icon: Icons.notifications_active,
+            label: 'Alerts',
+            isSelected: isHome && currentTab == MainTab.alerts,
+            onTap: () => context.go('/alerts?tab=alerts'),
           ),
         ],
       ),
