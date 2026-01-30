@@ -154,6 +154,7 @@ class SyncLinearService:
                 "linear_id": s["linear_id"],
                 "name": s["name"],
                 "position": s.get("position", 0),
+                "type": s.get("type"),
             }
             if existing:
                 for key, value in row.items():

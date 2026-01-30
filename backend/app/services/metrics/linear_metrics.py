@@ -91,23 +91,26 @@ class LinearMetricsService:
 
         return {"backlog_count": count}
 
-    async def _get_ordered_workflow_state_names(
+    async def _get_ordered_workflow_states(
         self, team_ids: list[int] | None
-    ) -> list[tuple[str, float]]:
-        """Return workflow state (name, position) ordered by position, deduplicated by name."""
-        q = select(LinearWorkflowState.name, LinearWorkflowState.position)
+    ) -> list[tuple[str, float, str | None]]:
+        """Return workflow state (name, position, type) ordered by position, deduplicated by name."""
+        q = select(
+            LinearWorkflowState.name,
+            LinearWorkflowState.position,
+            LinearWorkflowState.type,
+        )
         if team_ids:
             q = q.where(LinearWorkflowState.team_id.in_(team_ids))
         q = q.order_by(LinearWorkflowState.team_id, LinearWorkflowState.position)
         result = await self._db.execute(q)
         rows = result.all()
-        # Deduplicate by name, keep first position (per team order)
         seen: set[str] = set()
-        order: list[tuple[str, float]] = []
-        for name, pos in rows:
+        order: list[tuple[str, float, str | None]] = []
+        for name, pos, typ in rows:
             if name not in seen:
                 seen.add(name)
-                order.append((name, float(pos)))
+                order.append((name, float(pos), typ))
         return sorted(order, key=lambda x: x[1])
 
     async def get_time_in_state(
@@ -118,15 +121,17 @@ class LinearMetricsService:
         team_ids: list[int] | None = None,
     ) -> dict:
         """
-        Return workflow state columns (Todo, In Progress, etc.) in order, with issue count per state.
-        Also report overall time-in-state for completed issues (started→completed): count, min, max, median, average.
+        Return one card per workflow state (Todo, In Progress, etc.) in order.
+        Each card has: count, median, min, max, average (time in that status).
+        Time stats use issues with completed_at in the date range. The "started" state
+        (e.g. In Progress) is filled from started_at→completed_at; other states need
+        Linear issue history to be non-zero.
         """
         ids = self._team_filter(team_id, team_ids)
 
-        # Ordered workflow state names from synced workflow states
-        ordered_states = await self._get_ordered_workflow_state_names(ids)
+        ordered_states = await self._get_ordered_workflow_states(ids)
 
-        # Issue counts per state (all issues in that state, filtered by team)
+        # Issue counts per state (current state, filtered by team)
         count_q = select(LinearIssue.state, func.count(LinearIssue.id))
         if ids:
             count_q = count_q.where(LinearIssue.team_id.in_(ids))
@@ -134,45 +139,9 @@ class LinearMetricsService:
         count_result = await self._db.execute(count_q)
         counts_by_state = {row[0]: row[1] for row in count_result.all()}
 
-        # Build stages: one column per workflow state (in order), with count; time stats N/A per state
-        def slug(s: str) -> str:
-            return s.lower().replace(" ", "_").replace("-", "_")
-
-        stages = []
-        for name, position in ordered_states:
-            count = counts_by_state.get(name, 0)
-            stages.append({
-                "id": slug(name),
-                "label": name,
-                "position": position,
-                "count": count,
-                "min_hours": 0.0,
-                "max_hours": 0.0,
-                "median_hours": 0.0,
-                "average_hours": 0.0,
-            })
-
-        # If no workflow states synced yet, fall back to distinct issue states (unordered)
-        if not stages:
-            for state_name in sorted(counts_by_state.keys()):
-                stages.append({
-                    "id": slug(state_name),
-                    "label": state_name,
-                    "position": 0.0,
-                    "count": counts_by_state[state_name],
-                    "min_hours": 0.0,
-                    "max_hours": 0.0,
-                    "median_hours": 0.0,
-                    "average_hours": 0.0,
-                })
-
-        # Derived time-in-state (Backlog, In progress, Total) for completed issues
-        query = (
-            select(
-                LinearIssue.created_at,
-                LinearIssue.started_at,
-                LinearIssue.completed_at,
-            )
+        # Hours in "started" state for issues completed in the date range
+        started_q = (
+            select(LinearIssue.started_at, LinearIssue.completed_at)
             .where(
                 and_(
                     LinearIssue.started_at.isnot(None),
@@ -183,22 +152,17 @@ class LinearMetricsService:
             )
         )
         if ids:
-            query = query.where(LinearIssue.team_id.in_(ids))
-        result = await self._db.execute(query)
-        rows = result.all()
-        backlog_hours: list[float] = []
-        in_progress_hours: list[float] = []
-        total_hours: list[float] = []
-        for created_at, started_at, completed_at in rows:
-            if not started_at or not completed_at:
-                continue
-            in_progress_delta = (completed_at - started_at).total_seconds()
-            in_progress_hours.append(round(in_progress_delta / 3600, 2))
-            if created_at:
-                backlog_delta = (started_at - created_at).total_seconds()
-                backlog_hours.append(round(backlog_delta / 3600, 2))
-                total_delta = (completed_at - created_at).total_seconds()
-                total_hours.append(round(total_delta / 3600, 2))
+            started_q = started_q.where(LinearIssue.team_id.in_(ids))
+        started_result = await self._db.execute(started_q)
+        started_hours: list[float] = []
+        for started_at, completed_at in started_result.all():
+            if started_at and completed_at:
+                started_hours.append(
+                    round((completed_at - started_at).total_seconds() / 3600, 2)
+                )
+
+        def slug(s: str) -> str:
+            return s.lower().replace(" ", "_").replace("-", "_")
 
         def stats(hours: list[float]) -> dict:
             if not hours:
@@ -219,42 +183,61 @@ class LinearMetricsService:
                 "average_hours": round(sum(hours) / n, 2),
             }
 
-        # Append derived stages (Backlog, In progress, Total) with full time stats
-        # Use time_ prefix so ids don't clash with workflow state "In Progress" -> in_progress
-        stages.extend([
-            {
-                "id": "time_backlog",
-                "label": "Backlog (created → started)",
-                "position": 1000.0,
-                "count": len(backlog_hours),
-                **stats(backlog_hours),
-            },
-            {
-                "id": "time_in_progress",
-                "label": "In progress (started → completed)",
-                "position": 1001.0,
-                "count": len(in_progress_hours),
-                **stats(in_progress_hours),
-            },
-            {
-                "id": "time_total",
-                "label": "Total (created → completed)",
-                "position": 1002.0,
-                "count": len(total_hours),
-                **stats(total_hours),
-            },
-        ])
+        started_stats = stats(started_hours)
 
-        overall = stats(in_progress_hours)
+        # Fallback if Linear API does not return state type: treat common names as "started"
+        _STARTED_STATE_NAMES = frozenset({"in progress", "started"})
+
+        stages = []
+        for name, position, state_type in ordered_states:
+            is_started = state_type == "started" or (
+                state_type is None and name.strip().lower() in _STARTED_STATE_NAMES
+            )
+            if is_started:
+                st = started_stats
+                count = st["count"]
+            else:
+                count = counts_by_state.get(name, 0)
+                st = {
+                    "count": 0,
+                    "min_hours": 0.0,
+                    "max_hours": 0.0,
+                    "median_hours": 0.0,
+                    "average_hours": 0.0,
+                }
+            stages.append({
+                "id": slug(name),
+                "label": name,
+                "position": position,
+                "count": count,
+                "min_hours": st["min_hours"],
+                "max_hours": st["max_hours"],
+                "median_hours": st["median_hours"],
+                "average_hours": st["average_hours"],
+            })
+
+        # If no workflow states synced yet, fall back to distinct issue states (unordered)
+        if not stages:
+            for state_name in sorted(counts_by_state.keys()):
+                stages.append({
+                    "id": slug(state_name),
+                    "label": state_name,
+                    "position": 0.0,
+                    "count": counts_by_state[state_name],
+                    "min_hours": 0.0,
+                    "max_hours": 0.0,
+                    "median_hours": 0.0,
+                    "average_hours": 0.0,
+                })
 
         return {
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
-            "count": overall["count"],
-            "average_hours": overall["average_hours"],
-            "median_hours": overall["median_hours"],
-            "min_hours": overall["min_hours"],
-            "max_hours": overall["max_hours"],
+            "count": started_stats["count"],
+            "average_hours": started_stats["average_hours"],
+            "median_hours": started_stats["median_hours"],
+            "min_hours": started_stats["min_hours"],
+            "max_hours": started_stats["max_hours"],
             "stages": stages,
         }
 

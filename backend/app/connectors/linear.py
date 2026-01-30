@@ -58,6 +58,7 @@ class LinearConnector(BaseConnector):
                             id
                             name
                             position
+                            type
                         }
                     }
                 }
@@ -81,6 +82,7 @@ class LinearConnector(BaseConnector):
                         "linear_id": s["id"],
                         "name": s["name"],
                         "position": float(s.get("position", 0)),
+                        "type": s.get("type"),  # unstarted | started | completed
                     }
                     for s in (team.get("states") or {}).get("nodes") or []
                 ],

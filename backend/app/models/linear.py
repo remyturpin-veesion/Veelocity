@@ -39,6 +39,7 @@ class LinearWorkflowState(Base):
     linear_id: Mapped[str] = mapped_column(String(50), index=True)
     name: Mapped[str] = mapped_column(String(100))  # e.g., "Todo", "In Progress"
     position: Mapped[float] = mapped_column(Float, default=0.0)
+    type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # unstarted | started | completed
 
     team: Mapped["LinearTeam"] = relationship(back_populates="workflow_states")
 
