@@ -17,7 +17,8 @@ Transform Veelocity from a "metrics dashboard" into a "developer intelligence pl
 - ✅ Phase 1, Feature 4: UI/UX Polish & Empty State Improvements (COMPLETE)
 - 🎉 **PHASE 1 COMPLETE!**
 - ✅ Phase 2 dashboard integration: Recommendations + Deployment Reliability summary cards on main dashboard (Jan 29, 2026)
-- 📋 Phase 2-5: Planned
+- ✅ Phase 4, Feature 13: Email/Webhook Notifications (Jan 30, 2026)
+- 📋 Phase 5: Planned
 
 ---
 
@@ -567,7 +568,7 @@ Response:
 
 ---
 
-## Phase 4: Proactive Alerts & Notifications (Weeks 7-8) - STATUS: In Progress
+## Phase 4: Proactive Alerts & Notifications (Weeks 7-8) - STATUS: Complete
 
 ### Feature 12: Alert Rules Engine (COMPLETED - Jan 29, 2026)
 **Status:** Done | **Priority:** P2
@@ -583,8 +584,29 @@ Response:
   - MetricsService.getAlerts(), alertsProvider (period + repo filters).
   - Dashboard: "Active alerts" card when alerts.alerts.isNotEmpty (red if any high, else orange); tap opens dialog listing alerts with severity badge, title, message.
 
-### Feature 13: Email/Webhook Notifications
-**Status:** Not started | **Priority:** P2 | **Estimated:** 3-4 days
+### Feature 13: Email/Webhook Notifications (COMPLETED - Jan 30, 2026)
+**Status:** Done | **Priority:** P2
+
+**Implementation:**
+- **Config** (`backend/app/core/config.py`):
+  - `ALERT_WEBHOOK_URLS` — comma-separated URLs to POST when alerts exist (optional)
+  - `ALERT_EMAIL_TO` — email address for alert summary (optional)
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` — SMTP settings for email (optional)
+- **Backend** (`backend/app/services/insights/notifications.py`):
+  - `send_alert_notifications(start_date, end_date, alerts)` — POSTs JSON payload to each webhook URL (httpx), sends plain-text email via smtplib (run in asyncio.to_thread). Only runs when `alerts` is non-empty. Errors logged, no exceptions raised.
+  - Payload: `{ start_date, end_date, alerts, alert_count }`. Email: subject "Veelocity: N active alert(s)", body lists each alert (title, message, metric, current_value, threshold).
+- **Scheduler** (`backend/app/services/scheduler.py`):
+  - After each `run_sync()`, calls `_run_alert_notifications(db)` — evaluates alerts for last 30 days, then calls `send_alert_notifications` if any alerts. Failures logged only.
+- **API** (`backend/app/api/v1/endpoints/alerts.py`):
+  - `POST /api/v1/alerts/notify` — same query params as GET (start_date, end_date, repo_id). Evaluates alerts, sends to webhooks/email if configured, returns `{ notified, alert_count, webhook_count, email_configured }` (or `message` when no alerts).
+- **Tests:**
+  - `backend/tests/services/test_notifications.py` — 6 tests (payload, email body, empty alerts no-op, webhook POST, no webhook when URLs empty, email sent when configured).
+  - `backend/tests/api/test_alerts.py` — GET /alerts and POST /notify response shape (notify with mocked AlertsService).
+
+**Usage:**
+- Set `ALERT_WEBHOOK_URLS=https://your-server.com/webhook` (and optionally more URLs) to receive POST when alerts are active (e.g. after each sync).
+- Set `ALERT_EMAIL_TO=you@example.com` and SMTP_* to receive a summary email when alerts exist.
+- Call `POST /api/v1/alerts/notify` to trigger evaluation and delivery on demand.
 
 ---
 
@@ -829,7 +851,7 @@ Response:
 
 ---
 
-**Current Phase:** 2 of 5 | **Current Feature:** 8 of 15
+**Current Phase:** 5 of 5 | **Current Feature:** 13 of 15
 **Phase 1:** ✅ COMPLETE (4/4 features delivered)
 **Phase 2:** ✅ COMPLETE (4/4 features: Feature 5 PR Health ✅, Feature 6 Reviewer Workload ✅, Feature 7 Deployment Reliability ✅, Feature 8 Smart Recommendations ✅)
-**Next Up:** Phase 4 - Feature 13: Email/Webhook Notifications
+**Next Up:** Phase 5 - Feature 14: Export & Reporting (or Feature 15: Dashboard Customization)

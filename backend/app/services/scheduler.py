@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import func, select, update
@@ -11,9 +12,36 @@ from app.connectors.factory import (
 )
 from app.core.database import async_session_maker
 from app.models.github import PullRequest, Repository
+from app.services.insights.alerts import AlertsService
+from app.services.insights.notifications import send_alert_notifications
 from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_alert_notifications(db) -> None:
+    """
+    Evaluate alerts for the default period and send to webhooks/email if configured.
+    Runs after sync; errors are logged, not raised.
+    """
+    try:
+        end = datetime.utcnow()
+        start = end - timedelta(days=30)
+        service = AlertsService(db)
+        alerts = await service.get_alerts(
+            start_date=start,
+            end_date=end,
+            repo_id=None,
+        )
+        if not alerts:
+            return
+        await send_alert_notifications(
+            start_date=start.isoformat(),
+            end_date=end.isoformat(),
+            alerts=[a.to_dict() for a in alerts],
+        )
+    except Exception as e:
+        logger.warning("Alert notifications failed: %s", e)
 
 scheduler = AsyncIOScheduler()
 
@@ -141,6 +169,9 @@ async def run_sync():
         )
         if total_errors:
             logger.warning(f"Errors during sync: {total_errors}")
+
+        # Evaluate alerts and send notifications (webhooks/email) if configured
+        await _run_alert_notifications(db)
 
 
 async def run_full_sync():
