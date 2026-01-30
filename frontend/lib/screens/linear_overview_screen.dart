@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/providers.dart';
+import '../widgets/import_by_date_card.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
@@ -39,57 +40,61 @@ class LinearOverviewScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Sync status (connector name from coverage)
+          // Sync status + Import by date (one card, Import button expands form)
           coverageAsync.when(
             data: (coverage) {
               final linearList = coverage.connectors
                   .where((c) => c.connectorName == 'linear')
                   .toList();
-              if (linearList.isEmpty) return const SizedBox.shrink();
-              final linearConnector = linearList.first;
-              final displayName = (linearConnector.displayName != null &&
-                      linearConnector.displayName!.isNotEmpty)
-                  ? linearConnector.displayName!
-                  : linearConnector.connectorName;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.sync,
-                          color: linearConnector.isRecent
-                              ? Colors.green
-                              : Colors.orange,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          displayName,
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Last sync: ${linearConnector.timeSinceSync}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              final syncStatusRow = linearList.isEmpty
+                  ? null
+                  : () {
+                      final c = linearList.first;
+                      final displayName =
+                          (c.displayName != null && c.displayName!.isNotEmpty)
+                              ? c.displayName!
+                              : c.connectorName;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.sync,
+                            color: c.isRecent ? Colors.green : Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            displayName,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Last sync: ${c.timeSinceSync}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ],
+                      );
+                    }();
+              return ImportByDateCard(
+                syncStatusRow: syncStatusRow,
+                onImportComplete: () {
+                  ref.invalidate(syncCoverageProvider);
+                  ref.invalidate(linearOverviewProvider);
+                  ref.invalidate(linearTeamsProvider);
+                  ref.invalidate(linearIssuesProvider(LinearIssuesFilter.none));
+                },
               );
             },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            loading: () => const ImportByDateCard(),
+            error: (_, __) => const ImportByDateCard(),
           ),
+          const SizedBox(height: 24),
 
           // Summary cards (overview)
           overviewAsync.when(

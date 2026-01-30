@@ -30,13 +30,19 @@ extension on ImportConnector {
   }
 }
 
-/// Card with date pickers and button to force-import data for a day or date range.
+/// Card with optional sync status and expandable "Import by date" form.
+/// When [syncStatusRow] is non-null, the card shows that row + an "Import" button
+/// that expands to reveal the date/source form. When null, the form is always visible.
 class ImportByDateCard extends ConsumerStatefulWidget {
   final VoidCallback? onImportComplete;
+
+  /// When set, shown at the top of the card; an "Import" button beside it expands the form.
+  final Widget? syncStatusRow;
 
   const ImportByDateCard({
     super.key,
     this.onImportComplete,
+    this.syncStatusRow,
   });
 
   @override
@@ -51,6 +57,7 @@ class _ImportByDateCardState extends ConsumerState<ImportByDateCard> {
   ImportConnector _connector = ImportConnector.all;
   bool _loading = false;
   bool _useRange = false;
+  bool _expanded = false;
 
   @override
   void initState() {
@@ -134,115 +141,137 @@ class _ImportByDateCardState extends ConsumerState<ImportByDateCard> {
     }
   }
 
+  Widget _buildForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          'Force import data for a single day or date range (GitHub PRs and/or Linear issues).',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Text('Start date:'),
+            const SizedBox(width: 12),
+            FilledButton.tonal(
+              onPressed: _loading ? null : _pickStartDate,
+              child: Text(_dateFormat.format(_startDate)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Checkbox(
+              value: _useRange,
+              onChanged: _loading
+                  ? null
+                  : (v) {
+                      setState(() {
+                        _useRange = v ?? false;
+                        if (!_useRange)
+                          _endDate = null;
+                        else
+                          _endDate ??= _startDate;
+                      });
+                    },
+            ),
+            const Text('Date range'),
+            if (_useRange) ...[
+              const SizedBox(width: 12),
+              FilledButton.tonal(
+                onPressed: _loading ? null : _pickEndDate,
+                child: Text(
+                  _endDate != null ? _dateFormat.format(_endDate!) : 'Pick end',
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Text('Source:'),
+            const SizedBox(width: 12),
+            DropdownButton<ImportConnector>(
+              value: _connector,
+              items: ImportConnector.values
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c.label),
+                      ))
+                  .toList(),
+              onChanged: _loading
+                  ? null
+                  : (c) {
+                      if (c != null) setState(() => _connector = c);
+                    },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: _loading ? null : _runImport,
+          icon: _loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.file_download),
+          label: Text(_loading ? 'Importing…' : 'Import'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasSyncRow = widget.syncStatusRow != null;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // One row: sync status (if any) + Import button that toggles expansion
             Row(
               children: [
-                Icon(
-                  Icons.download,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Import by date',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Force import data for a single day or date range (GitHub PRs and/or Linear issues).',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-            ),
-            const SizedBox(height: 16),
-            // Start date
-            Row(
-              children: [
-                const Text('Start date:'),
-                const SizedBox(width: 12),
-                FilledButton.tonal(
-                  onPressed: _loading ? null : _pickStartDate,
-                  child: Text(_dateFormat.format(_startDate)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Range toggle + End date
-            Row(
-              children: [
-                Checkbox(
-                  value: _useRange,
-                  onChanged: _loading
-                      ? null
-                      : (v) {
-                          setState(() {
-                            _useRange = v ?? false;
-                            if (!_useRange)
-                              _endDate = null;
-                            else
-                              _endDate ??= _startDate;
-                          });
-                        },
-                ),
-                const Text('Date range'),
-                if (_useRange) ...[
+                if (widget.syncStatusRow != null) ...[
+                  Expanded(child: widget.syncStatusRow!),
                   const SizedBox(width: 12),
-                  FilledButton.tonal(
-                    onPressed: _loading ? null : _pickEndDate,
-                    child: Text(
-                      _endDate != null
-                          ? _dateFormat.format(_endDate!)
-                          : 'Pick end',
-                    ),
-                  ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Connector
-            Row(
-              children: [
-                const Text('Source:'),
-                const SizedBox(width: 12),
-                DropdownButton<ImportConnector>(
-                  value: _connector,
-                  items: ImportConnector.values
-                      .map((c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c.label),
-                          ))
-                      .toList(),
-                  onChanged: _loading
+                FilledButton.tonalIcon(
+                  onPressed: _loading
                       ? null
-                      : (c) {
-                          if (c != null) setState(() => _connector = c);
+                      : () {
+                          setState(() => _expanded = !_expanded);
                         },
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                  ),
+                  label: Text(
+                      hasSyncRow && !_expanded ? 'Import' : 'Import by date'),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _loading ? null : _runImport,
-              icon: _loading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.file_download),
-              label: Text(_loading ? 'Importing…' : 'Import'),
-            ),
+            // Expandable form
+            if (hasSyncRow)
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: _expanded ? _buildForm() : const SizedBox.shrink(),
+              )
+            else
+              _buildForm(),
           ],
         ),
       ),

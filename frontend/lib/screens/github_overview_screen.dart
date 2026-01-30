@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/providers.dart';
+import '../widgets/import_by_date_card.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
@@ -50,6 +51,20 @@ class GitHubOverviewScreen extends ConsumerWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
                 ),
+          ),
+          const SizedBox(height: 24),
+
+          // Import by date (datepicker + import button)
+          ImportByDateCard(
+            onImportComplete: () {
+              ref.invalidate(syncCoverageProvider);
+              ref.invalidate(deploymentFrequencyProvider);
+              ref.invalidate(leadTimeProvider);
+              ref.invalidate(prReviewTimeProvider);
+              ref.invalidate(prMergeTimeProvider);
+              ref.invalidate(cycleTimeProvider);
+              ref.invalidate(throughputProvider);
+            },
           ),
           const SizedBox(height: 24),
 
