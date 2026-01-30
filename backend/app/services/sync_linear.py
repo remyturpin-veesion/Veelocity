@@ -57,7 +57,7 @@ class SyncLinearService:
     async def sync_recent(self) -> int:
         """
         Incremental sync of Linear data.
-        
+
         Linear GraphQL API supports updatedAt filter, but for simplicity
         we fetch recent issues (limited to 100) and upsert.
         """
@@ -76,6 +76,33 @@ class SyncLinearService:
         await self._sync_state.update_last_sync(self._connector.name)
         await self._db.commit()
         logger.info(f"Linear incremental sync: {count} items")
+        return count
+
+    async def sync_date_range(self, since: datetime, until: datetime) -> int:
+        """
+        Force import Linear issues created within a date range (inclusive).
+
+        since/until are naive datetimes; we pass ISO date strings to the API.
+        """
+        count = 0
+
+        teams = await self._connector.fetch_teams()
+        count += await self._upsert_teams(teams)
+        team_map = await self._build_team_map()
+
+        # Linear API expects ISO 8601; use date part for start/end of day
+        created_after = since.strftime("%Y-%m-%dT00:00:00Z")
+        created_before = until.strftime("%Y-%m-%dT23:59:59Z")
+
+        issues = await self._connector.fetch_issues(
+            limit=1000,
+            created_after=created_after,
+            created_before=created_before,
+        )
+        count += await self._upsert_issues(issues, team_map)
+
+        await self._db.commit()
+        logger.info(f"Linear date-range sync: {count} items")
         return count
 
     async def _upsert_teams(self, teams: list[dict]) -> int:

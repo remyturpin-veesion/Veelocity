@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/providers.dart';
-import '../widgets/breadcrumb.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
@@ -25,8 +24,6 @@ class LinearOverviewScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Breadcrumb(label: 'Dashboard', route: '/?tab=dashboard'),
-          const SizedBox(height: 16),
           Text(
             'Linear',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(

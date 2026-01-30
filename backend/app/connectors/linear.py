@@ -74,24 +74,37 @@ class LinearConnector(BaseConnector):
         ]
 
     async def fetch_issues(
-        self, team_id: str | None = None, limit: int = 100
+        self,
+        team_id: str | None = None,
+        limit: int = 100,
+        created_after: str | None = None,
+        created_before: str | None = None,
     ) -> list[dict]:
         """
-        Fetch issues, optionally filtered by team.
-        
+        Fetch issues, optionally filtered by team and/or createdAt date range.
+
         Uses pagination with cursor for large datasets.
+        created_after / created_before are ISO 8601 date strings (e.g. "2024-01-15").
         """
         issues = []
         cursor = None
-        
+
+        # Build filter: Linear uses AND. Pass filter as variable for flexibility.
+        filter_obj: dict = {}
+        if team_id:
+            filter_obj["team"] = {"id": {"eq": team_id}}
+        if created_after is not None and created_before is not None:
+            filter_obj["createdAt"] = {"gte": created_after, "lte": created_before}
+        elif created_after is not None:
+            filter_obj["createdAt"] = {"gte": created_after}
+        elif created_before is not None:
+            filter_obj["createdAt"] = {"lte": created_before}
+
         while True:
+            # filter may be empty {} for "all issues"
             query = """
-            query($teamId: String, $first: Int!, $after: String) {
-                issues(
-                    filter: { team: { id: { eq: $teamId } } }
-                    first: $first
-                    after: $after
-                ) {
+            query($filter: IssueFilter, $first: Int!, $after: String) {
+                issues(filter: $filter, first: $first, after: $after) {
                     pageInfo {
                         hasNextPage
                         endCursor
@@ -119,13 +132,12 @@ class LinearConnector(BaseConnector):
                 }
             }
             """
-            
+
             variables = {
+                "filter": filter_obj,
                 "first": min(limit, 100),
                 "after": cursor,
             }
-            if team_id:
-                variables["teamId"] = team_id
 
             response = await self._client.post(
                 self.BASE_URL,

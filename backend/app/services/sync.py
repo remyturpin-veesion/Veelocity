@@ -50,7 +50,7 @@ class SyncService:
         for repo_data in repos:
             try:
                 repo_count = await self._sync_single_repo(
-                    repo_data, since=None, fetch_details=fetch_details
+                    repo_data, since=None, until=None, fetch_details=fetch_details
                 )
                 count += repo_count
                 logger.info(f"Synced {repo_data['full_name']}: {repo_count} items")
@@ -70,31 +70,34 @@ class SyncService:
         return count
 
     async def _sync_single_repo(
-        self, repo_data: dict, since: datetime | None, fetch_details: bool = True
+        self,
+        repo_data: dict,
+        since: datetime | None,
+        until: datetime | None = None,
+        fetch_details: bool = True,
     ) -> int:
         """
         Sync a single repository.
-        
+
         Args:
             repo_data: Repository data from GitHub API
             since: Only fetch PRs updated after this datetime
+            until: Only include PRs updated before this datetime (optional, for date-range import)
             fetch_details: If True, fetch reviews/comments/commits for each PR
         """
         count = 0
-        
+
         repo = await self._get_repo_by_github_id(repo_data["github_id"])
         if not repo:
             return 0
 
-        # Fetch PRs (with optional since filter for incremental sync)
-        if since:
-            prs = await self._connector.fetch_pull_requests(
-                repo_data["full_name"], state="all", since=since
-            )
-        else:
-            prs = await self._connector.fetch_pull_requests(
-                repo_data["full_name"], state="all"
-            )
+        # Fetch PRs (with optional since/until for incremental or date-range sync)
+        prs = await self._connector.fetch_pull_requests(
+            repo_data["full_name"],
+            state="all",
+            since=since,
+            until=until,
+        )
         
         if not prs:
             logger.debug(f"No PRs to sync for {repo_data['full_name']}")
@@ -175,7 +178,9 @@ class SyncService:
 
         for repo_data in repos:
             try:
-                repo_count = await self._sync_single_repo(repo_data, since=since)
+                repo_count = await self._sync_single_repo(
+                    repo_data, since=since, until=None
+                )
                 count += repo_count
                 if repo_count > 0:
                     logger.info(f"Synced {repo_data['full_name']}: {repo_count} items")
@@ -191,6 +196,46 @@ class SyncService:
         await self._db.commit()
         
         logger.info(f"Incremental sync complete: {count} items")
+        return count
+
+    async def sync_date_range(
+        self, since: datetime, until: datetime, fetch_details: bool = True
+    ) -> int:
+        """
+        Force import data for a date range (e.g. one day or a range of days).
+
+        Fetches PRs updated between since and until (inclusive) for all repos,
+        then optionally fetches reviews/comments/commits for each PR.
+
+        Args:
+            since: Start of range (inclusive).
+            until: End of range (inclusive).
+            fetch_details: If True, fetch reviews/comments/commits for each PR.
+        """
+        count = 0
+        repos = await self._connector.fetch_repos()
+        count += await self._upsert_repos(repos)
+
+        for repo_data in repos:
+            try:
+                repo_count = await self._sync_single_repo(
+                    repo_data,
+                    since=since,
+                    until=until,
+                    fetch_details=fetch_details,
+                )
+                count += repo_count
+                if repo_count > 0:
+                    logger.info(
+                        f"Date-range sync {repo_data['full_name']}: {repo_count} items"
+                    )
+                await self._db.commit()
+            except Exception as e:
+                logger.error(f"Failed to sync {repo_data['full_name']}: {e}")
+                await self._db.rollback()
+                continue
+
+        logger.info(f"Date-range sync complete: {count} items")
         return count
 
     async def _upsert_repos(self, repos: list[dict]) -> int:

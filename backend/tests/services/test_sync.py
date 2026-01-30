@@ -113,7 +113,9 @@ async def test_sync_all_calls_connector_methods(mock_db, mock_connector):
     count = await service.sync_all(fetch_details=True)
 
     mock_connector.fetch_repos.assert_called_once()
-    mock_connector.fetch_pull_requests.assert_called_once_with("owner/repo", state="all")
+    mock_connector.fetch_pull_requests.assert_called_once_with(
+        "owner/repo", state="all", since=None, until=None
+    )
     mock_connector.fetch_reviews.assert_called_once_with("owner/repo", 1)
     mock_connector.fetch_comments.assert_called_once_with("owner/repo", 1)
     mock_connector.fetch_pr_commits.assert_called_once_with("owner/repo", 1)

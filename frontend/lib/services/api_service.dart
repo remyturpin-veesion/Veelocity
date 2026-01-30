@@ -126,6 +126,29 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Force import data for a single day or date range (GitHub PRs and/or Linear issues).
+  /// [connector] is "github", "linear", or "all".
+  Future<Map<String, dynamic>> triggerImportRange({
+    required DateTime startDate,
+    DateTime? endDate,
+    String connector = 'all',
+  }) async {
+    final start = _toDateString(startDate);
+    final end = endDate != null ? _toDateString(endDate) : null;
+    final response = await _dio.post(
+      '/api/v1/sync/import-range',
+      data: {
+        'start_date': start,
+        if (end != null) 'end_date': end,
+        'connector': connector,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  static String _toDateString(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   /// Get Linear teams (paginated).
   Future<Map<String, dynamic>> getLinearTeams({
     int page = 1,

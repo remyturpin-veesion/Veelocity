@@ -4,6 +4,7 @@ import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
 import '../widgets/breadcrumb.dart';
 import '../widgets/data_coverage_card.dart';
+import '../widgets/import_by_date_card.dart';
 
 /// Screen displaying data coverage and sync status.
 class DataCoverageScreen extends ConsumerWidget {
@@ -36,6 +37,11 @@ class DataCoverageScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[600],
                   ),
+            ),
+            const SizedBox(height: 24),
+            // Import by date
+            ImportByDateCard(
+              onImportComplete: () => ref.invalidate(syncCoverageProvider),
             ),
             const SizedBox(height: 24),
             // Coverage data

@@ -85,22 +85,24 @@ class GitHubConnector(BaseConnector):
         state: str = "all",
         per_page: int = 100,
         since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[dict]:
         """
         Fetch pull requests from a repository.
-        
+
         Args:
             repo_full_name: Repository full name (owner/repo)
             state: PR state filter (all, open, closed)
             per_page: Results per page
             since: Only fetch PRs updated after this datetime (incremental sync)
+            until: Only include PRs updated before this datetime (for date-range import)
         """
         prs = []
         page = 1
-        
+
         while True:
             params = {"state": state, "per_page": per_page, "page": page, "sort": "updated", "direction": "desc"}
-            
+
             try:
                 response = await self._get(
                     f"/repos/{repo_full_name}/pulls",
@@ -114,26 +116,29 @@ class GitHubConnector(BaseConnector):
             data = response.json()
             if not data:
                 break
-            
+
             # Track if we've passed the since threshold
             found_old_pr = False
-            
+
             for pr in data:
                 pr_updated_at = pr["updated_at"]
-                
+                from datetime import datetime as dt
+
+                updated = dt.fromisoformat(pr_updated_at.replace("Z", "+00:00"))
+
                 # If we have a since filter, check if this PR is older
                 if since:
-                    from datetime import datetime as dt
-                    updated = dt.fromisoformat(pr_updated_at.replace("Z", "+00:00"))
-                    if since.tzinfo is None:
-                        since_aware = since.replace(tzinfo=updated.tzinfo)
-                    else:
-                        since_aware = since
-                    
+                    since_aware = since if since.tzinfo else since.replace(tzinfo=updated.tzinfo)
                     if updated < since_aware:
                         found_old_pr = True
                         continue  # Skip PRs not updated since last sync
-                
+
+                # If we have an until filter, skip PRs updated after that time
+                if until:
+                    until_aware = until if until.tzinfo else until.replace(tzinfo=updated.tzinfo)
+                    if updated > until_aware:
+                        continue
+
                 prs.append({
                     "github_id": pr["id"],
                     "number": pr["number"],

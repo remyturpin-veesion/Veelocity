@@ -69,13 +69,122 @@ class SyncCoverageResponse(BaseModel):
     total_developers: int
 
 
+class ImportRangeRequest(BaseModel):
+    """Request body for force-importing data for a date or date range."""
+
+    start_date: str  # YYYY-MM-DD
+    end_date: str | None = None  # YYYY-MM-DD; if omitted, same as start_date (single day)
+    connector: str = "all"  # "github" | "linear" | "all"
+
+
+@router.post("/import-range")
+async def import_date_range(
+    body: ImportRangeRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Force import data for a single day or date range.
+
+    Fetches GitHub PRs (and details) and/or Linear issues created/updated
+    within the given range. Use this to backfill or refresh specific dates.
+    """
+    from datetime import datetime as dt
+
+    try:
+        start = dt.strptime(body.start_date, "%Y-%m-%d")
+        end_str = body.end_date or body.start_date
+        end = dt.strptime(end_str, "%Y-%m-%d")
+        if end < start:
+            return {"status": "error", "message": "end_date must be >= start_date"}
+    except ValueError as e:
+        return {"status": "error", "message": f"Invalid date format (use YYYY-MM-DD): {e}"}
+
+    # Use start-of-day and end-of-day (naive UTC) for the range
+    since = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    until = end.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    connector = (body.connector or "all").lower()
+    github_items = 0
+    linear_items = 0
+    errors = []
+
+    if connector in ("github", "all"):
+        from app.connectors.factory import create_github_connector
+        from app.services.credentials import CredentialsService
+        from app.services.sync import SyncService
+
+        creds = await CredentialsService(db).get_credentials()
+        github = create_github_connector(
+            token=creds.github_token, repos=creds.github_repos
+        )
+        if github:
+            try:
+                sync_service = SyncService(db, github)
+                github_items = await sync_service.sync_date_range(
+                    since=since, until=until, fetch_details=True
+                )
+                await db.commit()
+            except Exception as e:
+                errors.append(f"GitHub: {e}")
+                await db.rollback()
+            await github.close()
+        else:
+            errors.append("GitHub connector not configured")
+
+    if connector in ("linear", "all"):
+        from app.connectors.factory import create_linear_connector
+        from app.services.credentials import CredentialsService
+        from app.services.sync_linear import SyncLinearService
+
+        creds = await CredentialsService(db).get_credentials()
+        linear_conn = create_linear_connector(api_key=creds.linear_api_key)
+        if linear_conn:
+            try:
+                sync_linear = SyncLinearService(db, linear_conn)
+                linear_items = await sync_linear.sync_date_range(
+                    since=since, until=until
+                )
+            except Exception as e:
+                errors.append(f"Linear: {e}")
+                await db.rollback()
+            await linear_conn.close()
+        else:
+            errors.append("Linear connector not configured")
+
+    if connector == "all" and (github_items or linear_items):
+        from app.services.linking import LinkingService
+
+        try:
+            linking_service = LinkingService(db)
+            await linking_service.link_all_prs()
+            await db.commit()
+        except Exception as e:
+            errors.append(f"Linking: {e}")
+
+    total = github_items + linear_items
+    if errors:
+        return {
+            "status": "partial" if total else "error",
+            "message": f"Imported {total} items; {len(errors)} error(s)",
+            "github_items": github_items,
+            "linear_items": linear_items,
+            "errors": errors,
+        }
+    return {
+        "status": "success",
+        "message": f"Imported {total} items",
+        "github_items": github_items,
+        "linear_items": linear_items,
+    }
+
+
 @router.post("/trigger-full")
 async def trigger_full_sync(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
     Trigger a full sync for all connectors.
-    
+
     This syncs all PRs quickly, then details are filled gradually by the background job.
     """
     from app.services.scheduler import run_full_sync
