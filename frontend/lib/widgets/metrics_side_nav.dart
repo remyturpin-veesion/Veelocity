@@ -114,8 +114,10 @@ class MetricsSideNav extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Dashboard and Alerts tabs at home: no sidebar (aggregated view)
-    if ((currentTab == MainTab.dashboard || currentTab == MainTab.alerts) &&
+    // Dashboard, Data, and Alerts tabs at home: no sidebar (aggregated view)
+    if ((currentTab == MainTab.dashboard ||
+            currentTab == MainTab.dataCoverage ||
+            currentTab == MainTab.alerts) &&
         isHome) {
       return const SizedBox.shrink();
     }
@@ -183,57 +185,7 @@ class MetricsSideNav extends StatelessWidget {
               ],
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Divider(height: 1, indent: 8, endIndent: 8),
-                const SizedBox(height: 8),
-                _buildDataCoverageItem(context),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDataCoverageItem(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Tooltip(
-      message: 'Data Coverage',
-      preferBelow: false,
-      waitDuration: const Duration(milliseconds: 300),
-      child: InkWell(
-        onTap: () {
-          // Preserve tab state when navigating to data coverage
-          final currentUri = GoRouterState.of(context).uri;
-          final tabParam = currentUri.queryParameters['tab'];
-          if (tabParam != null) {
-            context.go('/data-coverage?tab=$tabParam');
-          } else {
-            context.go('/data-coverage?tab=dashboard');
-          }
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.storage,
-            size: 22,
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
       ),
     );
   }
@@ -243,20 +195,24 @@ class MetricsSideNav extends StatelessWidget {
         ? 'Team'
         : currentTab == MainTab.github
             ? 'GitHub'
-            : currentTab == MainTab.alerts
-                ? 'Alerts'
-                : currentTab == MainTab.linear
-                    ? 'Linear'
-                    : 'Dashboard';
+            : currentTab == MainTab.dataCoverage
+                ? 'Data'
+                : currentTab == MainTab.alerts
+                    ? 'Alerts'
+                    : currentTab == MainTab.linear
+                        ? 'Linear'
+                        : 'Dashboard';
     final String homeRoute = currentTab == MainTab.team
         ? '/team?tab=team'
         : currentTab == MainTab.github
             ? '/github?tab=github'
-            : currentTab == MainTab.alerts
-                ? '/alerts?tab=alerts'
-                : currentTab == MainTab.linear
-                    ? '/linear?tab=linear'
-                    : '/?tab=dashboard';
+            : currentTab == MainTab.dataCoverage
+                ? '/data-coverage?tab=dataCoverage'
+                : currentTab == MainTab.alerts
+                    ? '/alerts?tab=alerts'
+                    : currentTab == MainTab.linear
+                        ? '/linear?tab=linear'
+                        : '/?tab=dashboard';
 
     return Tooltip(
       message: homeTooltip,

@@ -6,7 +6,7 @@ import '../widgets/import_by_date_card.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/skeleton_card.dart';
 
-/// Linear overview screen: sync status, summary cards, teams, recent issues.
+/// Linear overview screen: sync status, summary cards, teams.
 /// Renders content only; AppShell provides the single BaseScaffold (filters bar, sidebar).
 class LinearOverviewScreen extends ConsumerWidget {
   const LinearOverviewScreen({super.key});
@@ -15,8 +15,6 @@ class LinearOverviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final overviewAsync = ref.watch(linearOverviewProvider);
     final coverageAsync = ref.watch(syncCoverageProvider);
-    final linearFilter = ref.watch(linearIssuesFilterProvider);
-    final issuesAsync = ref.watch(linearIssuesProvider(linearFilter));
     final dateRange = ref.watch(selectedDateRangeProvider);
 
     return SingleChildScrollView(
@@ -170,55 +168,6 @@ class LinearOverviewScreen extends ConsumerWidget {
                 );
               },
             ),
-          ),
-          const SizedBox(height: 32),
-
-          // Recent issues (optional, first 10)
-          issuesAsync.when(
-            data: (issues) {
-              if (issues.isEmpty) return const SizedBox.shrink();
-              final recent = issues.take(10).toList();
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent issues',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: recent.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        final issue = recent[i];
-                        return ListTile(
-                          title: Text(
-                            '${issue.identifier}: ${issue.title}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(issue.state),
-                          trailing: issue.linkedPrId != null
-                              ? Icon(Icons.link,
-                                  size: 18, color: Colors.grey[600])
-                              : null,
-                          onTap: issue.linkedPrId != null
-                              ? () => context.go('/pr/${issue.linkedPrId}')
-                              : null,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
           ),
         ],
       ),

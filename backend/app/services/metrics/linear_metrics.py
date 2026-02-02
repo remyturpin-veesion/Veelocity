@@ -185,17 +185,19 @@ class LinearMetricsService:
 
         started_stats = stats(started_hours)
 
-        # Fallback if Linear API does not return state type: treat common names as "started"
+        # Only the "In Progress" / "Started" state gets time stats: we measure started_at →
+        # completed_at. Linear's type "started" can apply to many states (In Review, Merged, etc.),
+        # so we key off state name only and assign global started_stats to at most one stage.
         _STARTED_STATE_NAMES = frozenset({"in progress", "started"})
 
         stages = []
+        started_stats_assigned = False
         for name, position, state_type in ordered_states:
-            is_started = state_type == "started" or (
-                state_type is None and name.strip().lower() in _STARTED_STATE_NAMES
-            )
-            if is_started:
+            is_in_progress_by_name = name.strip().lower() in _STARTED_STATE_NAMES
+            if is_in_progress_by_name and not started_stats_assigned:
                 st = started_stats
                 count = st["count"]
+                started_stats_assigned = True
             else:
                 count = counts_by_state.get(name, 0)
                 st = {

@@ -18,7 +18,7 @@ import '../widgets/period_selector.dart';
 import '../widgets/repo_selector.dart';
 
 /// Navigation tab enumeration for top-level navigation.
-enum MainTab { dashboard, team, github, linear, alerts }
+enum MainTab { dashboard, team, github, linear, dataCoverage, alerts }
 
 /// State provider for the current main navigation tab.
 final mainTabProvider = StateProvider<MainTab>((ref) {

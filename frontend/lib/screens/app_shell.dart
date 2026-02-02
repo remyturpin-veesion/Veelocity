@@ -4,11 +4,12 @@ import '../services/providers.dart';
 import '../widgets/base_scaffold.dart';
 import 'alerts_overview_screen.dart';
 import 'dashboard_screen.dart';
+import 'data_coverage_screen.dart';
 import 'github_overview_screen.dart';
 import 'linear_overview_screen.dart';
 import 'team_screen.dart';
 
-/// Main app shell that displays Dashboard, Team, GitHub, Alerts, or Linear based on the current tab.
+/// Main app shell that displays Dashboard, Team, GitHub, Linear, Data, or Alerts based on the current tab.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
@@ -23,7 +24,9 @@ class AppShell extends ConsumerWidget {
                 ? 2
                 : currentTab == MainTab.linear
                     ? 3
-                    : 4;
+                    : currentTab == MainTab.dataCoverage
+                        ? 4
+                        : 5;
 
     return BaseScaffold(
       isHome: true,
@@ -34,6 +37,7 @@ class AppShell extends ConsumerWidget {
           TeamScreen(),
           GitHubOverviewScreen(),
           LinearOverviewScreen(),
+          DataCoverageScreen(),
           AlertsOverviewScreen(),
         ],
       ),

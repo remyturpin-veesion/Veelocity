@@ -31,6 +31,13 @@
 
   <title>frontend</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Prefer horizontal scroll inside the app over browser back/forward on trackpad.
+       When a horizontal scrollable (e.g. Workflow by status) has room to scroll,
+       the gesture scrolls the content; at the boundary, overscroll is contained
+       so the page does not navigate. Safari may still trigger history in some cases. */
+    html, body { overscroll-behavior-x: contain; }
+  </style>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

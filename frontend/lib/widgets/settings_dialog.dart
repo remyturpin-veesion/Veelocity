@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/providers.dart';
+import '../services/theme_provider.dart';
 
 /// Settings dialog for GitHub and Linear API keys (stored encrypted on server).
 class SettingsDialog extends ConsumerStatefulWidget {
@@ -156,6 +157,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                           ),
                         ),
                       ),
+                    _sectionTitle(theme, 'Appearance', null),
+                    const SizedBox(height: 8),
+                    _ThemeModeSelector(),
+                    const SizedBox(height: 20),
                     _sectionTitle(theme, 'GitHub', _githubConfigured),
                     const SizedBox(height: 8),
                     TextField(
@@ -224,7 +229,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     );
   }
 
-  Widget _sectionTitle(ThemeData theme, String label, bool configured) {
+  Widget _sectionTitle(ThemeData theme, String label, bool? configured) {
     return Row(
       children: [
         Text(
@@ -234,25 +239,68 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
             color: theme.colorScheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: configured
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            configured ? 'Connected' : 'Not configured',
-            style: theme.textTheme.labelSmall?.copyWith(
+        if (configured != null) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
               color: configured
-                  ? theme.colorScheme.onPrimaryContainer
-                  : theme.colorScheme.onSurfaceVariant,
+                  ? theme.colorScheme.primaryContainer
+                  : theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              configured ? 'Connected' : 'Not configured',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: configured
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Theme mode selector: Light / Dark / System.
+class _ThemeModeSelector extends ConsumerWidget {
+  const _ThemeModeSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
+    return SegmentedButton<ThemeMode>(
+      segments: const [
+        ButtonSegment<ThemeMode>(
+          value: ThemeMode.light,
+          icon: Icon(Icons.light_mode, size: 18),
+          label: Text('Light'),
+        ),
+        ButtonSegment<ThemeMode>(
+          value: ThemeMode.dark,
+          icon: Icon(Icons.dark_mode, size: 18),
+          label: Text('Dark'),
+        ),
+        ButtonSegment<ThemeMode>(
+          value: ThemeMode.system,
+          icon: Icon(Icons.brightness_auto, size: 18),
+          label: Text('System'),
         ),
       ],
+      selected: {themeMode},
+      onSelectionChanged: (Set<ThemeMode> selected) {
+        final mode = selected.single;
+        ref.read(themeModeProvider.notifier).setThemeMode(mode);
+      },
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        padding: WidgetStateProperty.all(
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+      ),
     );
   }
 }

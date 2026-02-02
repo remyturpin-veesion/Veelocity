@@ -147,6 +147,46 @@ async def test_get_time_in_state(linear_service):
 
 
 @pytest.mark.asyncio
+async def test_get_time_in_state_only_in_progress_gets_time_stats():
+    """Only the 'In Progress' / 'Started' state (by name) gets time stats; other states get zeros."""
+    # Linear can set type 'started' on many states (In Review, Merged, etc.); we must not
+    # duplicate the same median/min/max to every such state.
+    db = _make_mock_db(
+        started_completed_rows=[
+            (datetime(2025, 1, 8, 10, 0), datetime(2025, 1, 10, 14, 0)),
+        ],
+        workflow_state_rows=[
+            ("In Review", 1.0, "started"),
+            ("Merged", 2.0, "started"),
+            ("In Progress", 1.5, "started"),
+            ("Blocked", 2.5, "started"),
+        ],
+        state_count_rows=[
+            ("In Review", 10),
+            ("Merged", 20),
+            ("In Progress", 5),
+            ("Blocked", 8),
+        ],
+    )
+    service = LinearMetricsService(db)
+    start = datetime(2025, 1, 1)
+    end = datetime(2025, 1, 31)
+    result = await service.get_time_in_state(start, end)
+    stages = {s["id"]: s for s in result["stages"]}
+    # Only "In Progress" (by name) gets non-zero time stats
+    assert stages["in_progress"]["median_hours"] > 0
+    assert stages["in_progress"]["min_hours"] > 0
+    assert stages["in_progress"]["max_hours"] > 0
+    assert stages["in_review"]["median_hours"] == 0.0
+    assert stages["merged"]["median_hours"] == 0.0
+    assert stages["blocked"]["median_hours"] == 0.0
+    # Counts come from state counts for non-In-Progress, and from started_stats for In Progress
+    assert stages["in_review"]["count"] == 10
+    assert stages["merged"]["count"] == 20
+    assert stages["blocked"]["count"] == 8
+
+
+@pytest.mark.asyncio
 async def test_get_time_in_state_empty():
     """When no completed issues, overall is zero; stages from workflow states only."""
     db = _make_mock_db(

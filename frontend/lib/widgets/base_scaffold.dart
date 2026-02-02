@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/date_range.dart';
 import '../services/api_service.dart';
 import '../services/providers.dart';
-import '../services/theme_provider.dart';
+import '../services/selection_persistence_service.dart';
 import 'dashboard_customize_dialog.dart';
 import 'developer_multi_selector.dart';
-import 'settings_dialog.dart';
 import 'metrics_side_nav.dart';
-import 'date_range_picker.dart';
 import 'period_selector.dart';
 import 'repo_multi_selector.dart';
+import 'settings_dialog.dart';
 import 'team_multi_selector.dart';
-import '../models/date_range.dart';
+import 'date_range_picker.dart';
 
 /// Base scaffold providing consistent layout across all screens.
 ///
 /// Includes:
-/// - Optional global filters bar (Dashboard/Team tabs, period selector, dark mode)
+/// - Optional global filters bar (Dashboard/Team tabs, period selector)
 /// - MetricsSideNav on the left
 /// - Main content area
 class BaseScaffold extends ConsumerWidget {
@@ -101,7 +101,6 @@ class BaseScaffold extends ConsumerWidget {
                       tooltip: 'Customize dashboard',
                       onPressed: () => DashboardCustomizeDialog.show(context),
                     ),
-                  const _ThemeModeButton(),
                   IconButton(
                     icon: const Icon(Icons.settings),
                     tooltip: 'Settings',
@@ -137,9 +136,11 @@ class BaseScaffold extends ConsumerWidget {
                             ? Icons.folder_outlined
                             : currentTab == MainTab.team
                                 ? Icons.people_outline
-                                : currentTab == MainTab.alerts
-                                    ? Icons.notifications_active
-                                    : Icons.inbox,
+                                : currentTab == MainTab.dataCoverage
+                                    ? Icons.storage
+                                    : currentTab == MainTab.alerts
+                                        ? Icons.notifications_active
+                                        : Icons.inbox,
                         size: 16,
                         color: Theme.of(context)
                             .colorScheme
@@ -153,9 +154,11 @@ class BaseScaffold extends ConsumerWidget {
                             ? 'Repositories'
                             : currentTab == MainTab.team
                                 ? 'Developers'
-                                : currentTab == MainTab.alerts
-                                    ? 'Alerts'
-                                    : 'Linear',
+                                : currentTab == MainTab.dataCoverage
+                                    ? 'Data'
+                                    : currentTab == MainTab.alerts
+                                        ? 'Alerts'
+                                        : 'Linear',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme
@@ -163,6 +166,11 @@ class BaseScaffold extends ConsumerWidget {
                                   .withValues(alpha: 0.7),
                             ),
                       ),
+                      if (currentTab != MainTab.alerts &&
+                          currentTab != MainTab.dataCoverage) ...[
+                        const Spacer(),
+                        _SaveSelectionsButton(),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -303,6 +311,14 @@ class _NavigationTabs extends StatelessWidget {
           ),
           _buildNavTab(
             context,
+            icon: Icons.storage,
+            label: 'Data',
+            tooltip: 'Data coverage',
+            isSelected: isHome && currentTab == MainTab.dataCoverage,
+            onTap: () => context.go('/data-coverage?tab=dataCoverage'),
+          ),
+          _buildNavTab(
+            context,
             icon: Icons.notifications_active,
             label: 'Alerts',
             isSelected: isHome && currentTab == MainTab.alerts,
@@ -317,12 +333,12 @@ class _NavigationTabs extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String label,
+    String? tooltip,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    return InkWell(
+    final child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -356,6 +372,7 @@ class _NavigationTabs extends StatelessWidget {
         ),
       ),
     );
+    return tooltip != null ? Tooltip(message: tooltip, child: child) : child;
   }
 }
 
@@ -419,25 +436,44 @@ class _ExportReportButton extends ConsumerWidget {
   }
 }
 
-/// Button to toggle between light and dark theme modes.
-class _ThemeModeButton extends ConsumerWidget {
-  const _ThemeModeButton();
+/// Button to save current filter selections (repos, team, developers) as preferred.
+class _SaveSelectionsButton extends ConsumerWidget {
+  const _SaveSelectionsButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the provider to rebuild when it changes
-    ref.watch(themeModeProvider);
-    // Use actual brightness to determine icon (handles system mode correctly)
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return IconButton(
-      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-      tooltip: isDark ? 'Mode clair' : 'Mode sombre',
-      onPressed: () {
-        // Toggle based on current actual appearance
-        final newMode = isDark ? ThemeMode.light : ThemeMode.dark;
-        ref.read(themeModeProvider.notifier).setThemeMode(newMode);
-      },
+    return Tooltip(
+      message:
+          'Save current filters as preferred (repos, team, developers, workflow status)',
+      child: TextButton.icon(
+        onPressed: () async {
+          final dateRange = ref.read(selectedDateRangeProvider);
+          final repoIds = ref.read(selectedRepoIdsProvider);
+          final developerLogins = ref.read(selectedDeveloperLoginsProvider);
+          final teamIds = ref.read(selectedTeamIdsProvider);
+          final timeInStateStageIds =
+              ref.read(selectedTimeInStateStageIdsProvider);
+          final mainTab = ref.read(mainTabProvider);
+          await SelectionPersistenceService.save(
+            dateRange: dateRange,
+            repoIds: repoIds,
+            developerLogins: developerLogins,
+            teamIds: teamIds,
+            timeInStateStageIds: timeInStateStageIds,
+            mainTab: mainTab,
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Preferences saved'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        icon: const Icon(Icons.save_outlined, size: 18),
+        label: const Text('Save'),
+      ),
     );
   }
 }

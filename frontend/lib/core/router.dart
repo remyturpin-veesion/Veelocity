@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/app_shell.dart';
-import '../screens/data_coverage_screen.dart';
 import '../screens/developer_profile_screen.dart';
 import '../screens/metrics/cycle_time_screen.dart';
 import '../screens/metrics/deployment_frequency_screen.dart';
@@ -36,6 +35,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               ref.read(mainTabProvider.notifier).state = MainTab.team;
             } else if (tab == 'github' || path.startsWith('/github')) {
               ref.read(mainTabProvider.notifier).state = MainTab.github;
+            } else if (tab == 'dataCoverage' ||
+                path.startsWith('/data-coverage')) {
+              ref.read(mainTabProvider.notifier).state = MainTab.dataCoverage;
             } else if (tab == 'alerts' || path.startsWith('/alerts')) {
               ref.read(mainTabProvider.notifier).state = MainTab.alerts;
             } else if (tab == 'linear' ||
@@ -51,19 +53,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path.startsWith('/pr/')) {
               ref.read(mainTabProvider.notifier).state =
                   tab == 'team' ? MainTab.team : MainTab.github;
-            } else if (path.startsWith('/data-coverage')) {
-              // Preserve tab from query if present
-              if (tab == 'team') {
-                ref.read(mainTabProvider.notifier).state = MainTab.team;
-              } else if (tab == 'linear') {
-                ref.read(mainTabProvider.notifier).state = MainTab.linear;
-              } else if (tab == 'github') {
-                ref.read(mainTabProvider.notifier).state = MainTab.github;
-              } else if (tab == 'alerts') {
-                ref.read(mainTabProvider.notifier).state = MainTab.alerts;
-              } else {
-                ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
-              }
             } else {
               ref.read(mainTabProvider.notifier).state = MainTab.dashboard;
             }
@@ -240,12 +229,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
-          // Data coverage
+          // Data coverage (same shell as Alerts; content via AppShell)
           GoRoute(
             path: '/data-coverage',
             pageBuilder: (context, state) => _buildFadePage(
               state,
-              const DataCoverageScreen(),
+              const AppShell(),
             ),
           ),
         ],
