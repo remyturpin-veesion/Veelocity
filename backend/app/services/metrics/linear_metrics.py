@@ -29,6 +29,46 @@ class LinearMetricsService:
             return [team_id]
         return None
 
+    async def _get_matching_assignee_names(self, login: str) -> list[str]:
+        """Return Linear assignee_name values that match this GitHub login.
+        Matches: exact, lowercase no-spaces, and reversed word order
+        (e.g. 'ouattararomuald' matches 'Romuald Ouattara').
+        """
+        if not login or not login.strip():
+            return []
+        login_norm = login.strip().lower().replace(" ", "")
+        result = await self._db.execute(
+            select(LinearIssue.assignee_name)
+            .where(LinearIssue.assignee_name.isnot(None))
+            .distinct()
+        )
+        matching: list[str] = []
+        for (name,) in result.all():
+            if not name:
+                continue
+            name_clean = name.strip().lower()
+            name_norm = name_clean.replace(" ", "")
+            if login_norm == name_norm or login_norm == name.strip():
+                matching.append(name)
+                continue
+            parts = name_clean.split()
+            if len(parts) >= 2:
+                reversed_norm = "".join(reversed(parts))
+                if login_norm == reversed_norm:
+                    matching.append(name)
+        return matching
+
+    def _assignee_filter_sync(self, query, matching_assignee_names: list[str] | None):
+        """Apply assignee filter: restrict to these assignee_name values (from _get_matching_assignee_names)."""
+        if matching_assignee_names is None:
+            return query
+        if not matching_assignee_names:
+            return query.where(LinearIssue.id == -1)
+        return query.where(
+            LinearIssue.assignee_name.isnot(None),
+            LinearIssue.assignee_name.in_(matching_assignee_names),
+        )
+
     async def get_issues_completed(
         self,
         start_date: datetime,
@@ -36,6 +76,7 @@ class LinearMetricsService:
         period: Literal["day", "week", "month"] = "week",
         team_id: int | None = None,
         team_ids: list[int] | None = None,
+        assignee_name: str | None = None,
     ) -> dict:
         """
         Count of issues with completed_at in the period, grouped by period.
@@ -50,6 +91,8 @@ class LinearMetricsService:
         ids = self._team_filter(team_id, team_ids)
         if ids:
             query = query.where(LinearIssue.team_id.in_(ids))
+        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+        query = self._assignee_filter_sync(query, matching)
 
         result = await self._db.execute(query)
         dates = [row[0] for row in result.all() if row[0]]
@@ -72,6 +115,7 @@ class LinearMetricsService:
         self,
         team_id: int | None = None,
         team_ids: list[int] | None = None,
+        assignee_name: str | None = None,
     ) -> dict:
         """
         Count of open issues (completed_at and canceled_at both null).
@@ -85,6 +129,8 @@ class LinearMetricsService:
         ids = self._team_filter(team_id, team_ids)
         if ids:
             query = query.where(LinearIssue.team_id.in_(ids))
+        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+        query = self._assignee_filter_sync(query, matching)
 
         result = await self._db.execute(query)
         count = result.scalar() or 0
@@ -119,6 +165,7 @@ class LinearMetricsService:
         end_date: datetime,
         team_id: int | None = None,
         team_ids: list[int] | None = None,
+        assignee_name: str | None = None,
     ) -> dict:
         """
         Return one card per workflow state (Todo, In Progress, etc.) in order.
@@ -132,9 +179,11 @@ class LinearMetricsService:
         ordered_states = await self._get_ordered_workflow_states(ids)
 
         # Issue counts per state (current state, filtered by team)
+        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
         count_q = select(LinearIssue.state, func.count(LinearIssue.id))
         if ids:
             count_q = count_q.where(LinearIssue.team_id.in_(ids))
+        count_q = self._assignee_filter_sync(count_q, matching)
         count_q = count_q.group_by(LinearIssue.state)
         count_result = await self._db.execute(count_q)
         counts_by_state = {row[0]: row[1] for row in count_result.all()}
@@ -153,6 +202,7 @@ class LinearMetricsService:
         )
         if ids:
             started_q = started_q.where(LinearIssue.team_id.in_(ids))
+        started_q = self._assignee_filter_sync(started_q, matching)
         started_result = await self._db.execute(started_q)
         started_hours: list[float] = []
         for started_at, completed_at in started_result.all():
@@ -249,16 +299,28 @@ class LinearMetricsService:
         end_date: datetime,
         team_id: int | None = None,
         team_ids: list[int] | None = None,
+        assignee_name: str | None = None,
     ) -> dict:
         """
         Single response for dashboard: issues completed, backlog, time-in-state.
         """
         issues_completed = await self.get_issues_completed(
-            start_date, end_date, period="week", team_id=team_id, team_ids=team_ids
+            start_date,
+            end_date,
+            period="week",
+            team_id=team_id,
+            team_ids=team_ids,
+            assignee_name=assignee_name,
         )
-        backlog = await self.get_backlog(team_id=team_id, team_ids=team_ids)
+        backlog = await self.get_backlog(
+            team_id=team_id, team_ids=team_ids, assignee_name=assignee_name
+        )
         time_in_state = await self.get_time_in_state(
-            start_date, end_date, team_id=team_id, team_ids=team_ids
+            start_date,
+            end_date,
+            team_id=team_id,
+            team_ids=team_ids,
+            assignee_name=assignee_name,
         )
 
         return {

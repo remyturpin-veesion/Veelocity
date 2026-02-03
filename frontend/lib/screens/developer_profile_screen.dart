@@ -76,11 +76,169 @@ class DeveloperProfileScreen extends ConsumerWidget {
                   _StatRow('Commits made', stats.commitsMade.toString()),
                 ],
               ),
+              const SizedBox(height: 24),
+              _buildLinearSection(context, ref, login),
+              const SizedBox(height: 24),
+              _buildLinearIssuesCompletedSection(context, ref, login),
+              const SizedBox(height: 24),
+              _buildLinearTimeInStateSection(context, ref, login),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildLinearSection(
+      BuildContext context, WidgetRef ref, String login) {
+    final linearAsync = ref.watch(linearOverviewForDeveloperProvider(login));
+    return linearAsync.when(
+      data: (overview) => _buildSection(
+        context,
+        'Linear',
+        [
+          _StatRow('Issues completed', overview.issuesCompleted.toString()),
+          _StatRow(
+              'Per week', overview.issuesCompletedPerWeek.toStringAsFixed(1)),
+          _StatRow('Backlog', overview.backlogCount.toString()),
+          _StatRow(
+            'Avg time in state',
+            overview.timeInStateCount > 0
+                ? _formatHours(overview.timeInStateAverageHours)
+                : 'N/A',
+          ),
+          _StatRow(
+            'Median time in state',
+            overview.timeInStateCount > 0
+                ? _formatHours(overview.timeInStateMedianHours)
+                : 'N/A',
+          ),
+        ],
+      ),
+      loading: () => Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (e, _) => _buildSection(
+        context,
+        'Linear',
+        [
+          _StatRow('—', 'No Linear data for this assignee'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinearIssuesCompletedSection(
+      BuildContext context, WidgetRef ref, String login) {
+    final theme = Theme.of(context);
+    final async = ref.watch(linearIssuesCompletedForDeveloperProvider(login));
+    return async.when(
+      data: (data) {
+        final rows = data.data.isEmpty
+            ? <Widget>[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No issues completed in period',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ]
+            : data.data
+                .map(
+                  (d) => _StatRow(
+                    _formatPeriodLabel(d.period),
+                    '${d.count}',
+                  ),
+                )
+                .toList();
+        return _buildSection(
+          context,
+          'Linear issues completed',
+          [
+            _StatRow('Total', data.total.toString()),
+            _StatRow('Avg per period', data.average.toStringAsFixed(1)),
+            const SizedBox(height: 8),
+            ...rows,
+          ],
+        );
+      },
+      loading: () => Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (_, __) => _buildSection(
+        context,
+        'Linear issues completed',
+        [_StatRow('—', 'Unavailable')],
+      ),
+    );
+  }
+
+  Widget _buildLinearTimeInStateSection(
+      BuildContext context, WidgetRef ref, String login) {
+    final async = ref.watch(linearTimeInStateForDeveloperProvider(login));
+    return async.when(
+      data: (data) {
+        final stageRows = data.stages
+            .where((s) => s.count > 0)
+            .map(
+              (s) => _StatRow(
+                s.label,
+                '${s.count} · ${_formatHours(s.averageHours)} avg',
+              ),
+            )
+            .toList();
+        final rows = <Widget>[
+          _StatRow('Issues completed (in period)', data.count.toString()),
+          _StatRow('Avg time in state', _formatHours(data.averageHours)),
+          _StatRow('Median', _formatHours(data.medianHours)),
+          if (stageRows.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...stageRows,
+          ],
+        ];
+        return _buildSection(context, 'Linear time in state', rows);
+      },
+      loading: () => Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (_, __) => _buildSection(
+        context,
+        'Linear time in state',
+        [_StatRow('—', 'Unavailable')],
+      ),
+    );
+  }
+
+  static String _formatPeriodLabel(String period) {
+    if (period.contains('-W')) {
+      final parts = period.split('-W');
+      if (parts.length == 2) return 'Week ${parts[1]}, ${parts[0]}';
+    }
+    return period;
   }
 
   Widget _buildHeader(BuildContext context, String login, String? avatarUrl) {

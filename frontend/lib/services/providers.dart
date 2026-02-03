@@ -683,6 +683,21 @@ final linearOverviewProvider = FutureProvider<LinearOverview>((ref) async {
   );
 });
 
+/// Provider for Linear overview for a single developer (by assignee name).
+/// Pass [login] as assignee; works when Linear assignee name matches GitHub login.
+final linearOverviewForDeveloperProvider =
+    FutureProvider.family<LinearOverview, String>((ref, login) async {
+  final service = ref.read(metricsServiceProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
+  return service.getLinearOverview(
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    teamIds: _resolvedTeamIds(teamIds),
+    assigneeName: login,
+  );
+});
+
 /// Provider for Linear issues completed (time series).
 final linearIssuesCompletedProvider =
     FutureProvider<LinearIssuesCompleted>((ref) async {
@@ -697,11 +712,37 @@ final linearIssuesCompletedProvider =
   );
 });
 
+/// Provider for Linear issues completed for a single developer (by assignee).
+final linearIssuesCompletedForDeveloperProvider =
+    FutureProvider.family<LinearIssuesCompleted, String>((ref, login) async {
+  final service = ref.read(metricsServiceProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
+  return service.getLinearIssuesCompleted(
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    period: 'week',
+    teamIds: _resolvedTeamIds(teamIds),
+    assigneeName: login,
+  );
+});
+
 /// Provider for Linear backlog count.
 final linearBacklogProvider = FutureProvider<LinearBacklog>((ref) async {
   final service = ref.read(metricsServiceProvider);
   final teamIds = ref.watch(selectedTeamIdsProvider);
   return service.getLinearBacklog(teamIds: _resolvedTeamIds(teamIds));
+});
+
+/// Provider for Linear backlog for a single developer (by assignee).
+final linearBacklogForDeveloperProvider =
+    FutureProvider.family<LinearBacklog, String>((ref, login) async {
+  final service = ref.read(metricsServiceProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
+  return service.getLinearBacklog(
+    teamIds: _resolvedTeamIds(teamIds),
+    assigneeName: login,
+  );
 });
 
 /// Provider for Linear time-in-state metric.
@@ -714,5 +755,19 @@ final linearTimeInStateProvider =
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
     teamIds: _resolvedTeamIds(teamIds),
+  );
+});
+
+/// Provider for Linear time-in-state for a single developer (by assignee).
+final linearTimeInStateForDeveloperProvider =
+    FutureProvider.family<LinearTimeInState, String>((ref, login) async {
+  final service = ref.read(metricsServiceProvider);
+  final dateRange = ref.watch(selectedDateRangeProvider);
+  final teamIds = ref.watch(selectedTeamIdsProvider);
+  return service.getLinearTimeInState(
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    teamIds: _resolvedTeamIds(teamIds),
+    assigneeName: login,
   );
 });

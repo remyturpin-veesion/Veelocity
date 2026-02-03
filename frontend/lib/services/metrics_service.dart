@@ -504,10 +504,12 @@ class MetricsService {
 
   /// Get Linear overview (issues completed, backlog, time-in-state).
   /// [teamIds]: when non-empty, filter to these team IDs (one or more).
+  /// [assigneeName]: when set, filter to issues assigned to this person (e.g. developer login for per-developer metrics).
   Future<LinearOverview> getLinearOverview({
     DateTime? startDate,
     DateTime? endDate,
     List<int>? teamIds,
+    String? assigneeName,
   }) async {
     final queryParams = <String, dynamic>{};
     if (startDate != null) {
@@ -519,6 +521,9 @@ class MetricsService {
     if (teamIds != null && teamIds.isNotEmpty) {
       queryParams['team_ids'] = teamIds;
     }
+    if (assigneeName != null && assigneeName.isNotEmpty) {
+      queryParams['assignee_name'] = assigneeName;
+    }
     final response = await _dio.get(
       '/api/v1/metrics/linear/overview',
       queryParameters: queryParams,
@@ -527,11 +532,13 @@ class MetricsService {
   }
 
   /// Get Linear issues completed per period (time series).
+  /// [assigneeName]: when set, filter to issues assigned to this person (per-developer).
   Future<LinearIssuesCompleted> getLinearIssuesCompleted({
     DateTime? startDate,
     DateTime? endDate,
     String period = 'week',
     List<int>? teamIds,
+    String? assigneeName,
   }) async {
     final queryParams = <String, dynamic>{'period': period};
     if (startDate != null) {
@@ -543,6 +550,9 @@ class MetricsService {
     if (teamIds != null && teamIds.isNotEmpty) {
       queryParams['team_ids'] = teamIds;
     }
+    if (assigneeName != null && assigneeName.isNotEmpty) {
+      queryParams['assignee_name'] = assigneeName;
+    }
     final response = await _dio.get(
       '/api/v1/metrics/linear/issues-completed',
       queryParameters: queryParams,
@@ -553,21 +563,32 @@ class MetricsService {
   }
 
   /// Get Linear backlog count (open issues).
-  Future<LinearBacklog> getLinearBacklog({List<int>? teamIds}) async {
-    final queryParams =
-        teamIds != null && teamIds.isNotEmpty ? {'team_ids': teamIds} : null;
+  /// [assigneeName]: when set, filter to issues assigned to this person (per-developer).
+  Future<LinearBacklog> getLinearBacklog({
+    List<int>? teamIds,
+    String? assigneeName,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (teamIds != null && teamIds.isNotEmpty) {
+      queryParams['team_ids'] = teamIds;
+    }
+    if (assigneeName != null && assigneeName.isNotEmpty) {
+      queryParams['assignee_name'] = assigneeName;
+    }
     final response = await _dio.get(
       '/api/v1/metrics/linear/backlog',
-      queryParameters: queryParams,
+      queryParameters: queryParams.isEmpty ? null : queryParams,
     );
     return LinearBacklog.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// Get Linear time-in-state (started to completed).
+  /// [assigneeName]: when set, filter to issues assigned to this person (per-developer).
   Future<LinearTimeInState> getLinearTimeInState({
     DateTime? startDate,
     DateTime? endDate,
     List<int>? teamIds,
+    String? assigneeName,
   }) async {
     final queryParams = <String, dynamic>{};
     if (startDate != null) {
@@ -578,6 +599,9 @@ class MetricsService {
     }
     if (teamIds != null && teamIds.isNotEmpty) {
       queryParams['team_ids'] = teamIds;
+    }
+    if (assigneeName != null && assigneeName.isNotEmpty) {
+      queryParams['assignee_name'] = assigneeName;
     }
     final response = await _dio.get(
       '/api/v1/metrics/linear/time-in-state',
