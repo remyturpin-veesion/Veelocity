@@ -1,0 +1,604 @@
+:root {
+  --seed-h: 212;
+  --seed-s: 48%;
+  --seed-l: 28%;
+  --bg: hsl(0, 0%, 98%);
+  --surface: hsl(0, 0%, 100%);
+  --surface-border: hsl(0, 0%, 90%);
+  --text: hsl(0, 0%, 12%);
+  --text-muted: hsl(0, 0%, 45%);
+  --primary: hsl(var(--seed-h), var(--seed-s), var(--seed-l));
+  --primary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(var(--seed-h), var(--seed-s), 96%);
+  --metric-green: hsl(142, 52%, 42%);
+  --metric-orange: hsl(28, 87%, 48%);
+  --metric-purple: hsl(262, 52%, 52%);
+}
+
+[data-theme='dark'] {
+  --bg: hsl(0, 0%, 8%);
+  --surface: hsl(0, 0%, 12%);
+  --surface-border: hsl(0, 0%, 20%);
+  --text: hsl(0, 0%, 95%);
+  --text-muted: hsl(0, 0%, 62%);
+  --primary: hsl(var(--seed-h), var(--seed-s), 55%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(var(--seed-h), 30%, 16%);
+  /* Flutter-style metric card accents */
+  --metric-green: hsl(142, 52%, 52%);
+  --metric-orange: hsl(28, 87%, 55%);
+  --metric-purple: hsl(262, 52%, 58%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface-border);
+  flex-wrap: wrap;
+}
+
+.app-shell__nav {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.app-shell__nav a {
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.app-shell__nav a:hover {
+  background: var(--accent);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.app-shell__nav a.active {
+  background: var(--accent);
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.app-shell__spacer {
+  flex: 1;
+}
+
+.app-shell__date-range-wrap {
+  position: relative;
+}
+
+.app-shell__date-pill {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  background: var(--bg);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-shell__date-pill:hover {
+  background: var(--accent);
+  border-color: var(--surface-border);
+}
+
+.app-shell__date-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 260px;
+}
+
+.app-shell__date-custom {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.app-shell__date-custom-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.app-shell__date-custom-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-shell__date-custom-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text);
+}
+
+.app-shell__date-custom-field span {
+  flex: 0 0 36px;
+  color: var(--text-muted);
+}
+
+.app-shell__date-custom-field input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+
+.app-shell__date-custom-field input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.app-shell__export {
+  display: flex;
+  gap: 6px;
+}
+
+.app-shell__btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-shell__btn:hover {
+  background: var(--accent);
+  border-color: var(--surface-border);
+}
+
+.app-shell__btn--secondary {
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.app-shell__btn--secondary:hover {
+  color: var(--text);
+  background: var(--accent);
+}
+
+.app-shell__icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-shell__icon-btn:hover {
+  background: var(--accent);
+  border-color: var(--surface-border);
+}
+
+.app-shell__filters {
+  padding: 10px 16px;
+  background: var(--accent);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.app-shell__filters-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-shell__filters-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--surface-border);
+}
+
+.filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.filter-chip:hover {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.filter-chip[data-selected] {
+  background: var(--accent);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.filter-label.muted {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Left sidebar (Linear checkboxes – select/unselect which metrics to show) */
+.app-shell__sidebar {
+  width: 56px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+  border-right: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+}
+
+.app-shell__sidebar-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.app-shell__sidebar-btn:hover {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.app-shell__sidebar-btn.active {
+  background: var(--accent);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.app-shell__sidebar-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.app-shell__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-shell__main {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+  min-width: 0;
+}
+
+.period-selector {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  background: var(--bg);
+}
+
+.period-selector button {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.period-selector button:hover {
+  color: var(--text);
+  background: var(--accent);
+}
+
+.period-selector button + button {
+  border-left: 1px solid var(--surface-border);
+}
+
+.period-selector button.active {
+  background: var(--accent);
+  color: var(--primary);
+}
+
+.screen-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.card__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.card__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.kpi-card--link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.kpi-card--link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+.kpi-card__icon {
+  margin-bottom: 8px;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.kpi-card__value {
+  margin: 0 0 4px;
+}
+
+.kpi-card__subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.kpi-card__arrow {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* Linear overview (Flutter-style layout) */
+.linear-overview {
+  max-width: 1200px;
+}
+
+.linear-overview__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.linear-overview__subtitle {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+.linear-overview__save {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.linear-overview__save:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.linear-overview__sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+}
+
+.linear-overview__sync-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.linear-overview__sync-icon {
+  opacity: 0.8;
+}
+
+.linear-overview__import {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.linear-overview__import:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.linear-overview__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.linear-overview__cards .kpi-card {
+  min-height: 120px;
+}
+
+.linear-overview__empty-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
+}
+
+.loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.error {
+  padding: 16px;
+  background: hsl(0, 70%, 96%);
+  color: hsl(0, 60%, 35%);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+[data-theme='dark'] .error {
+  background: hsl(0, 40%, 18%);
+  color: hsl(0, 60%, 75%);
+}
+
+/* Responsive: small viewports */
+@media (max-width: 768px) {
+  .app-shell__top {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .app-shell__nav a {
+    padding: 6px 10px;
+    font-size: 0.875rem;
+  }
+
+  .app-shell__filters {
+    padding: 8px 12px;
+  }
+
+  .app-shell__main {
+    padding: 12px;
+  }
+
+  .screen-title {
+    font-size: 1.25rem;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .card__value {
+    font-size: 1.25rem;
+  }
+}

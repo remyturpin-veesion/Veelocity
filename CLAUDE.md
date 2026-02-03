@@ -10,8 +10,8 @@ Veelocity is a single-user developer analytics platform measuring DORA metrics a
 - Single-user tool (no authentication, no user/org models)
 - GitHub & Linear credentials stored encrypted in the database (Settings UI); only encryption key in `.env`
 - Python 3.11+ backend with FastAPI + PostgreSQL
-- Flutter frontend (web, iOS, Android)
-- Managed with `uv` (Python package manager)
+- React frontend (Vite, TypeScript, web) in `frontend-react/`
+- Managed with `uv` (backend), npm (frontend)
 
 ## Development Setup
 
@@ -45,12 +45,16 @@ make format  # Black format
 ### Frontend (Flutter)
 
 ```bash
-cd frontend
-flutter pub get          # Install dependencies
-flutter run -d chrome    # Run web app
-flutter test            # Run tests
-dart format .           # Format code
+make dev-frontend        # Run Vite dev server (default http://localhost:5173)
+# or: cd frontend-react && npm run dev
+
+cd frontend-react
+npm install              # Install dependencies
+npm run build            # Production build
+npm run preview          # Preview production build
 ```
+
+Set `VITE_API_BASE_URL` in `frontend-react/.env` (default `http://localhost:8000`) to point at the backend.
 
 ### Docker
 
@@ -134,17 +138,16 @@ Deployments are detected from GitHub Actions workflows matching configurable pat
 
 **Logic:** `app/core/config.py:is_deployment_workflow()` - checks if workflow name/path contains patterns
 
-### Frontend State Management
+### Frontend State Management (React)
 
-**Riverpod providers** (see `frontend/lib/services/providers.dart`):
-- `selectedPeriodProvider` - time period filter (7/14/30/90 days)
-- `selectedRepoIdsProvider` - multi-select repos (empty = all)
-- `selectedDeveloperLoginsProvider` - multi-select developers (empty = all)
-- Metric providers auto-refresh when filters change
+**Zustand** (see `frontend-react/src/stores/filters.ts`):
+- Date range (preset 7/30/90 days or custom)
+- `repoIds`, `developerLogins`, `teamIds`, `timeInStateStageIds` (empty = all)
+- Persisted to localStorage
 
-**Navigation:**
-- `go_router` for routing (`frontend/lib/core/router.dart`)
-- `MainTab` enum for top-level tabs (dashboard, team)
+**Server state:** TanStack Query (React Query) for API data; filter store values are used in query keys.
+
+**Navigation:** React Router v6 (`frontend-react/src/routes.tsx`); top-level tabs: Dashboard, Team, GitHub, Linear, Data coverage, Alerts.
 
 ## Code Conventions
 
@@ -161,12 +164,12 @@ Deployments are detected from GitHub Actions workflows matching configurable pat
 - `backend/tests/conftest.py` - shared fixtures (async client)
 - Use `respx` for mocking HTTP calls
 
-### Dart (Frontend)
+### TypeScript/React (Frontend)
 
-- **State:** Riverpod (ConsumerWidget, ref.watch/read)
-- **HTTP:** `dio` package (`frontend/lib/services/api_service.dart`)
-- **Charts:** `fl_chart` package
-- **Formatting:** `dart format`
+- **State:** Zustand (filters), TanStack Query (server state)
+- **HTTP:** `fetch` in `frontend-react/src/api/client.ts`
+- **Charts:** Recharts
+- **Formatting:** ESLint; optional `npm run lint` in frontend-react
 
 ### Git Commits
 
@@ -244,13 +247,16 @@ veelocity/
 │   ├── tests/
 │   ├── alembic/                  # Database migrations
 │   └── pyproject.toml
-├── frontend/
+├── frontend-react/               # React app (Vite, TypeScript)
+│   └── src/
+│       ├── api/                  # API client, endpoints
+│       ├── components/           # Shared UI
+│       ├── screens/              # Pages + metrics
+│       ├── stores/               # Zustand (filters, theme)
+│       ├── theme/                # CSS variables
+│       └── types/                # TS types
+├── frontend/                     # Legacy Flutter app (optional)
 │   └── lib/
-│       ├── core/                 # Config, theme, router
-│       ├── models/               # Data models
-│       ├── services/             # API client, providers
-│       ├── screens/              # Top-level pages
-│       └── widgets/              # Reusable components
 ├── infra/docker/
 │   ├── docker-compose.yml
 │   └── .env.example
@@ -265,4 +271,4 @@ veelocity/
 4. **Rate limiting:** `RateLimiter` in `connectors/rate_limiter.py` prevents API throttling
 5. **Detail syncing:** PRs synced fast first, details (reviews/comments) filled gradually
 6. **No premature optimization:** Keep solutions simple, avoid over-engineering
-7. **Type safety:** Python type hints + Dart strict types required
+7. **Type safety:** Python type hints + TypeScript in frontend-react

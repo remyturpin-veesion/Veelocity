@@ -24,9 +24,9 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 ## Stack Technique
 
 - **Backend** : Python 3.11+ / FastAPI
-- **Frontend** : Flutter (Web, iOS, Android)
+- **Frontend** : React (Vite, TypeScript) — web
 - **Database** : PostgreSQL 15
-- **Package manager** : uv
+- **Package manager** : uv (backend), npm (frontend)
 
 ## Quick Start
 
@@ -34,7 +34,7 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Flutter 3.x
+- Node.js 18+ et npm
 - Docker & Docker Compose
 
 ### Installation
@@ -44,9 +44,10 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 git clone https://github.com/veesion-io/veelocity.git
 cd veelocity
 
-# Frontend
-cd frontend
-flutter pub get
+# Frontend (React)
+cd frontend-react
+npm install
+cp .env.example .env   # optional: set VITE_API_BASE_URL (default http://localhost:8000)
 
 # Lancer avec Docker (PostgreSQL + backend)
 make dev
@@ -55,25 +56,29 @@ make dev
 ### Développement
 
 ```bash
-# Backend (avec hot reload) - uv gère le venv et les dépendances automatiquement
-cd backend
-uv run uvicorn app.main:app --reload --port 8000
+# Backend (avec hot reload)
+make dev-local
+# ou: cd backend && uv run uvicorn app.main:app --reload --port 8000
 
-# Frontend (web)
-cd frontend
-flutter run -d chrome
+# Frontend (React, Vite)
+make dev-frontend
+# ou: cd frontend-react && npm run dev
 ```
+
+Le frontend est servi sur http://localhost:5173 et appelle l’API sur `VITE_API_BASE_URL` (par défaut http://localhost:8000).
 
 ### Commandes Make
 
 ```bash
-make dev             # Lance PostgreSQL + backend
+make dev             # Lance PostgreSQL + backend (Docker)
+make dev-local       # Backend en local avec hot reload
+make dev-frontend    # Frontend React (Vite) en local
 make down            # Arrête les containers
 make logs            # Affiche les logs
 make test            # Lance les tests backend
 make migrate         # Applique les migrations Alembic
-make lint            # Ruff check
-make format          # Black format
+make lint            # Ruff check (backend)
+make format          # Black format (backend)
 ```
 
 ## Structure
@@ -81,7 +86,8 @@ make format          # Black format
 ```
 veelocity/
 ├── backend/          # API FastAPI
-├── frontend/         # App Flutter
+├── frontend-react/   # App React (Vite, TypeScript)
+├── frontend/         # Ancienne app Flutter (conservée pour référence)
 ├── infra/docker/     # Docker Compose
 ├── docs/plans/       # Design documents
 ├── CLAUDE.md         # Guide pour Claude Code

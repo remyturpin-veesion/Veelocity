@@ -1,13 +1,17 @@
 # Makefile
-.PHONY: dev dev-local down logs shell-backend test migrate lint format db
+.PHONY: dev dev-local dev-frontend down logs shell-backend test migrate lint format db
 
-# Development avec Docker
+# Development avec Docker (PostgreSQL + backend)
 dev:
 	docker-compose -f infra/docker/docker-compose.yml up -d
 
-# Development local (hot reload) - nécessite .env dans backend/
+# Development local backend (hot reload) - nécessite .env dans backend/
 dev-local:
 	cd backend && uv run uvicorn app.main:app --reload --port 8000
+
+# Frontend React (Vite) - requires VITE_API_BASE_URL in frontend-react/.env (default http://localhost:8000)
+dev-frontend:
+	cd frontend-react && npm run dev
 
 # Démarrer juste PostgreSQL
 db:
