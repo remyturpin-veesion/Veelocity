@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getThroughput } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -47,8 +47,6 @@ export function ThroughputScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     total?: number;
     data?: Array<{ period: string; count: number }>;
   };
@@ -62,7 +60,7 @@ export function ThroughputScreen() {
       </p>
       <h1 className="screen-title">Throughput</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <KpiCard title="PRs merged" value={String(d.total ?? '—')} />

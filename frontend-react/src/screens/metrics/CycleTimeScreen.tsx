@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getCycleTime } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -45,7 +45,7 @@ export function CycleTimeScreen() {
     );
   }
 
-  const d = data as { start_date?: string; end_date?: string; count?: number; average_hours?: number };
+  const d = data as { count?: number; average_hours?: number };
 
   return (
     <div>
@@ -54,7 +54,7 @@ export function CycleTimeScreen() {
       </p>
       <h1 className="screen-title">Cycle time</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
         <KpiCard title="Issues" value={String(d.count ?? '—')} />

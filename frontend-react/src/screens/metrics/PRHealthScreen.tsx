@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRHealth } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -46,8 +46,6 @@ export function PRHealthScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     count?: number;
     summary?: { average_score?: number };
     pr_health_scores?: Array<{ pr_id: number; pr_number?: number; title?: string; health_score: number; health_category?: string }>;
@@ -62,7 +60,7 @@ export function PRHealthScreen() {
       </p>
       <h1 className="screen-title">PR health</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <KpiCard title="PRs scored" value={String(d.count ?? 0)} />

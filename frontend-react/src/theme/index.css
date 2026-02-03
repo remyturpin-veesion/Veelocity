@@ -186,6 +186,30 @@ button {
   border-color: var(--primary);
 }
 
+.app-shell__date-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-shell__date-ok {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--surface-border);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.app-shell__date-ok:hover {
+  opacity: 0.9;
+}
+
 .app-shell__export {
   display: flex;
   gap: 6px;
@@ -237,6 +261,8 @@ button {
 }
 
 .app-shell__filters {
+  position: relative;
+  z-index: 1;
   padding: 10px 16px;
   background: var(--accent);
   border-bottom: 1px solid var(--surface-border);
@@ -279,6 +305,7 @@ button {
   color: var(--text);
 }
 
+.filter-chip--selected,
 .filter-chip[data-selected] {
   background: var(--accent);
   color: var(--primary);
@@ -291,7 +318,7 @@ button {
   white-space: nowrap;
 }
 
-/* Left sidebar (Linear checkboxes – select/unselect which metrics to show) */
+/* Left sidebar (Linear icon nav) – selected = accent + indicator */
 .app-shell__sidebar {
   width: 56px;
   flex-shrink: 0;
@@ -306,38 +333,36 @@ button {
   gap: 4px;
 }
 
-.app-shell__sidebar-btn {
+.app-shell__sidebar a {
   width: 40px;
   height: 40px;
   min-width: 40px;
   min-height: 40px;
   border-radius: 8px;
-  border: none;
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
   color: var(--text-muted);
-  font-size: 1.25rem;
+  text-decoration: none;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
   position: relative;
   flex-shrink: 0;
+  font-size: 1.25rem;
 }
 
-.app-shell__sidebar-btn:hover {
+.app-shell__sidebar a:hover {
   background: var(--accent);
   color: var(--text);
 }
 
-.app-shell__sidebar-btn.active {
+.app-shell__sidebar a.active {
   background: var(--accent);
   color: var(--text);
   box-shadow: inset 3px 0 0 var(--primary);
 }
 
-.app-shell__sidebar-btn:focus-visible {
+.app-shell__sidebar a:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -534,15 +559,6 @@ button {
 
 .linear-overview__cards .kpi-card {
   min-height: 120px;
-}
-
-.linear-overview__empty-hint {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 24px;
-  text-align: center;
-  font-size: 0.9375rem;
-  color: var(--text-muted);
 }
 
 .empty-state {

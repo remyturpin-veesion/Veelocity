@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearTimeInState } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -56,8 +56,6 @@ export function LinearTimeInStateScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     stages?: TimeInStateStage[];
     data?: Array<{ period: string; value: number }>;
   };
@@ -94,7 +92,7 @@ export function LinearTimeInStateScreen() {
       </p>
       <h1 className="screen-title">Linear time in state</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
 
       {allStages.length > 0 && (

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearOverview, getSyncCoverage, triggerImportRange } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 
@@ -19,7 +19,6 @@ function formatTimeAgo(iso: string | null | undefined): string {
 export function LinearOverviewScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const teamIds = useFiltersStore((s) => s.teamIds);
-  const linearSidebarSelection = useFiltersStore((s) => s.linearSidebarSelection);
   const { startDate, endDate } = getStartEnd();
   const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
   const queryClient = useQueryClient();
@@ -99,49 +98,36 @@ export function LinearOverviewScreen() {
       </div>
 
       <div className="linear-overview__cards">
-        {linearSidebarSelection.has('issues-completed') && (
-          <KpiCard
-            title="Issues completed"
-            value={String(issuesCompleted)}
-            subtitle={`Last 30 days · ${issuesPerWeek.toFixed(1)}/week`}
-            to="/metrics/linear/issues-completed"
-            accent="green"
-            icon={<span aria-hidden>✓</span>}
-          />
-        )}
-        {linearSidebarSelection.has('backlog') && (
-          <KpiCard
-            title="Backlog"
-            value={String(backlog)}
-            subtitle="open issues"
-            to="/metrics/linear/backlog"
-            accent="orange"
-            icon={<span aria-hidden>▢</span>}
-          />
-        )}
-        {linearSidebarSelection.has('time-in-state') && (
-          <KpiCard
-            title="Time in state"
-            value={timeInStateValue}
-            subtitle={
-              timeInStateCount > 0 && timeInStateMedianDays != null
-                ? `${timeInStateCount} issues · median ${timeInStateMedianDays.toFixed(1)}d`
-                : timeInStateCount > 0
-                  ? `${timeInStateCount} issues`
-                  : '—'
-            }
-            to="/metrics/linear/time-in-state"
-            accent="purple"
-            icon={<span aria-hidden>◷</span>}
-          />
-        )}
-        {!linearSidebarSelection.has('issues-completed') &&
-          !linearSidebarSelection.has('backlog') &&
-          !linearSidebarSelection.has('time-in-state') && (
-            <p className="linear-overview__empty-hint">
-              Select metrics in the left sidebar to display cards.
-            </p>
-          )}
+        <KpiCard
+          title="Issues completed"
+          value={String(issuesCompleted)}
+          subtitle={`${formatDateRangeDisplay(startDate, endDate)} · ${issuesPerWeek.toFixed(1)}/week`}
+          to="/metrics/linear/issues-completed"
+          accent="green"
+          icon={<span aria-hidden>✓</span>}
+        />
+        <KpiCard
+          title="Backlog"
+          value={String(backlog)}
+          subtitle="open issues"
+          to="/metrics/linear/backlog"
+          accent="orange"
+          icon={<span aria-hidden>▢</span>}
+        />
+        <KpiCard
+          title="Time in state"
+          value={timeInStateValue}
+          subtitle={
+            timeInStateCount > 0 && timeInStateMedianDays != null
+              ? `${timeInStateCount} issues · median ${timeInStateMedianDays.toFixed(1)}d`
+              : timeInStateCount > 0
+                ? `${timeInStateCount} issues`
+                : '—'
+          }
+          to="/metrics/linear/time-in-state"
+          accent="purple"
+          icon={<span aria-hidden>◷</span>}
+        />
       </div>
     </div>
   );

@@ -17,6 +17,13 @@ function periodToDays(p: TimePeriodKey): number {
   return p === '7' ? 7 : p === '30' ? 30 : 90;
 }
 
+/** Format date range for display (e.g. "Jan 26, 2026 – Feb 3, 2026"). */
+export function formatDateRangeDisplay(startDate: string, endDate: string): string {
+  const fmt = (s: string) =>
+    new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${fmt(startDate)} – ${fmt(endDate)}`;
+}
+
 export function toStartEnd(state: DateRangeState): { startDate: string; endDate: string } {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
@@ -42,20 +49,12 @@ export function toStartEnd(state: DateRangeState): { startDate: string; endDate:
   };
 }
 
-export const LINEAR_SIDEBAR_IDS = ['overview', 'issues-completed', 'backlog', 'time-in-state'] as const;
-export type LinearSidebarId = (typeof LINEAR_SIDEBAR_IDS)[number];
-
-function getDefaultLinearSidebarSelection(): Set<string> {
-  return new Set(LINEAR_SIDEBAR_IDS);
-}
-
 interface FiltersState {
   dateRange: DateRangeState;
   repoIds: Set<number>;
   developerLogins: Set<string>;
   teamIds: Set<number>;
   timeInStateStageIds: Set<string>;
-  linearSidebarSelection: Set<string>;
 
   setDateRangePreset: (preset: TimePeriodKey) => void;
   setDateRangeCustom: (start: string, end: string) => void;
@@ -63,7 +62,6 @@ interface FiltersState {
   setDeveloperLogins: (logins: Set<string> | string[]) => void;
   setTeamIds: (ids: Set<number> | number[]) => void;
   setTimeInStateStageIds: (ids: Set<string> | string[]) => void;
-  toggleLinearSidebarItem: (id: string) => void;
 
   getRepoIdForApi: () => number | null;
   getStartEnd: () => { startDate: string; endDate: string };
@@ -79,7 +77,6 @@ export const useFiltersStore = create<FiltersState>()(
       developerLogins: new Set(),
       teamIds: new Set(),
       timeInStateStageIds: new Set(),
-      linearSidebarSelection: getDefaultLinearSidebarSelection(),
 
       setDateRangePreset(preset) {
         set({
@@ -106,23 +103,14 @@ export const useFiltersStore = create<FiltersState>()(
       },
 
       setTeamIds(ids) {
-        set({
-          teamIds: ids instanceof Set ? ids : new Set(ids),
-        });
+        const next = new Set(ids instanceof Set ? ids : ids);
+        set({ teamIds: next });
       },
 
       setTimeInStateStageIds(ids) {
         set({
           timeInStateStageIds: ids instanceof Set ? ids : new Set(ids),
         });
-      },
-
-      toggleLinearSidebarItem(id) {
-        const { linearSidebarSelection } = get();
-        const next = new Set(linearSidebarSelection);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        set({ linearSidebarSelection: next });
       },
 
       getRepoIdForApi() {
@@ -142,7 +130,6 @@ export const useFiltersStore = create<FiltersState>()(
         developerLogins: Array.from(s.developerLogins),
         teamIds: Array.from(s.teamIds),
         timeInStateStageIds: Array.from(s.timeInStateStageIds),
-        linearSidebarSelection: Array.from(s.linearSidebarSelection),
       }),
       merge: (persisted, current) => {
         const p = persisted as {
@@ -151,7 +138,6 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins?: string[];
           teamIds?: number[];
           timeInStateStageIds?: string[];
-          linearSidebarSelection?: string[];
         };
         return {
           ...current,
@@ -160,7 +146,6 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins: p.developerLogins ? new Set(p.developerLogins) : current.developerLogins,
           teamIds: p.teamIds ? new Set(p.teamIds) : current.teamIds,
           timeInStateStageIds: p.timeInStateStageIds ? new Set(p.timeInStateStageIds) : current.timeInStateStageIds,
-          linearSidebarSelection: p.linearSidebarSelection ? new Set(p.linearSidebarSelection) : current.linearSidebarSelection,
         };
       },
     }
