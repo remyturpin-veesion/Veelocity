@@ -8,17 +8,19 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function LinearIssuesCompletedScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsArray],
+    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam],
     queryFn: () =>
       getLinearIssuesCompleted({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsArray,
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
       }),
   });
 

@@ -33,7 +33,6 @@ function Chip({
 }
 
 export function LinearTeamMultiSelector() {
-  // useShallow: compare array by contents so we don't get infinite loop (Array.from returns new ref every time)
   const teamIdsArray = useFiltersStore(useShallow((s) => Array.from(s.teamIds)));
   const setTeamIds = useFiltersStore((s) => s.setTeamIds);
   const { data, isLoading } = useQuery({
@@ -41,15 +40,12 @@ export function LinearTeamMultiSelector() {
     queryFn: () => getLinearTeams({ limit: 100 }),
   });
   const teams = (data?.items ?? []) as LinearTeamItem[];
-  const allSelected = teamIdsArray.length === 0;
+  const allSelected = teams.length > 0 && teamIdsArray.length === teams.length;
   const teamIdsSet = new Set(teamIdsArray);
 
   const toggleTeam = (id: number, currentlySelected: boolean) => {
     if (teamIdsArray.length === 0) {
-      // "All" is selected; deselecting this team = show all except this one
-      if (currentlySelected) {
-        setTeamIds(teams.filter((t) => t.id !== id).map((t) => t.id));
-      }
+      setTeamIds(currentlySelected ? [] : [id]);
       return;
     }
     if (currentlySelected) {
@@ -65,9 +61,15 @@ export function LinearTeamMultiSelector() {
 
   return (
     <div className="filter-chips">
-      <Chip label="All" selected={allSelected} onClick={() => setTeamIds([])} />
+      <Chip
+        label="All"
+        selected={allSelected}
+        onClick={() => {
+          setTeamIds(allSelected ? [] : teams.map((t) => t.id));
+        }}
+      />
       {teams.map((t) => {
-        const selected = allSelected || teamIdsSet.has(t.id);
+        const selected = teamIdsSet.has(t.id);
         const label = `${t.name} (${t.key})`;
         return (
           <Chip

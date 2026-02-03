@@ -18,18 +18,20 @@ function formatTimeAgo(iso: string | null | undefined): string {
 
 export function LinearOverviewScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
   const { startDate, endDate } = getStartEnd();
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['linear', 'overview', startDate, endDate, teamIdsArray],
+    queryKey: ['linear', 'overview', startDate, endDate, teamIdsParam],
     queryFn: () =>
       getLinearOverview({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsArray,
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
       }),
   });
 

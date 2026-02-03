@@ -16,19 +16,21 @@ interface TimeInStateStage {
 
 export function LinearTimeInStateScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
   const timeInStateStageIds = useFiltersStore((s) => s.timeInStateStageIds);
   const setTimeInStateStageIds = useFiltersStore((s) => s.setTimeInStateStageIds);
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsArray],
+    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam],
     queryFn: () =>
       getLinearTimeInState({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsArray,
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
       }),
   });
 

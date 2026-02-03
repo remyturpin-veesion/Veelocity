@@ -318,7 +318,7 @@ button {
   white-space: nowrap;
 }
 
-/* Left sidebar (Linear icon nav) – selected = accent + indicator */
+/* Left sidebar (icon nav, optional labels) */
 .app-shell__sidebar {
   width: 56px;
   flex-shrink: 0;
@@ -331,6 +331,28 @@ button {
   align-items: center;
   padding: 12px 0;
   gap: 4px;
+}
+
+.app-shell__sidebar--with-labels {
+  width: 220px;
+  align-items: stretch;
+  padding: 12px 8px;
+  gap: 2px;
+}
+
+.app-shell__sidebar--with-labels .app-shell__sidebar-section {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 12px 12px 6px;
+  margin-top: 4px;
+}
+
+.app-shell__sidebar--with-labels .app-shell__sidebar-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .app-shell__sidebar a {
@@ -349,6 +371,34 @@ button {
   position: relative;
   flex-shrink: 0;
   font-size: 1.25rem;
+}
+
+.app-shell__sidebar--with-labels a {
+  width: auto;
+  min-height: 36px;
+  height: auto;
+  padding: 8px 12px;
+  justify-content: flex-start;
+  gap: 10px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.app-shell__sidebar-icon {
+  flex-shrink: 0;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.app-shell__sidebar-label {
+  display: none;
+}
+
+.app-shell__sidebar--with-labels .app-shell__sidebar-label {
+  display: inline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-shell__sidebar a:hover {

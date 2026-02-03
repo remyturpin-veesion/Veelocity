@@ -6,12 +6,17 @@ import { KpiCard } from '@/components/KpiCard.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function LinearBacklogScreen() {
-  const teamIds = useFiltersStore((s) => s.teamIds);
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'backlog', teamIdsArray],
-    queryFn: () => getLinearBacklog({ team_ids: teamIdsArray }),
+    queryKey: ['metrics', 'linear', 'backlog', teamIdsParam],
+    queryFn: () =>
+      getLinearBacklog({
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
+      }),
   });
 
   if (isLoading) {

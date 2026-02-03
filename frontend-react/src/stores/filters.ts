@@ -49,6 +49,9 @@ export function toStartEnd(state: DateRangeState): { startDate: string; endDate:
   };
 }
 
+/** Sentinel for "no author" filter; backend returns empty when this is passed. */
+export const AUTHOR_LOGIN_NONE = '__none__';
+
 interface FiltersState {
   dateRange: DateRangeState;
   repoIds: Set<number>;
@@ -63,7 +66,12 @@ interface FiltersState {
   setTeamIds: (ids: Set<number> | number[]) => void;
   setTimeInStateStageIds: (ids: Set<string> | string[]) => void;
 
+  /** Empty set = no filter (0 values). Size 1 = that repo. Size > 1 = all repos (null). */
   getRepoIdForApi: () => number | null;
+  /** Empty set = no filter (0 values). Size 1 = that author. Size > 1 = all (null). */
+  getAuthorLoginForApi: () => string | null;
+  /** Empty set = no filter (0 values). Non-empty = those team ids. */
+  getTeamIdsForApi: () => number[] | undefined;
   getStartEnd: () => { startDate: string; endDate: string };
 }
 
@@ -103,8 +111,7 @@ export const useFiltersStore = create<FiltersState>()(
       },
 
       setTeamIds(ids) {
-        const next = new Set(ids instanceof Set ? ids : ids);
-        set({ teamIds: next });
+        set({ teamIds: new Set(ids instanceof Set ? ids : ids) });
       },
 
       setTimeInStateStageIds(ids) {
@@ -115,7 +122,20 @@ export const useFiltersStore = create<FiltersState>()(
 
       getRepoIdForApi() {
         const { repoIds } = get();
+        if (repoIds.size === 0) return -1;
         return repoIds.size === 1 ? [...repoIds][0]! : null;
+      },
+
+      getAuthorLoginForApi() {
+        const { developerLogins } = get();
+        if (developerLogins.size === 0) return AUTHOR_LOGIN_NONE;
+        return developerLogins.size === 1 ? [...developerLogins][0]! : null;
+      },
+
+      getTeamIdsForApi() {
+        const { teamIds } = get();
+        if (teamIds.size === 0) return [];
+        return Array.from(teamIds);
       },
 
       getStartEnd() {

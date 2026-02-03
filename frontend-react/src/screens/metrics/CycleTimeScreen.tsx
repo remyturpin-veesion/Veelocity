@@ -7,8 +7,11 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function CycleTimeScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
-  const teamId = teamIds.size === 1 ? [...teamIds][0] : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
+  const teamId =
+    teamIdsParam?.length === 0 ? -1 : teamIdsParam?.length === 1 ? teamIdsParam[0] : undefined;
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
@@ -17,7 +20,7 @@ export function CycleTimeScreen() {
       getCycleTime({
         start_date: startDate,
         end_date: endDate,
-        team_id: teamId,
+        team_id: teamId ?? undefined,
         include_benchmark: true,
       }),
   });
