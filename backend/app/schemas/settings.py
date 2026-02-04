@@ -19,3 +19,17 @@ class SettingsUpdate(BaseModel):
     github_repos: str | None = None
     linear_api_key: str | None = None
     linear_workspace_name: str | None = None
+
+
+class GitHubRepoItem(BaseModel):
+    """One repository from GitHub API (for settings repo picker)."""
+
+    id: int
+    full_name: str
+    name: str
+
+
+class GitHubReposResponse(BaseModel):
+    """List of GitHub repos the authenticated user can access."""
+
+    items: list[GitHubRepoItem]

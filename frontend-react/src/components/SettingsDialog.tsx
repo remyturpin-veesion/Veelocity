@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSettings, getGitHubOAuthStatus, updateSettings } from '@/api/endpoints.js';
 import { baseUrl } from '@/api/client.js';
+import { GitHubRepoMultiSelect } from '@/components/GitHubRepoMultiSelect.js';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -167,13 +168,18 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               )}
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>GitHub repos (owner/repo, comma-separated)</label>
-              <input
-                type="text"
-                placeholder="owner/repo1,owner/repo2"
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                GitHub repositories
+              </label>
+              <GitHubRepoMultiSelect
                 value={githubRepos}
-                onChange={(e) => setGithubRepos(e.target.value)}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--surface-border)' }}
+                onChange={setGithubRepos}
+                disabled={!githubHasToken}
+                placeholder={
+                  githubHasToken
+                    ? 'Search and select repositories…'
+                    : 'Connect with GitHub to search repositories'
+                }
               />
               {githubHasToken && !githubConfigured && (
                 <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>

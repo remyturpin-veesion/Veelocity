@@ -130,6 +130,16 @@ export interface SettingsResponse {
   [key: string]: unknown;
 }
 
+export interface GitHubRepoSearchItem {
+  id: number;
+  full_name: string;
+  name: string;
+}
+
+export interface GitHubReposSearchResponse {
+  items: GitHubRepoSearchItem[];
+}
+
 export interface SyncCoverageResponse {
   connectors: Array<{
     connector_name: string;

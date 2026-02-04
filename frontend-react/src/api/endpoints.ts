@@ -10,6 +10,7 @@ import type {
   DORAMetrics,
   DevelopersResponse,
   DeveloperStats,
+  GitHubReposSearchResponse,
   LinearOverview,
   PaginatedResponse,
   PRDetail,
@@ -41,6 +42,16 @@ export async function getGitHubOAuthStatus(): Promise<{ enabled: boolean }> {
 
 export async function getSettings(): Promise<SettingsResponse> {
   return apiGet(prefix + '/settings');
+}
+
+export async function getGitHubReposSearch(params?: {
+  q?: string;
+  per_page?: number;
+}): Promise<GitHubReposSearchResponse> {
+  const query: Record<string, string | number> = {};
+  if (params?.q != null) query.q = params.q;
+  if (params?.per_page != null) query.per_page = params.per_page;
+  return apiGet(prefix + '/settings/github/repos', query);
 }
 
 export async function updateSettings(updates: {
