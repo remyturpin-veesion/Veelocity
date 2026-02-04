@@ -98,6 +98,7 @@ export function DataCoverageScreen() {
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
   const isFullySynced = (syncStatus?.is_complete ?? false) && !syncInProgress;
   const repos = syncStatus?.repositories ?? [];
+  const linearTeams = syncStatus?.linear_teams ?? [];
 
   return (
     <div className="data-coverage">
@@ -172,12 +173,14 @@ export function DataCoverageScreen() {
               {data.connectors.map((c) => (
                 <li
                   key={c.connector_name}
-                  className={c.connector_name === 'github' && repos.length > 0 ? 'data-coverage__connector-item data-coverage__connector-item--with-repos' : 'data-coverage__connector-item'}
+                  className={
+                    (c.connector_name === 'github' && repos.length > 0) || (c.connector_name === 'linear' && linearTeams.length > 0)
+                      ? 'data-coverage__connector-item data-coverage__connector-item--with-repos'
+                      : 'data-coverage__connector-item'
+                  }
+                  style={{ '--connector-accent': CONNECTOR_ACCENT[c.connector_name] ?? 'var(--primary)' } as React.CSSProperties}
                 >
-                  <div
-                    className="data-coverage__connector-row"
-                    style={{ '--connector-accent': CONNECTOR_ACCENT[c.connector_name] ?? 'var(--primary)' } as React.CSSProperties}
-                  >
+                  <div className="data-coverage__connector-row">
                     <span className="data-coverage__connector-dot" />
                     <div className="data-coverage__connector-info">
                       <span className="data-coverage__connector-name">
@@ -212,6 +215,38 @@ export function DataCoverageScreen() {
                                 {r.with_details.toLocaleString()} / {r.total_prs.toLocaleString()} PRs
                               </span>
                               <span className="data-coverage__repo-pct" aria-label={`${pct}% synced`}>
+                                {pct}%
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {c.connector_name === 'linear' && linearTeams.length > 0 && (
+                    <div className="data-coverage__repos-inline">
+                      <h3 className="data-coverage__subsection-title">Linear teams progression</h3>
+                      <p className="data-coverage__repos-desc">
+                        Issues synced per team; linked count is used for cycle time.
+                      </p>
+                      <ul className="data-coverage__repo-list">
+                        {linearTeams.map((t) => {
+                          const pct = t.total_issues > 0 ? Math.round((t.linked_issues / t.total_issues) * 100) : 100;
+                          const isTeamComplete = t.total_issues === 0 || t.linked_issues === t.total_issues;
+                          return (
+                            <li
+                              key={t.key}
+                              className={`data-coverage__repo-row ${isTeamComplete ? 'data-coverage__repo-row--complete' : ''}`}
+                              style={{ '--repo-pct': `${pct}%` } as React.CSSProperties}
+                            >
+                              <span className="data-coverage__repo-row-fill" aria-hidden />
+                              <span className="data-coverage__repo-name" title={t.name}>
+                                {t.name}
+                              </span>
+                              <span className="data-coverage__repo-counts">
+                                {t.linked_issues.toLocaleString()} / {t.total_issues.toLocaleString()} issues
+                              </span>
+                              <span className="data-coverage__repo-pct" aria-label={`${pct}% linked`}>
                                 {pct}%
                               </span>
                             </li>

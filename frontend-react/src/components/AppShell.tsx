@@ -13,6 +13,7 @@ const TABS = [
   { path: '/team', label: 'Team' },
   { path: '/github', label: 'GitHub' },
   { path: '/linear', label: 'Linear' },
+  { path: '/cursor', label: 'Cursor' },
   { path: '/data-coverage', label: 'Data coverage' },
   { path: '/alerts', label: 'Alerts' },
 ] as const;
@@ -96,6 +97,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className={`app-shell ${showSidebar ? 'app-shell--with-sidebar' : ''}`}>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <div className="app-shell__sticky-header">
       <header className="app-shell__top">
         <Link to="/" className="app-shell__logo" aria-label="Veelocity home">
           <img src="/Veelocity.png" alt="Veelocity" className="app-shell__logo-img" />
@@ -205,6 +207,7 @@ export function AppShell({ children }: AppShellProps) {
             )}
           </div>
         </div>
+      </div>
       </div>
       {showGitHubSidebar ? (
         <div className="app-shell__body">

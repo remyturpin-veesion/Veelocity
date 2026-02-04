@@ -7,6 +7,8 @@ import {
 import type {
   AlertsResponse,
   CorrelationsResponse,
+  CursorOverviewResponse,
+  CursorStatusResponse,
   DORAMetrics,
   DevelopersResponse,
   DeveloperStats,
@@ -46,6 +48,14 @@ export async function getSettings(): Promise<SettingsResponse> {
   return apiGet(prefix + '/settings');
 }
 
+export async function getCursorStatus(): Promise<CursorStatusResponse> {
+  return apiGet(prefix + '/cursor/status');
+}
+
+export async function getCursorOverview(): Promise<CursorOverviewResponse> {
+  return apiGet(prefix + '/cursor/overview');
+}
+
 export async function getGitHubOrgs(): Promise<GitHubOrgsResponse> {
   return apiGet(prefix + '/settings/github/orgs');
 }
@@ -67,12 +77,14 @@ export async function updateSettings(updates: {
   github_repos?: string;
   linear_api_key?: string;
   linear_workspace_name?: string;
+  cursor_api_key?: string;
 }): Promise<SettingsResponse> {
   const body: Record<string, string | undefined> = {};
   if (updates.github_token != null) body.github_token = updates.github_token;
   if (updates.github_repos != null) body.github_repos = updates.github_repos;
   if (updates.linear_api_key != null) body.linear_api_key = updates.linear_api_key;
   if (updates.linear_workspace_name != null) body.linear_workspace_name = updates.linear_workspace_name;
+  if (updates.cursor_api_key != null) body.cursor_api_key = updates.cursor_api_key;
   return apiPut(prefix + '/settings', body);
 }
 

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import {
@@ -10,6 +11,8 @@ import {
   getCycleTimeByPeriod,
   getAlerts,
   getReviewerWorkload,
+  getSettings,
+  getCursorOverview,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
@@ -126,6 +129,13 @@ export function DashboardScreen() {
     queryFn: () =>
       getReviewerWorkload({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
     enabled: !noReposSelected,
+  });
+
+  const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
+  const cursorOverview = useQuery({
+    queryKey: ['cursor', 'overview'],
+    queryFn: getCursorOverview,
+    enabled: settings.data?.cursor_configured === true,
   });
 
   const isLoading =
@@ -255,6 +265,37 @@ export function DashboardScreen() {
     );
   }
 
+  const cursor = cursorOverview.data;
+  const cursorBlock =
+    settings.data?.cursor_configured && cursor ? (
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 className="dashboard-section-title">
+          <Link to="/cursor" style={{ color: 'var(--text)', textDecoration: 'none' }}>Cursor</Link>
+        </h3>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Team members</span>
+          <span>{cursor.team_members_count}</span>
+        </div>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Current cycle spend</span>
+          <span>
+            {cursor.spend_cents != null ? `$${(cursor.spend_cents / 100).toFixed(2)}` : '—'}
+          </span>
+        </div>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Daily active users (7d)</span>
+          <span>
+            {cursor.dau && cursor.dau.length > 0
+              ? cursor.dau[cursor.dau.length - 1]?.dau ?? '—'
+              : '—'}
+          </span>
+        </div>
+        <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.8125rem' }}>
+          <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
+        </p>
+      </div>
+    ) : null;
+
   return (
     <div>
       <h1 className="screen-title">Dashboard</h1>
@@ -262,6 +303,7 @@ export function DashboardScreen() {
         {startDate} – {endDate}
       </p>
       <div className="dashboard">
+        {cursorBlock}
         <div className="dashboard__kpi-row">
           <KpiCard
             title="Lead time"

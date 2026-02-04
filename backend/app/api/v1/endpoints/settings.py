@@ -32,6 +32,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         github_repos=masked["github_repos"],
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
+        cursor_configured=masked.get("cursor_configured", False),
         storage_available=masked["storage_available"],
     )
 
@@ -45,7 +46,9 @@ async def update_settings(
     Update stored credentials. Secrets are encrypted at rest.
     Omit a field to leave it unchanged. Requires VEELOCITY_ENCRYPTION_KEY to store secrets.
     """
-    if not encryption_available() and (body.github_token or body.linear_api_key):
+    if not encryption_available() and (
+        body.github_token or body.linear_api_key or body.cursor_api_key
+    ):
         raise HTTPException(
             status_code=400,
             detail="VEELOCITY_ENCRYPTION_KEY is not set; cannot store API keys in database",
@@ -63,6 +66,11 @@ async def update_settings(
         updates["linear_api_key"] = body.linear_api_key
     if body.linear_workspace_name is not None:
         updates["linear_workspace_name"] = body.linear_workspace_name
+    if body.cursor_api_key is not None:
+        if (body.cursor_api_key or "").strip() == "":
+            await service.clear_cursor_api_key()
+        else:
+            updates["cursor_api_key"] = body.cursor_api_key
     if updates:
         await service.set_credentials(**updates)
     masked = await service.get_masked()
@@ -72,6 +80,7 @@ async def update_settings(
         github_repos=masked["github_repos"],
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
+        cursor_configured=masked.get("cursor_configured", False),
         storage_available=masked["storage_available"],
     )
 

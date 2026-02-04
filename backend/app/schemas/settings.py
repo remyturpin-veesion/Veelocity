@@ -9,6 +9,7 @@ class SettingsResponse(BaseModel):
     github_repos: str
     linear_configured: bool
     linear_workspace_name: str
+    cursor_configured: bool = False
     storage_available: bool
 
 
@@ -19,6 +20,7 @@ class SettingsUpdate(BaseModel):
     github_repos: str | None = None
     linear_api_key: str | None = None
     linear_workspace_name: str | None = None
+    cursor_api_key: str | None = None
 
 
 class GitHubRepoItem(BaseModel):

@@ -127,8 +127,25 @@ export interface SettingsResponse {
   github_repos?: string;
   linear_configured: boolean;
   linear_workspace_name?: string;
+  cursor_configured?: boolean;
   storage_available?: boolean;
   [key: string]: unknown;
+}
+
+export interface CursorStatusResponse {
+  connected: boolean;
+  valid?: boolean;
+  message?: string;
+  team_members_count?: number;
+}
+
+export interface CursorOverviewResponse {
+  team_members_count: number;
+  dau: Array<{ date: string; dau: number; cli_dau?: number; cloud_agent_dau?: number; bugbot_dau?: number }> | null;
+  dau_period: { start: string; end: string } | null;
+  spend_cents: number | null;
+  spend_members: number | null;
+  usage_summary: unknown[] | null;
 }
 
 export interface GitHubRepoSearchItem {
@@ -179,6 +196,12 @@ export interface SyncStatusResponse {
     total_prs: number;
     with_details: number;
     without_details: number;
+  }>;
+  linear_teams?: Array<{
+    name: string;
+    key: string;
+    total_issues: number;
+    linked_issues: number;
   }>;
   sync_in_progress: boolean;
   current_job: string | null;

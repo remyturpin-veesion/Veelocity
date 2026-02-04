@@ -17,7 +17,7 @@ from app.models.github import (
     Workflow,
     WorkflowRun,
 )
-from app.models.linear import LinearIssue
+from app.models.linear import LinearIssue, LinearTeam
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -230,7 +230,7 @@ async def get_sync_status(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
-    Get sync status: how many PRs still need details.
+    Get sync status: how many PRs still need details, and Linear teams progression.
     """
     from sqlalchemy import select, func
     from app.models.github import PullRequest, Repository
@@ -238,41 +238,63 @@ async def get_sync_status(
     # Count PRs with and without details_synced_at
     total_prs_result = await db.execute(select(func.count(PullRequest.id)))
     total_prs = total_prs_result.scalar() or 0
-    
+
     prs_with_details_result = await db.execute(
         select(func.count(PullRequest.id))
         .where(PullRequest.details_synced_at.isnot(None))
     )
     prs_with_details = prs_with_details_result.scalar() or 0
-    
+
     prs_without_details = total_prs - prs_with_details
     progress_pct = (prs_with_details / total_prs * 100) if total_prs > 0 else 100
-    
+
     # Get per-repo breakdown
     repos_result = await db.execute(select(Repository))
     repos = repos_result.scalars().all()
-    
+
     repos_status = []
     for repo in repos:
         repo_prs_result = await db.execute(
             select(func.count(PullRequest.id)).where(PullRequest.repo_id == repo.id)
         )
         repo_total = repo_prs_result.scalar() or 0
-        
+
         repo_with_details_result = await db.execute(
             select(func.count(PullRequest.id))
             .where(PullRequest.repo_id == repo.id)
             .where(PullRequest.details_synced_at.isnot(None))
         )
         repo_with_details = repo_with_details_result.scalar() or 0
-        
+
         repos_status.append({
             "name": repo.full_name,
             "total_prs": repo_total,
             "with_details": repo_with_details,
             "without_details": repo_total - repo_with_details,
         })
-    
+
+    # Linear teams progression (issues per team, linked count for cycle time)
+    teams_result = await db.execute(select(LinearTeam).order_by(LinearTeam.name))
+    teams = teams_result.scalars().all()
+    linear_teams_status = []
+    for team in teams:
+        total_issues_result = await db.execute(
+            select(func.count(LinearIssue.id)).where(LinearIssue.team_id == team.id)
+        )
+        total_issues = total_issues_result.scalar() or 0
+        linked_result = await db.execute(
+            select(func.count(LinearIssue.id))
+            .where(LinearIssue.team_id == team.id)
+            .where(LinearIssue.linked_pr_id.isnot(None))
+        )
+        linked_issues = linked_result.scalar() or 0
+        linear_teams_status.append({
+            "name": team.name,
+            "key": team.key,
+            "total_issues": total_issues,
+            "linked_issues": linked_issues,
+        })
+
     from app.services.scheduler import get_sync_job_state
 
     sync_in_progress, current_job = get_sync_job_state()
@@ -284,6 +306,7 @@ async def get_sync_status(
         "progress_percent": round(progress_pct, 1),
         "is_complete": prs_without_details == 0,
         "repositories": repos_status,
+        "linear_teams": linear_teams_status,
         "sync_in_progress": sync_in_progress,
         "current_job": current_job,
     }

@@ -66,6 +66,13 @@ button {
   min-height: 100vh;
 }
 
+.app-shell__sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+}
+
 .app-shell__top {
   display: flex;
   align-items: center;
@@ -946,7 +953,7 @@ button {
 .data-coverage__repos-inline {
   margin-top: 10px;
   padding: 12px 16px 4px 20px;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--connector-accent, var(--primary));
   background: var(--surface);
   border-radius: 0 0 8px 8px;
 }
@@ -1050,8 +1057,8 @@ button {
   top: 0;
   bottom: 0;
   width: var(--repo-pct, 0%);
-  background: var(--primary);
-  opacity: 0.08;
+  background: var(--connector-accent, var(--primary));
+  opacity: 0.2;
   pointer-events: none;
 }
 
@@ -1063,17 +1070,17 @@ button {
   border-left-color: var(--metric-green);
 }
 
-/* GitHub repos inline: keep blue (--primary) for all rows */
+/* Progression rows use connector accent (GitHub = primary, Linear = orange, etc.) */
 .data-coverage__repos-inline .data-coverage__repo-row {
-  border-left-color: var(--primary);
+  border-left-color: var(--connector-accent, var(--primary));
 }
 
 .data-coverage__repos-inline .data-coverage__repo-row--complete {
-  border-left-color: var(--primary);
+  border-left-color: var(--connector-accent, var(--primary));
 }
 
 .data-coverage__repos-inline .data-coverage__repo-row--complete .data-coverage__repo-pct {
-  color: var(--primary);
+  color: var(--connector-accent, var(--primary));
 }
 
 .data-coverage__repo-row:hover {

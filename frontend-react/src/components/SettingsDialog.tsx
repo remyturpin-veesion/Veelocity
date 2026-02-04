@@ -26,6 +26,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [githubConfigured, setGithubConfigured] = useState(false);
   const [githubHasToken, setGithubHasToken] = useState(false);
   const [linearConfigured, setLinearConfigured] = useState(false);
+  const [cursorConfigured, setCursorConfigured] = useState(false);
+  const [cursorApiKey, setCursorApiKey] = useState('');
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [githubOAuthEnabled, setGithubOAuthEnabled] = useState(false);
 
@@ -40,6 +42,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         setGithubConfigured(settingsData.github_configured ?? false);
         setGithubHasToken(settingsData.github_has_token ?? false);
         setLinearConfigured(settingsData.linear_configured ?? false);
+        setCursorConfigured(settingsData.cursor_configured ?? false);
         setStorageAvailable(settingsData.storage_available ?? true);
         setGithubOAuthEnabled(oauthData?.enabled ?? false);
       })
@@ -101,6 +104,34 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         setGithubRepos('');
         setGithubConfigured(false);
         setGithubHasToken(false);
+      })
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSaving(false));
+  };
+
+  const handleSaveCursor = () => {
+    if (cursorApiKey.trim() && !storageAvailable) {
+      setError('Server cannot store API keys (encryption not configured).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    updateSettings({ cursor_api_key: cursorApiKey.trim() || undefined })
+      .then((data) => {
+        setCursorApiKey('');
+        setCursorConfigured(data.cursor_configured ?? false);
+      })
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSaving(false));
+  };
+
+  const handleDisconnectCursor = () => {
+    setSaving(true);
+    setError(null);
+    updateSettings({ cursor_api_key: '' })
+      .then(() => {
+        setCursorConfigured(false);
+        setCursorApiKey('');
       })
       .catch((e) => setError(formatApiError(e)))
       .finally(() => setSaving(false));
@@ -235,6 +266,82 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     Add at least one repo above and click Save to start syncing.
                   </p>
                 )}
+              </div>
+            </section>
+
+            <section className="settings-section settings-section--cursor" aria-labelledby="settings-cursor-title">
+              <div className="settings-section__header">
+                <div className="settings-section__icon" aria-hidden>C</div>
+                <div className="settings-section__title-wrap">
+                  <h3 id="settings-cursor-title" className="settings-section__title">Cursor</h3>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 6,
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: cursorConfigured ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface)',
+                      color: cursorConfigured ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
+                      border: '1px solid ' + (cursorConfigured ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
+                    }}
+                  >
+                    {cursorConfigured ? 'Connected' : 'Not connected'}
+                  </span>
+                </div>
+              </div>
+              <div className="settings-section__body">
+                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Connect your Cursor team via Admin API key to see team size, usage, and spend on the dashboard. Create a key in{' '}
+                  <a href="https://cursor.com/dashboard" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>Cursor Dashboard</a>
+                  {' '}→ Settings → Advanced → Admin API Keys.
+                </p>
+                <label style={{ display: 'block', marginTop: 12, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Cursor API key</label>
+                <input
+                  type="password"
+                  placeholder={cursorConfigured ? '•••••••• (leave blank to keep)' : 'key_...'}
+                  value={cursorApiKey}
+                  onChange={(e) => setCursorApiKey(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveCursor}
+                    disabled={saving}
+                    className="settings-dialog__btn settings-dialog__btn--primary"
+                  >
+                    {cursorConfigured ? 'Update key' : 'Connect Cursor'}
+                  </button>
+                  {cursorConfigured && (
+                    <button
+                      type="button"
+                      onClick={handleDisconnectCursor}
+                      disabled={saving}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        border: '1px solid var(--surface-border)',
+                        background: 'transparent',
+                        color: 'var(--text-muted)',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
               </div>
             </section>
 

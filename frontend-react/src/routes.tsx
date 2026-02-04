@@ -5,6 +5,7 @@ import { TeamScreen } from '@/screens/TeamScreen.js';
 import { DeveloperProfileScreen } from '@/screens/DeveloperProfileScreen.js';
 import { GitHubOverviewScreen } from '@/screens/GitHubOverviewScreen.js';
 import { LinearOverviewScreen } from '@/screens/LinearOverviewScreen.js';
+import { CursorOverviewScreen } from '@/screens/CursorOverviewScreen.js';
 import { DataCoverageScreen } from '@/screens/DataCoverageScreen.js';
 import { AlertsOverviewScreen } from '@/screens/AlertsOverviewScreen.js';
 import { PRDetailScreen } from '@/screens/PRDetailScreen.js';
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { path: 'team/developer/:login', element: <DeveloperProfileScreen /> },
       { path: 'github', element: <GitHubOverviewScreen /> },
       { path: 'linear', element: <LinearOverviewScreen /> },
+      { path: 'cursor', element: <CursorOverviewScreen /> },
       { path: 'data-coverage', element: <DataCoverageScreen /> },
       { path: 'alerts', element: <AlertsOverviewScreen /> },
       { path: 'metrics/deployment-frequency', element: <DeploymentFrequencyScreen /> },
