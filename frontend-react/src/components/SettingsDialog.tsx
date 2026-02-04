@@ -113,7 +113,15 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     >
       <div
         className="card"
-        style={{ maxWidth: 480, width: '90%', maxHeight: '90vh', overflow: 'auto' }}
+        style={{
+          maxWidth: 480,
+          width: '90%',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          background: 'var(--surface)',
+          position: 'relative',
+          zIndex: 1,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 style={{ margin: '0 0 16px', fontSize: '1.25rem' }}>Settings</h2>
@@ -210,7 +218,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 placeholder={linearConfigured ? '•••••••• (leave blank to keep)' : 'Optional'}
                 value={linearApiKey}
                 onChange={(e) => setLinearApiKey(e.target.value)}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--surface-border)' }}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  borderRadius: 6,
+                  border: '1px solid var(--surface-border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                }}
               />
             </div>
             <div style={{ marginBottom: 16 }}>
@@ -220,7 +235,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 placeholder="Optional"
                 value={linearWorkspaceName}
                 onChange={(e) => setLinearWorkspaceName(e.target.value)}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid var(--surface-border)' }}
+                style={{
+                  width: '100%',
+                  padding: 8,
+                  borderRadius: 6,
+                  border: '1px solid var(--surface-border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                }}
               />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

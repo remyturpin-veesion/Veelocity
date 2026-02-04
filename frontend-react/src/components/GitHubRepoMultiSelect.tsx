@@ -87,7 +87,16 @@ export function GitHubRepoMultiSelect({
   const filteredItems = items.filter((r) => !selected.includes(r.full_name));
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        background: 'var(--surface)',
+        borderRadius: 6,
+        padding: 0,
+      }}
+    >
       {selected.length > 0 && (
         <div
           style={{
@@ -106,9 +115,10 @@ export function GitHubRepoMultiSelect({
                 gap: 4,
                 padding: '4px 8px',
                 borderRadius: 6,
-                background: 'var(--surface-elevated)',
+                background: 'var(--surface-elevated, hsl(0,0%,96%))',
                 border: '1px solid var(--surface-border)',
                 fontSize: '0.875rem',
+                color: 'var(--text)',
               }}
             >
               {fullName}
@@ -151,7 +161,7 @@ export function GitHubRepoMultiSelect({
               padding: 8,
               borderRadius: 6,
               border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
+              background: 'var(--surface, #fff)',
               color: 'var(--text)',
             }}
           />
@@ -166,11 +176,11 @@ export function GitHubRepoMultiSelect({
                 marginTop: 4,
                 maxHeight: 240,
                 overflowY: 'auto',
-                background: 'var(--surface-elevated)',
+                background: 'var(--surface-elevated, hsl(0,0%,96%))',
                 border: '1px solid var(--surface-border)',
                 borderRadius: 6,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                zIndex: 10,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                zIndex: 1001,
               }}
             >
               {loading && (
@@ -207,10 +217,10 @@ export function GitHubRepoMultiSelect({
                       cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--surface-hover)';
+                      e.currentTarget.style.background = 'var(--surface-hover, hsl(0,0%,94%))';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'none';
+                      e.currentTarget.style.background = 'transparent';
                     }}
                   >
                     {repo.full_name}

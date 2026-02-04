@@ -4,6 +4,8 @@
   --seed-l: 28%;
   --bg: hsl(0, 0%, 98%);
   --surface: hsl(0, 0%, 100%);
+  --surface-elevated: hsl(0, 0%, 98%);
+  --surface-hover: hsl(0, 0%, 96%);
   --surface-border: hsl(0, 0%, 90%);
   --text: hsl(0, 0%, 12%);
   --text-muted: hsl(0, 0%, 45%);
@@ -18,6 +20,8 @@
 [data-theme='dark'] {
   --bg: hsl(0, 0%, 8%);
   --surface: hsl(0, 0%, 12%);
+  --surface-elevated: hsl(0, 0%, 16%);
+  --surface-hover: hsl(0, 0%, 20%);
   --surface-border: hsl(0, 0%, 20%);
   --text: hsl(0, 0%, 95%);
   --text-muted: hsl(0, 0%, 62%);
