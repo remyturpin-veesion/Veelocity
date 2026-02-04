@@ -278,7 +278,7 @@ export function DashboardScreen() {
   }, [greptile?.repositories]);
   const cursorSummaryBlock =
     settings.data?.cursor_configured && cursor ? (
-      <div className="card">
+      <div className="card dashboard__row-card">
         <h3 className="dashboard-section-title">
           <Link to="/cursor" style={{ color: 'var(--text)', textDecoration: 'none' }}>Cursor</Link>
         </h3>
@@ -315,10 +315,10 @@ export function DashboardScreen() {
       </div>
     ) : null;
 
-  /** Greptile summary card content (no link); link is rendered below the block, left-aligned */
+  /** Greptile summary card content; title links to overview */
   const greptileSummaryCard =
     settings.data?.greptile_configured && greptile ? (
-      <div className="card">
+      <div className="card dashboard__row-card">
         <h3 className="dashboard-section-title">
           <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
         </h3>
@@ -507,9 +507,9 @@ export function DashboardScreen() {
 
         {/* Cursor: same layout as Greptile row — big chart left, little block right; show box + spinner while loading */}
         {settings.data?.cursor_configured && (
-          <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
-              <div className="card" style={{ minHeight: 292 }}>
+          <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div className="card dashboard__row-card" style={{ flex: 1, minHeight: 292 }}>
                 {cursorOverview.isLoading ? (
                   <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
                     <div className="spinner" />
@@ -548,18 +548,15 @@ export function DashboardScreen() {
                 ) : null}
               </div>
             </div>
-            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: cursorOverview.isLoading ? 200 : undefined }}>
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
               {cursorOverview.isLoading ? (
-                <div className="card" style={{ flex: 1, minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="card dashboard__row-card" style={{ flex: 1, minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div className="spinner" />
                 </div>
               ) : (
-                <>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   {cursorSummaryBlock}
-                  <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
-                    <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
-                  </p>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -567,9 +564,9 @@ export function DashboardScreen() {
 
         {/* Greptile: chart on the left, summary block on the right; link below the block, left-aligned */}
         {settings.data?.greptile_configured && greptile != null && (
-          <div style={{ marginTop: 24, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
-              <div className="card" style={{ padding: '20px 20px 16px' }}>
+          <div style={{ marginTop: 24, display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div className="card dashboard__row-card" style={{ flex: 1, padding: '20px 20px 16px', minHeight: 280 }}>
                 <h3 className="dashboard-section-title" style={{ marginBottom: 4 }}>
                   <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
                   {' — Files indexed by repository'}
@@ -612,11 +609,10 @@ export function DashboardScreen() {
                 )}
               </div>
             </div>
-            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {greptileSummaryCard}
-              <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
-                <Link to="/greptile" style={{ color: 'var(--link)' }}>View Greptile overview →</Link>
-              </p>
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                {greptileSummaryCard}
+              </div>
             </div>
           </div>
         )}

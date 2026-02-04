@@ -943,6 +943,11 @@ button {
   min-height: 0;
 }
 
+/* Chart + summary rows (Cursor, Greptile): cards in same row share height */
+.dashboard__row-card {
+  height: 100%;
+}
+
 /* Data coverage page */
 .data-coverage {
   display: flex;

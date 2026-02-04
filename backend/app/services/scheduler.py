@@ -180,6 +180,30 @@ async def _run_sync_impl():
                 logger.error(f"Linking failed: {e}")
                 total_errors.append(str(e))
 
+        # Cursor: sync to DB (team, spend, daily usage, DAU)
+        if creds.cursor_api_key:
+            try:
+                from app.services.sync_cursor import sync_cursor
+                cursor_items = await sync_cursor(db, creds.cursor_api_key)
+                total_items += cursor_items
+                await db.commit()
+                logger.info("Cursor sync: %s items", cursor_items)
+            except Exception as e:
+                logger.error("Cursor sync failed: %s", e)
+                total_errors.append(f"Cursor: {e}")
+
+        # Greptile: sync to DB (indexed repositories)
+        if creds.greptile_api_key:
+            try:
+                from app.services.sync_greptile import sync_greptile
+                greptile_items = await sync_greptile(db, creds.greptile_api_key)
+                total_items += greptile_items
+                await db.commit()
+                logger.info("Greptile sync: %s repos", greptile_items)
+            except Exception as e:
+                logger.error("Greptile sync failed: %s", e)
+                total_errors.append(f"Greptile: {e}")
+
         logger.info(
             f"Sync complete: {total_items} items total, {len(total_errors)} errors"
         )
@@ -243,6 +267,26 @@ async def _run_full_sync_impl():
         # Link PRs to issues
         linking_service = LinkingService(db)
         await linking_service.link_all_prs()
+
+        # Cursor and Greptile: sync to DB
+        if creds.cursor_api_key:
+            try:
+                from app.services.sync_cursor import sync_cursor
+                cursor_items = await sync_cursor(db, creds.cursor_api_key)
+                total_items += cursor_items
+                await db.commit()
+                logger.info("Full sync: Cursor %s items", cursor_items)
+            except Exception as e:
+                logger.error("Cursor sync failed: %s", e)
+        if creds.greptile_api_key:
+            try:
+                from app.services.sync_greptile import sync_greptile
+                greptile_items = await sync_greptile(db, creds.greptile_api_key)
+                total_items += greptile_items
+                await db.commit()
+                logger.info("Full sync: Greptile %s repos", greptile_items)
+            except Exception as e:
+                logger.error("Greptile sync failed: %s", e)
 
         logger.info(f"Full sync complete: {total_items} items (details will be filled gradually)")
 
