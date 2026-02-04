@@ -96,6 +96,8 @@ export function DataCoverageScreen() {
   const syncInProgress = syncStatus?.sync_in_progress ?? false;
   const currentJob = syncStatus?.current_job ?? null;
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
+  const isFullySynced = (syncStatus?.is_complete ?? false) && !syncInProgress;
+  const repos = syncStatus?.repositories ?? [];
 
   return (
     <div className="data-coverage">
@@ -114,6 +116,24 @@ export function DataCoverageScreen() {
             {tasksRemaining > 0 && (
               <> — {tasksRemaining.toLocaleString()} PR{tasksRemaining === 1 ? '' : 's'} remaining for details</>
             )}
+          </span>
+        </div>
+      )}
+
+      {!syncInProgress && isFullySynced && syncStatus && syncStatus.total_prs > 0 && (
+        <div className="data-coverage__sync-banner data-coverage__sync-banner--complete" role="status">
+          <span className="data-coverage__sync-banner-check" aria-hidden>✓</span>
+          <span className="data-coverage__sync-banner-text">
+            GitHub PR details fully synced — {syncStatus.prs_with_details.toLocaleString()} PR{syncStatus.prs_with_details === 1 ? '' : 's'}. Linear and GitHub Actions status in Connectors below.
+          </span>
+        </div>
+      )}
+
+      {!syncInProgress && !isFullySynced && tasksRemaining > 0 && (
+        <div className="data-coverage__sync-banner data-coverage__sync-banner--pending" role="status">
+          <span className="data-coverage__sync-banner-dot data-coverage__sync-banner-dot--pending" aria-hidden />
+          <span className="data-coverage__sync-banner-text">
+            {tasksRemaining.toLocaleString()} PR{tasksRemaining === 1 ? '' : 's'} still need details (reviews, comments, commits). Filled in the background every 10 min.
           </span>
         </div>
       )}
@@ -145,7 +165,7 @@ export function DataCoverageScreen() {
       </section>
 
       <section className="data-coverage__connectors">
-        <h2 className="data-coverage__section-title">Connectors</h2>
+        <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear)</h2>
         <div className="card data-coverage__connectors-card">
           {data?.connectors?.length ? (
             <ul className="data-coverage__connector-list">
@@ -172,6 +192,37 @@ export function DataCoverageScreen() {
           )}
         </div>
       </section>
+
+      {repos.length > 0 && (
+        <section className="data-coverage__repos">
+          <h2 className="data-coverage__section-title">GitHub repositories — PR detail sync</h2>
+          <div className="card data-coverage__repos-card">
+            <p className="data-coverage__repos-desc">
+              PR detail sync (reviews, comments, commits) per repo. Linear is synced separately; see Connectors above for Linear and GitHub Actions last sync.
+            </p>
+            <ul className="data-coverage__repo-list">
+              {repos.map((r) => {
+                const pct = r.total_prs > 0 ? Math.round((r.with_details / r.total_prs) * 100) : 100;
+                const isRepoComplete = r.without_details === 0;
+                return (
+                  <li
+                    key={r.name}
+                    className={`data-coverage__repo-row ${isRepoComplete ? 'data-coverage__repo-row--complete' : ''}`}
+                  >
+                    <span className="data-coverage__repo-name">{r.name}</span>
+                    <span className="data-coverage__repo-counts">
+                      {r.with_details.toLocaleString()} / {r.total_prs.toLocaleString()} PRs
+                    </span>
+                    <span className="data-coverage__repo-pct" aria-label={`${pct}% synced`}>
+                      {pct}%
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {chartData.length > 0 && (
         <section className="data-coverage__chart">

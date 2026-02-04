@@ -83,56 +83,70 @@ async def auth_github_callback(
     redirect_fail = f"{frontend_base}/?github_oauth_error=callback_failed"
     redirect_success = f"{frontend_base}/?github_connected=1"
 
-    if error:
-        logger.warning("GitHub OAuth error: %s - %s", error, error_description)
-        return RedirectResponse(url=f"{redirect_fail}&error={error}")
-
-    if not code or not state:
+    def fail(msg: str) -> RedirectResponse:
+        logger.warning("GitHub OAuth callback: %s", msg)
         return RedirectResponse(url=redirect_fail)
-
-    cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
-    if not cookie_state or not secrets.compare_digest(cookie_state, state):
-        logger.warning("GitHub OAuth state mismatch")
-        return RedirectResponse(url=redirect_fail)
-
-    if not _oauth_available():
-        return RedirectResponse(url=redirect_fail)
-
-    # Exchange code for access token
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            GITHUB_ACCESS_TOKEN_URL,
-            headers={"Accept": "application/json"},
-            data={
-                "client_id": settings.github_oauth_client_id,
-                "client_secret": settings.github_oauth_client_secret,
-                "code": code,
-                "redirect_uri": f"{settings.oauth_backend_base_url.rstrip('/')}/api/v1/auth/github/callback",
-            },
-        )
-    if resp.status_code != 200:
-        logger.warning("GitHub token exchange failed: %s %s", resp.status_code, resp.text)
-        return RedirectResponse(url=redirect_fail)
-
-    data = resp.json()
-    access_token = data.get("access_token")
-    if not access_token:
-        logger.warning("GitHub response missing access_token: %s", data)
-        return RedirectResponse(url=redirect_fail)
-
-    if not encryption_available():
-        logger.warning("Cannot store GitHub token: encryption not configured")
-        return RedirectResponse(
-            url=f"{frontend_base}/?github_oauth_error=encryption_required"
-        )
 
     try:
+        if error:
+            logger.warning("GitHub OAuth error: %s - %s", error, error_description)
+            return RedirectResponse(url=f"{redirect_fail}&error={error}")
+
+        if not code or not state:
+            return fail("missing code or state")
+
+        cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
+        if not cookie_state or not secrets.compare_digest(cookie_state, state):
+            return fail("state mismatch (cookie may be missing if callback URL host/port differs from start)")
+
+        if not _oauth_available():
+            return fail("OAuth not configured on server")
+
+        # Exchange code for access token
+        redirect_uri = f"{settings.oauth_backend_base_url.rstrip('/')}/api/v1/auth/github/callback"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                GITHUB_ACCESS_TOKEN_URL,
+                headers={"Accept": "application/json"},
+                data={
+                    "client_id": settings.github_oauth_client_id,
+                    "client_secret": settings.github_oauth_client_secret,
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                },
+            )
+        if resp.status_code != 200:
+            logger.warning(
+                "GitHub token exchange failed: %s %s", resp.status_code, resp.text
+            )
+            return RedirectResponse(url=redirect_fail)
+
+        try:
+            data = resp.json()
+        except Exception as e:
+            logger.warning("GitHub token response not JSON: %s - %s", resp.text, e)
+            return RedirectResponse(url=redirect_fail)
+
+        access_token = data.get("access_token")
+        if not access_token:
+            # GitHub may return 200 with error in body (e.g. redirect_uri_mismatch)
+            err = data.get("error", "unknown")
+            logger.warning("GitHub response missing access_token: error=%s %s", err, data)
+            return RedirectResponse(url=redirect_fail)
+
+        if not encryption_available():
+            logger.warning("Cannot store GitHub token: encryption not configured")
+            return RedirectResponse(
+                url=f"{frontend_base}/?github_oauth_error=encryption_required"
+            )
+
         service = CredentialsService(db)
         await service.set_credentials(github_token=access_token)
-    except Exception as e:
-        logger.exception("Failed to store GitHub token: %s", e)
-        return RedirectResponse(url=redirect_fail)
 
-    response = RedirectResponse(url=redirect_success, status_code=302)
-    response.delete_cookie(OAUTH_STATE_COOKIE)
-    return response
+        response = RedirectResponse(url=redirect_success, status_code=302)
+        response.delete_cookie(OAUTH_STATE_COOKIE)
+        return response
+
+    except Exception as e:
+        logger.exception("GitHub OAuth callback unhandled error: %s", e)
+        return RedirectResponse(url=redirect_fail)

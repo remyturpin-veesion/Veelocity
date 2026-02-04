@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useThemeStore } from '@/stores/theme.js';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
-import { DeveloperMultiSelector } from '@/components/DeveloperMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
 import { ExportButton } from '@/components/ExportButton.js';
@@ -139,12 +138,6 @@ export function AppShell({ children }: AppShellProps) {
             <span className="app-shell__filter-label">Repos</span>
             <RepoMultiSelector />
           </div>
-          {!isActive('/', location.pathname) && (
-            <div className="app-shell__filter-row">
-              <span className="app-shell__filter-label">Developers</span>
-              <DeveloperMultiSelector />
-            </div>
-          )}
           {showLinearSidebar && (
             <div className="app-shell__filter-row">
               <span className="app-shell__filter-label">Teams</span>

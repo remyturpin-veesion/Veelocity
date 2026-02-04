@@ -124,6 +124,11 @@ class SyncActionsService:
             )
             existing = result.scalar_one_or_none()
 
+            # Use run's actual date (from API) so daily coverage charts show when runs happened, not when we synced
+            created_at = _parse_datetime(data.get("created_at"))
+            if created_at is None:
+                created_at = _parse_datetime(data.get("started_at")) or _parse_datetime(data.get("completed_at"))
+
             run_data = {
                 "github_id": data["github_id"],
                 "workflow_id": workflow_id,
@@ -132,6 +137,7 @@ class SyncActionsService:
                 "run_number": data["run_number"],
                 "head_sha": data["head_sha"],
                 "head_branch": data["head_branch"],
+                "created_at": created_at or datetime.utcnow(),  # fallback only if API had no date
                 "started_at": _parse_datetime(data.get("started_at")),
                 "completed_at": _parse_datetime(data.get("completed_at")),
             }

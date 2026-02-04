@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: start scheduler + trigger background sync. Shutdown: stop scheduler."""
+    if settings.github_oauth_client_id and settings.github_oauth_client_secret:
+        logger.info("GitHub OAuth is configured (Connect with GitHub enabled)")
     start_scheduler()
     # Run initial sync in background - don't block app startup
     asyncio.create_task(_run_initial_sync())

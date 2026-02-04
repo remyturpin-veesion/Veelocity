@@ -81,6 +81,8 @@ button {
   align-items: center;
   margin-right: 4px;
   text-decoration: none;
+  cursor: pointer;
+  min-height: 36px;
 }
 
 .app-shell__logo-img {
@@ -858,6 +860,34 @@ button {
   color: var(--text);
 }
 
+.data-coverage__sync-banner--complete {
+  border-left-color: var(--metric-green);
+  background: color-mix(in srgb, var(--metric-green) 10%, var(--surface));
+}
+
+.data-coverage__sync-banner-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--metric-green);
+  color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.data-coverage__sync-banner--pending {
+  border-left-color: var(--text-muted);
+}
+
+.data-coverage__sync-banner-dot--pending {
+  background: var(--text-muted);
+  animation: none;
+}
+
 .data-coverage__section-title {
   font-size: 0.875rem;
   font-weight: 600;
@@ -945,6 +975,73 @@ button {
   font-size: 0.875rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+.data-coverage__repos {
+  margin-top: 24px;
+}
+
+.data-coverage__repos-card {
+  margin-bottom: 0;
+}
+
+.data-coverage__repos-desc {
+  margin: 0 0 14px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.data-coverage__repo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.data-coverage__repo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 4px solid var(--surface-border);
+  margin-bottom: 6px;
+  transition: background 0.15s ease;
+}
+
+.data-coverage__repo-row:last-child {
+  margin-bottom: 0;
+}
+
+.data-coverage__repo-row--complete {
+  border-left-color: var(--metric-green);
+}
+
+.data-coverage__repo-row:hover {
+  background: var(--surface-hover);
+}
+
+.data-coverage__repo-name {
+  flex: 1;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.data-coverage__repo-counts {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.data-coverage__repo-pct {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 2.5em;
+  text-align: right;
+}
+
+.data-coverage__repo-row--complete .data-coverage__repo-pct {
+  color: var(--metric-green);
 }
 
 .dashboard-quick-overview__row {
@@ -1134,6 +1231,91 @@ button {
 
 .linear-overview__cards .kpi-card {
   min-height: 120px;
+}
+
+/* GitHub overview */
+.github-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px;
+}
+
+.github-overview__header {
+  margin-bottom: 0;
+}
+
+.github-overview__subtitle {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.github-overview__section {
+  margin-bottom: 0;
+}
+
+.github-overview__section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.github-overview__metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.github-overview__repos-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 0 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--surface-border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.github-overview__repos-label {
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.github-overview__repos-empty {
+  color: var(--text-muted);
+}
+
+.github-overview__repos-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.github-overview__repo-chip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.github-overview__repo-chip:hover {
+  color: var(--text);
+  border-color: var(--surface-border);
+  background: var(--surface-hover);
 }
 
 .empty-state {

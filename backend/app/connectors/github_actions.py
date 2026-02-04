@@ -86,6 +86,8 @@ class GitHubActionsConnector(BaseConnector):
                 break
             data = response.json()
             for run in data.get("workflow_runs", []):
+                # created_at = when the run was created on GitHub (used for daily charts)
+                created_at = run.get("created_at") or run.get("run_started_at")
                 runs.append({
                     "github_id": run["id"],
                     "status": run["status"],
@@ -93,6 +95,7 @@ class GitHubActionsConnector(BaseConnector):
                     "run_number": run["run_number"],
                     "head_sha": run["head_sha"],
                     "head_branch": run["head_branch"],
+                    "created_at": created_at,
                     "started_at": run.get("run_started_at"),
                     "completed_at": run.get("updated_at") if run["status"] == "completed" else None,
                 })

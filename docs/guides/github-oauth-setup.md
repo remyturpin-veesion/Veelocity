@@ -2,26 +2,41 @@
 
 This guide explains how to set up **GitHub OAuth** so users can connect their GitHub account from Settings with **"Connect with GitHub"** instead of pasting a Personal Access Token (PAT).
 
+You can create the OAuth App either under your **personal account** or under an **Organization** (if you have admin rights). Organization-owned apps are better for team use and branding.
+
 ---
 
 ## 1. Create a GitHub OAuth App
 
-1. Open **GitHub** → **Settings** (your profile) → **Developer settings** → **OAuth Apps**.
+### Option A: Under your Organization (recommended if you're an org admin)
+
+1. Open **GitHub** and go to your **Organization** (click your profile picture → **Your organizations** → select the org).
+2. In the org, go to **Settings** (org settings, not your profile).
+3. In the left sidebar, under **Developer settings**, click **OAuth Apps**.
+4. Click **"New OAuth App"** (or "Register a new application").
+5. Fill in the form (see **Fields to fill in** below), then click **"Register application"**.
+6. On the app page: copy the **Client ID** and **Generate a new client secret** → copy the **Client secret**.
+
+If you don’t see **Developer settings** or **OAuth Apps**, your org may restrict this to owners; ask an owner to create the app or to grant you the right permission.
+
+### Option B: Under your personal account
+
+1. Open **GitHub** → **Settings** (your profile, top-right) → **Developer settings** → **OAuth Apps**.
 2. Click **"New OAuth App"** (or "Register a new application").
-3. Fill in:
-   - **Application name:** e.g. `Veelocity` or `Veelocity (local)`.
-   - **Homepage URL:**  
-     - Local: `http://localhost:5173`  
-     - Production: your frontend URL (e.g. `https://app.veelocity.example.com`).
-   - **Authorization callback URL:**  
-     This must be the **backend** URL where GitHub will send the user after they authorize.
-   - **Local:** `http://localhost:8000/api/v1/auth/github/callback`
-   - **Production:** `https://api.veelocity.example.com/api/v1/auth/github/callback`  
-     (Replace with your real backend base URL + `/api/v1/auth/github/callback`.)
-4. Click **"Register application"**.
-5. On the app page:
-   - Copy the **Client ID**.
-   - Click **"Generate a new client secret"**, copy the **Client secret** (you won’t see it again).
+3. Fill in the form (see **Fields to fill in** below), then click **"Register application"**.
+4. On the app page: copy the **Client ID** and **Generate a new client secret** → copy the **Client secret**.
+
+### Fields to fill in (for both options)
+
+- **Application name:** e.g. `Veelocity` or `Veelocity (local)`.
+- **Homepage URL:**  
+  - Local: `http://localhost:5173`  
+  - Production: your frontend URL (e.g. `https://app.veelocity.example.com`).
+- **Authorization callback URL:**  
+  This must be the **backend** URL where GitHub will send the user after they authorize.  
+  - Local: `http://localhost:8000/api/v1/auth/github/callback`  
+  - Production: `https://api.veelocity.example.com/api/v1/auth/github/callback`  
+  (Replace with your real backend base URL + `/api/v1/auth/github/callback`.)
 
 ---
 

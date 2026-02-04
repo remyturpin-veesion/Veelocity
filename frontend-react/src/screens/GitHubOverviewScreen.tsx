@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import {
   getRepositories,
   getDeploymentFrequency,
@@ -116,8 +116,9 @@ export function GitHubOverviewScreen() {
 
   if (noReposSelected) {
     return (
-      <div>
+      <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
+        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see GitHub metrics."
@@ -128,8 +129,9 @@ export function GitHubOverviewScreen() {
 
   if (isLoadingRepos && reposItems.length === 0) {
     return (
-      <div>
+      <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
+        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
         <div className="loading">Loading repositories…</div>
       </div>
     );
@@ -137,8 +139,9 @@ export function GitHubOverviewScreen() {
 
   if (hasReposError) {
     return (
-      <div>
+      <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
+        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
         <EmptyState
           title="Unable to load repositories"
           message={(repos.error as Error)?.message ?? 'Check Settings and try again.'}
@@ -159,33 +162,23 @@ export function GitHubOverviewScreen() {
     summary?: { total_reviews?: number; unique_reviewers?: number };
   } | undefined;
 
+  const repoUrl = (fullName: string) => `https://github.com/${fullName}`;
+
   return (
-    <div>
-      <h1 className="screen-title">GitHub</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {startDate} – {endDate}
-      </p>
+    <div className="github-overview">
+      <header className="github-overview__header">
+        <div>
+          <h1 className="screen-title">GitHub</h1>
+          <p className="github-overview__subtitle">
+            {formatDateRangeDisplay(startDate, endDate)} · Repositories, PRs, and deployment metrics
+          </p>
+        </div>
+      </header>
 
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card__title">Synced repositories</div>
-        {reposItems.length === 0 ? (
-          <div className="empty-state">No repositories. Configure in Settings.</div>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {reposItems.map((r) => (
-              <li key={r.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--surface-border)' }}>
-                <strong>{r.full_name}</strong> (id: {r.id})
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, color: 'var(--text-muted)' }}>
-        Metrics
-      </h2>
+      <section className="github-overview__section">
+        <h2 className="github-overview__section-title">Metrics</h2>
       {isLoadingMetrics && !deploymentFreq.data ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <div className="github-overview__metrics-grid">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -203,7 +196,7 @@ export function GitHubOverviewScreen() {
           }}
         />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <div className="github-overview__metrics-grid">
           <KpiCard
             title="Deployment frequency"
             value={String(deploymentFreqData?.total ?? '—')}
@@ -275,6 +268,29 @@ export function GitHubOverviewScreen() {
           />
         </div>
       )}
+      </section>
+
+      <footer className="github-overview__repos-footer">
+        <span className="github-overview__repos-label">Synced:</span>
+        {reposItems.length === 0 ? (
+          <span className="github-overview__repos-empty">No repositories. Configure in Settings.</span>
+        ) : (
+          <div className="github-overview__repos-row" role="list">
+            {reposItems.map((r) => (
+              <a
+                key={r.id}
+                href={repoUrl(r.full_name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="github-overview__repo-chip"
+                role="listitem"
+              >
+                {r.full_name}
+              </a>
+            ))}
+          </div>
+        )}
+      </footer>
     </div>
   );
 }

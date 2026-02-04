@@ -6,6 +6,7 @@ dev:
 	docker-compose -f infra/docker/docker-compose.yml up -d
 
 # Development local backend (hot reload) - requires uv, and DB + migrations for make db workflow
+# Backend logs (including OAuth errors) appear in this terminal, not in make logs
 dev-local:
 	cd backend && uv run uvicorn app.main:app --reload --port 8000
 
@@ -24,6 +25,7 @@ db:
 down:
 	docker-compose -f infra/docker/docker-compose.yml down
 
+# Logs from Docker containers only (postgres + backend if you use make dev, not make dev-local)
 logs:
 	docker-compose -f infra/docker/docker-compose.yml logs -f
 
