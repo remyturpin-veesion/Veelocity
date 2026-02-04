@@ -505,47 +505,62 @@ export function DashboardScreen() {
           </div>
         </div>
 
-        {/* Cursor: same layout as Greptile row — big chart left, little block right, link below block */}
-        {settings.data?.cursor_configured && cursor != null && (
+        {/* Cursor: same layout as Greptile row — big chart left, little block right; show box + spinner while loading */}
+        {settings.data?.cursor_configured && (
           <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 400px', minWidth: 0 }}>
-              <div className="card">
-                {cursorUsageChartData.length > 0 ? (
-                  <>
-                    <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Cursor — Usage</p>
-                    <ResponsiveContainer width="100%" height={260}>
-                      <LineChart data={cursorUsageChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
-                        <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
-                        <Tooltip
-                          contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
-                          labelStyle={{ color: 'var(--text)' }}
-                        />
-                        <Legend />
-                        <Line type="monotone" dataKey="lines_added" name="Lines added" yAxisId="right" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="lines_deleted" name="Lines deleted" yAxisId="right" stroke="var(--metric-orange)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="composer" name="Composer" yAxisId="left" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="chat" name="Chat" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="agent" name="Agent" yAxisId="left" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
-                        <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </>
-                ) : (
-                  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
-                    <p style={{ fontWeight: 600, margin: 0 }}>Cursor — Usage</p>
-                    <p style={{ fontSize: '0.875rem', margin: 0 }}>No usage data yet. Data appears after Cursor Admin API returns daily usage.</p>
+              <div className="card" style={{ minHeight: 292 }}>
+                {cursorOverview.isLoading ? (
+                  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+                    <div className="spinner" />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading Cursor data…</span>
                   </div>
-                )}
+                ) : cursor != null ? (
+                  cursorUsageChartData.length > 0 ? (
+                    <>
+                      <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Cursor — Usage</p>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={cursorUsageChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                          <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                          <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                          <Tooltip
+                            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                            labelStyle={{ color: 'var(--text)' }}
+                          />
+                          <Legend />
+                          <Line type="monotone" dataKey="lines_added" name="Lines added" yAxisId="right" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="lines_deleted" name="Lines deleted" yAxisId="right" stroke="var(--metric-orange)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="composer" name="Composer" yAxisId="left" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="chat" name="Chat" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="agent" name="Agent" yAxisId="left" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </>
+                  ) : (
+                    <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
+                      <p style={{ fontWeight: 600, margin: 0 }}>Cursor — Usage</p>
+                      <p style={{ fontSize: '0.875rem', margin: 0 }}>No usage data yet. Data appears after Cursor Admin API returns daily usage.</p>
+                    </div>
+                  )
+                ) : null}
               </div>
             </div>
-            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {cursorSummaryBlock}
-              <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
-                <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
-              </p>
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: cursorOverview.isLoading ? 200 : undefined }}>
+              {cursorOverview.isLoading ? (
+                <div className="card" style={{ flex: 1, minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="spinner" />
+                </div>
+              ) : (
+                <>
+                  {cursorSummaryBlock}
+                  <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
+                    <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}
