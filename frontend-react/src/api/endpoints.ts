@@ -10,6 +10,7 @@ import type {
   DORAMetrics,
   DevelopersResponse,
   DeveloperStats,
+  GitHubOrgsResponse,
   GitHubReposSearchResponse,
   LinearOverview,
   PaginatedResponse,
@@ -18,6 +19,7 @@ import type {
   Repository,
   SettingsResponse,
   SyncCoverageResponse,
+  SyncStatusResponse,
   DailyCoverageResponse,
 } from '@/types/index.js';
 
@@ -44,13 +46,19 @@ export async function getSettings(): Promise<SettingsResponse> {
   return apiGet(prefix + '/settings');
 }
 
+export async function getGitHubOrgs(): Promise<GitHubOrgsResponse> {
+  return apiGet(prefix + '/settings/github/orgs');
+}
+
 export async function getGitHubReposSearch(params?: {
   q?: string;
   per_page?: number;
+  org?: string;
 }): Promise<GitHubReposSearchResponse> {
   const query: Record<string, string | number> = {};
   if (params?.q != null) query.q = params.q;
   if (params?.per_page != null) query.per_page = params.per_page;
+  if (params?.org != null) query.org = params.org;
   return apiGet(prefix + '/settings/github/repos', query);
 }
 
@@ -89,6 +97,10 @@ export async function getSyncCoverage(): Promise<SyncCoverageResponse> {
 
 export async function getDailyCoverage(days = 90): Promise<DailyCoverageResponse> {
   return apiGet(`${prefix}/sync/coverage/daily`, { days });
+}
+
+export async function getSyncStatus(): Promise<SyncStatusResponse> {
+  return apiGet(`${prefix}/sync/status`);
 }
 
 export async function triggerImportRange(params: {
@@ -181,8 +193,12 @@ export async function getDeploymentReliability(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  include_trend?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/dora/deployment-reliability`, params as Record<string, string | number>);
+  return apiGet(`${prefix}/metrics/dora/deployment-reliability`, {
+    ...params,
+    include_trend: params?.include_trend ?? false,
+  } as Record<string, string | number | boolean>);
 }
 
 export async function getDevelopmentMetrics(params?: {
@@ -223,9 +239,37 @@ export async function getCycleTime(params?: {
   start_date?: string;
   end_date?: string;
   team_id?: number;
+  include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
   return apiGet(`${prefix}/metrics/development/cycle-time`, params as Record<string, string | number | boolean>);
+}
+
+export async function getLeadTimeByPeriod(params?: {
+  start_date?: string;
+  end_date?: string;
+  period?: 'day' | 'week' | 'month';
+  repo_id?: number;
+  author_login?: string;
+}): Promise<{ period: string; median_hours: number }[]> {
+  const data = await apiGet<{ period: string; median_hours: number }[]>(
+    `${prefix}/metrics/dora/lead-time/by-period`,
+    params as Record<string, string | number>
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getCycleTimeByPeriod(params?: {
+  start_date?: string;
+  end_date?: string;
+  period?: 'day' | 'week' | 'month';
+  team_id?: number;
+}): Promise<{ period: string; median_hours: number }[]> {
+  const data = await apiGet<{ period: string; median_hours: number }[]>(
+    `${prefix}/metrics/development/cycle-time/by-period`,
+    params as Record<string, string | number>
+  );
+  return Array.isArray(data) ? data : [];
 }
 
 export async function getThroughput(params?: {

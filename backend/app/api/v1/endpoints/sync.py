@@ -273,6 +273,10 @@ async def get_sync_status(
             "without_details": repo_total - repo_with_details,
         })
     
+    from app.services.scheduler import get_sync_job_state
+
+    sync_in_progress, current_job = get_sync_job_state()
+
     return {
         "total_prs": total_prs,
         "prs_with_details": prs_with_details,
@@ -280,6 +284,8 @@ async def get_sync_status(
         "progress_percent": round(progress_pct, 1),
         "is_complete": prs_without_details == 0,
         "repositories": repos_status,
+        "sync_in_progress": sync_in_progress,
+        "current_job": current_job,
     }
 
 

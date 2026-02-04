@@ -26,7 +26,7 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 - **Backend** : Python 3.11+ / FastAPI
 - **Frontend** : React (Vite, TypeScript) — web
 - **Database** : PostgreSQL 15
-- **Package manager** : uv (backend), npm (frontend)
+- **Package manager** : uv (backend), pnpm (frontend)
 
 ## Quick Start
 
@@ -34,7 +34,7 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Node.js 18+ et npm ou pnpm
+- Node.js 18+ et pnpm
 - Docker & Docker Compose
 
 ### First-time setup
@@ -45,7 +45,7 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
   # Install uv (macOS/Linux)
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ```
-- **Frontend** : `make dev-frontend` utilise pnpm ; installer Node.js puis `npm install -g pnpm` ou utiliser `cd frontend-react && npm run dev` si vous avez seulement npm.
+- **Frontend** : `make dev-frontend` utilise pnpm ; installer Node.js puis `npm install -g pnpm`, puis `cd frontend-react && pnpm install && pnpm run dev`.
 - **macOS** : si vous voyez un message sur la licence Xcode, exécuter une fois : `sudo xcodebuild -license`.
 
 ### Installation
@@ -57,7 +57,7 @@ cd veelocity
 
 # Frontend (React)
 cd frontend-react
-npm install
+pnpm install
 cp .env.example .env   # optional: set VITE_API_BASE_URL (default http://localhost:8000)
 
 # Lancer avec Docker (PostgreSQL + backend)
@@ -73,7 +73,7 @@ make dev-local
 
 # Frontend (React, Vite)
 make dev-frontend
-# ou: cd frontend-react && npm run dev
+# ou: cd frontend-react && pnpm run dev
 ```
 
 Le frontend est servi sur http://localhost:5173 et appelle l’API sur `VITE_API_BASE_URL` (par défaut http://localhost:8000).

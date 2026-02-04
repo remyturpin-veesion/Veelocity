@@ -33,3 +33,16 @@ class GitHubReposResponse(BaseModel):
     """List of GitHub repos the authenticated user can access."""
 
     items: list[GitHubRepoItem]
+
+
+class GitHubOrgItem(BaseModel):
+    """One organization from GitHub API (for repo source selector)."""
+
+    login: str
+    id: int
+
+
+class GitHubOrgsResponse(BaseModel):
+    """List of GitHub organizations the user is a member of."""
+
+    items: list[GitHubOrgItem]

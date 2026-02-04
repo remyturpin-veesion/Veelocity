@@ -93,6 +93,19 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       .finally(() => setSaving(false));
   };
 
+  const handleDisconnectGitHub = () => {
+    setSaving(true);
+    setError(null);
+    updateSettings({ github_token: '' })
+      .then(() => {
+        setGithubRepos('');
+        setGithubConfigured(false);
+        setGithubHasToken(false);
+      })
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSaving(false));
+  };
+
   if (!open) return null;
 
   return (
@@ -146,23 +159,46 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   {githubConfigured ? 'Connected' : githubHasToken ? 'Token set' : 'Not connected'}
                 </span>
                 {githubOAuthEnabled && (
-                  <a
-                    href={`${baseUrl}/api/v1/auth/github`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      background: (githubConfigured || githubHasToken) ? 'transparent' : 'var(--surface-elevated)',
-                      border: '1px solid var(--surface-border)',
-                      color: 'var(--text)',
-                      textDecoration: 'none',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    {(githubConfigured || githubHasToken) ? 'Reconnect with GitHub' : 'Connect with GitHub'}
-                  </a>
+                  <>
+                    <a
+                      href={`${baseUrl}/api/v1/auth/github`}
+                      target="_self"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '6px 12px',
+                        borderRadius: 6,
+                        background: (githubConfigured || githubHasToken) ? 'transparent' : 'var(--surface-elevated)',
+                        border: '1px solid var(--surface-border)',
+                        color: 'var(--text)',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      {(githubConfigured || githubHasToken) ? 'Reconnect with GitHub' : 'Connect with GitHub'}
+                    </a>
+                    {(githubConfigured || githubHasToken) && (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectGitHub}
+                        disabled={saving}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 6,
+                          border: '1px solid var(--surface-border)',
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          fontWeight: 500,
+                          fontSize: '0.875rem',
+                          cursor: saving ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        Déconnecter
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
               {githubOAuthEnabled ? (

@@ -19,6 +19,15 @@ from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
 
+# In-progress state for UI (set/cleared by scheduled jobs)
+_sync_in_progress = False
+_sync_job_name: str | None = None
+
+
+def get_sync_job_state() -> tuple[bool, str | None]:
+    """Return (sync_in_progress, current_job_name). Safe to call from API."""
+    return _sync_in_progress, _sync_job_name
+
 
 async def _run_alert_notifications(db) -> None:
     """
@@ -99,8 +108,20 @@ async def run_sync():
     - Incremental sync for repos with existing data
     - Continues even if one repo/connector fails
     """
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "incremental_sync"
+    try:
+        await _run_sync_impl()
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
+async def _run_sync_impl():
+    """Implementation of run_sync (without state flags)."""
     from app.connectors.rate_limiter import get_rate_limiter
-    
+
     # Reset rate limiter at start of sync
     rate_limiter = get_rate_limiter()
     rate_limiter.reset()
@@ -131,32 +152,23 @@ async def run_sync():
             total_errors.extend(errors)
             logger.info(f"GitHub sync: {items} items, {len(errors)} errors")
 
-        # GitHub Actions and Linear in parallel
+        # GitHub Actions and Linear sequentially (shared session - cannot add() during flush)
         github_actions = create_github_actions_connector(
             token=creds.github_token, repos=creds.github_repos
         )
         linear = create_linear_connector(api_key=creds.linear_api_key)
 
-        async def sync_actions():
-            if not github_actions:
-                return 0, []
-            return await _sync_connector_safe(github_actions, db, "sync_recent")
-
-        async def sync_linear():
-            if not linear:
-                return 0, []
-            return await _sync_connector_safe(linear, db, "sync_recent")
-
-        results = await asyncio.gather(sync_actions(), sync_linear())
-        
-        for items, errors in results:
+        if github_actions:
+            items, errors = await _sync_connector_safe(github_actions, db, "sync_recent")
             total_items += items
             total_errors.extend(errors)
+            logger.info(f"GitHub Actions sync: {items} items")
 
-        if github_actions:
-            logger.info(f"GitHub Actions sync: {results[0][0]} items")
         if linear:
-            logger.info(f"Linear sync: {results[1][0]} items")
+            items, errors = await _sync_connector_safe(linear, db, "sync_recent")
+            total_items += items
+            total_errors.extend(errors)
+            logger.info(f"Linear sync: {items} items")
 
         # Link PRs to issues after sync
         if github and linear:
@@ -185,6 +197,18 @@ async def run_full_sync():
     Use this for initial sync or to recover from issues.
     Processes PRs in batches to avoid timeouts.
     """
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "full_sync"
+    try:
+        await _run_full_sync_impl()
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
+async def _run_full_sync_impl():
+    """Implementation of run_full_sync (without state flags)."""
     async with async_session_maker() as db:
         creds = await CredentialsService(db).get_credentials()
         total_items = 0
@@ -233,10 +257,22 @@ async def run_fill_details(batch_size: int = 100):
     Args:
         batch_size: Number of PRs to process per run (default 100 = ~300 API calls)
     """
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "fill_details"
+    try:
+        await _run_fill_details_impl(batch_size)
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
+async def _run_fill_details_impl(batch_size: int):
+    """Implementation of run_fill_details (without state flags)."""
     from datetime import datetime
-    
+
     from app.connectors.rate_limiter import get_rate_limiter
-    
+
     async with async_session_maker() as db:
         # Find PRs that haven't had their details synced yet
         prs_without_details = await db.execute(

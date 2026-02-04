@@ -131,6 +131,7 @@ async def get_deployment_reliability(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -138,14 +139,36 @@ async def get_deployment_reliability(
 
     Returns failure rate (% of runs that failed), MTTR (mean time to recovery
     in hours), and stability score (0–100).
+
+    Query params:
+    - include_trend: If true, includes period-over-period trend for failure_rate
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
     service = DORAMetricsService(db)
-    return await service.get_deployment_reliability(
+    result = await service.get_deployment_reliability(
         start_date, end_date, repo_id
     )
+
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+        prev_result = await service.get_deployment_reliability(
+            prev_start, prev_end, repo_id
+        )
+        trend = await comparison_service.calculate_trend(
+            metric_name="failure_rate",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["failure_rate"],
+            previous_value=prev_result["failure_rate"],
+        )
+        result["trend"] = trend.to_dict()
+
+    return result
 
 
 @router.get("/dora/lead-time")
@@ -204,6 +227,29 @@ async def get_lead_time(
         result["benchmark"] = benchmark.to_dict()
 
     return result
+
+
+@router.get("/dora/lead-time/by-period")
+async def get_lead_time_by_period(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "day",
+    repo_id: int | None = None,
+    author_login: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get lead time median per period (for charts).
+
+    Returns list of {"period": str, "median_hours": float} sorted by period.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DORAMetricsService(db)
+    return await service.get_lead_time_by_period(
+        start_date, end_date, period, repo_id, author_login
+    )
 
 
 # ============================================================================
@@ -374,6 +420,7 @@ async def get_cycle_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     team_id: int | None = None,
+    include_trend: bool = False,
     include_benchmark: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
@@ -384,6 +431,7 @@ async def get_cycle_time(
     Requires Linear integration and PR-issue linking.
 
     Query params:
+    - include_trend: If true, includes period-over-period trend comparison
     - include_benchmark: If true, includes industry benchmark comparison
     """
     if not start_date or not end_date:
@@ -392,12 +440,48 @@ async def get_cycle_time(
     service = DevelopmentMetricsService(db)
     result = await service.get_cycle_time(start_date, end_date, team_id)
 
-    # Add benchmark data if requested
+    if include_trend:
+        comparison_service = ComparisonService(db)
+        prev_start, prev_end = comparison_service.calculate_previous_period(
+            start_date, end_date
+        )
+        prev_result = await service.get_cycle_time(prev_start, prev_end, team_id)
+        trend = await comparison_service.calculate_trend(
+            metric_name="cycle_time",
+            current_period=(start_date, end_date),
+            previous_period=(prev_start, prev_end),
+            current_value=result["average_hours"],
+            previous_value=prev_result["average_hours"],
+        )
+        result["trend"] = trend.to_dict()
+
     if include_benchmark:
         benchmark = BenchmarkService.get_cycle_time_benchmark(result["average_hours"])
         result["benchmark"] = benchmark.to_dict()
 
     return result
+
+
+@router.get("/development/cycle-time/by-period")
+async def get_cycle_time_by_period(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    period: Literal["day", "week", "month"] = "day",
+    team_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get cycle time median per period (for charts).
+
+    Returns list of {"period": str, "median_hours": float} sorted by period.
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    service = DevelopmentMetricsService(db)
+    return await service.get_cycle_time_by_period(
+        start_date, end_date, period, team_id
+    )
 
 
 @router.get("/development/throughput")

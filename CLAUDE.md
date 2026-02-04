@@ -11,7 +11,7 @@ Veelocity is a single-user developer analytics platform measuring DORA metrics a
 - GitHub & Linear credentials stored encrypted in the database (Settings UI); only encryption key in `.env`
 - Python 3.11+ backend with FastAPI + PostgreSQL
 - React frontend (Vite, TypeScript, web) in `frontend-react/`
-- Managed with `uv` (backend), npm (frontend)
+- Managed with `uv` (backend), pnpm (frontend)
 
 ## Development Setup
 
@@ -42,16 +42,16 @@ make lint    # Ruff check
 make format  # Black format
 ```
 
-### Frontend (Flutter)
+### Frontend (React)
 
 ```bash
 make dev-frontend        # Run Vite dev server (default http://localhost:5173)
-# or: cd frontend-react && npm run dev
+# or: cd frontend-react && pnpm run dev
 
 cd frontend-react
-npm install              # Install dependencies
-npm run build            # Production build
-npm run preview          # Preview production build
+pnpm install             # Install dependencies
+pnpm run build           # Production build
+pnpm run preview         # Preview production build
 ```
 
 Set `VITE_API_BASE_URL` in `frontend-react/.env` (default `http://localhost:8000`) to point at the backend.
@@ -169,7 +169,7 @@ Deployments are detected from GitHub Actions workflows matching configurable pat
 - **State:** Zustand (filters), TanStack Query (server state)
 - **HTTP:** `fetch` in `frontend-react/src/api/client.ts`
 - **Charts:** Recharts
-- **Formatting:** ESLint; optional `npm run lint` in frontend-react
+- **Formatting:** ESLint; optional `pnpm run lint` in frontend-react
 
 ### Git Commits
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getGitHubReposSearch } from '@/api/endpoints.js';
-import type { GitHubRepoSearchItem } from '@/types/index.js';
+import { getGitHubOrgs, getGitHubReposSearch } from '@/api/endpoints.js';
+import type { GitHubOrgItem, GitHubRepoSearchItem } from '@/types/index.js';
 
 const DEBOUNCE_MS = 300;
+const SOURCE_MY_ACCOUNT = '';
 
 function parseRepos(value: string): string[] {
   if (!value.trim()) return [];
@@ -30,6 +31,9 @@ export function GitHubRepoMultiSelect({
   placeholder = 'Search repositories…',
 }: GitHubRepoMultiSelectProps) {
   const selected = parseRepos(value);
+  const [source, setSource] = useState<string>(SOURCE_MY_ACCOUNT);
+  const [orgs, setOrgs] = useState<GitHubOrgItem[]>([]);
+  const [, setOrgsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<GitHubRepoSearchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,11 +42,24 @@ export function GitHubRepoMultiSelect({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const fetchRepos = useCallback(async (q: string) => {
+  useEffect(() => {
+    if (disabled) return;
+    setOrgsLoading(true);
+    getGitHubOrgs()
+      .then((res) => setOrgs(res.items ?? []))
+      .catch(() => setOrgs([]))
+      .finally(() => setOrgsLoading(false));
+  }, [disabled]);
+
+  const fetchRepos = useCallback(async (q: string, org: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getGitHubReposSearch({ q: q || undefined, per_page: 50 });
+      const res = await getGitHubReposSearch({
+        q: q || undefined,
+        per_page: 50,
+        org: org || undefined,
+      });
       setItems(res.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -56,12 +73,12 @@ export function GitHubRepoMultiSelect({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      fetchRepos(searchQuery);
+      fetchRepos(searchQuery, source);
     }, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery, fetchRepos]);
+  }, [searchQuery, source, fetchRepos]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -97,6 +114,38 @@ export function GitHubRepoMultiSelect({
         padding: 0,
       }}
     >
+      {!disabled && (
+        <div style={{ marginBottom: 8 }}>
+          <label style={{ display: 'block', marginBottom: 4, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            Source des dépôts
+          </label>
+          <select
+            value={source}
+            onChange={(e) => {
+              setSource(e.target.value);
+              setItems([]);
+              setSearchQuery('');
+              setOpen(false);
+            }}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid var(--surface-border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontSize: '0.875rem',
+            }}
+          >
+            <option value={SOURCE_MY_ACCOUNT}>Mon compte</option>
+            {orgs.map((org) => (
+              <option key={org.id} value={org.login}>
+                Organisation : {org.login}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {selected.length > 0 && (
         <div
           style={{

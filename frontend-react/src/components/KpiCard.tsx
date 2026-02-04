@@ -2,6 +2,11 @@ import { Link } from 'react-router-dom';
 
 export type KpiAccent = 'green' | 'orange' | 'purple' | 'primary';
 
+export interface KpiTrend {
+  change_percent: number;
+  is_improving: boolean;
+}
+
 interface KpiCardProps {
   title: string;
   value: string;
@@ -9,6 +14,7 @@ interface KpiCardProps {
   to?: string;
   icon?: React.ReactNode;
   accent?: KpiAccent;
+  trend?: KpiTrend;
 }
 
 const ACCENT_VAR: Record<KpiAccent, string> = {
@@ -18,7 +24,12 @@ const ACCENT_VAR: Record<KpiAccent, string> = {
   primary: 'var(--primary)',
 };
 
-export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary' }: KpiCardProps) {
+function formatTrendPercent(changePercent: number): string {
+  const sign = changePercent >= 0 ? '+' : '';
+  return `${sign}${changePercent}%`;
+}
+
+export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary', trend }: KpiCardProps) {
   const accentColor = ACCENT_VAR[accent];
   const content = (
     <>
@@ -28,8 +39,21 @@ export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary' }
         </span>
       )}
       <div className="card__title">{title}</div>
-      <div className="card__value kpi-card__value" style={{ color: accentColor }}>
-        {value}
+      <div className="kpi-card__value-row">
+        <div className="card__value kpi-card__value" style={{ color: accentColor }}>
+          {value}
+        </div>
+        {trend != null && (
+          <span
+            className="kpi-card__trend"
+            style={{
+              color: trend.is_improving ? 'var(--metric-green)' : 'var(--metric-orange)',
+            }}
+            aria-label={`Trend: ${formatTrendPercent(trend.change_percent)}`}
+          >
+            {formatTrendPercent(trend.change_percent)}
+          </span>
+        )}
       </div>
       {subtitle != null && <p className="kpi-card__subtitle">{subtitle}</p>}
     </>

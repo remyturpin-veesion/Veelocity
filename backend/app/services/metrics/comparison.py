@@ -39,6 +39,7 @@ class ComparisonService:
         "pr_review_time",
         "pr_merge_time",
         "cycle_time",
+        "failure_rate",
     }
 
     # Metrics where higher values are better

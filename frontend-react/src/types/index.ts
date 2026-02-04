@@ -75,6 +75,7 @@ export interface DeploymentReliability {
   failure_rate: number;
   mttr_hours?: number;
   stability_score: number;
+  trend?: TrendData;
 }
 
 export interface Developer {
@@ -140,6 +141,15 @@ export interface GitHubReposSearchResponse {
   items: GitHubRepoSearchItem[];
 }
 
+export interface GitHubOrgItem {
+  login: string;
+  id: number;
+}
+
+export interface GitHubOrgsResponse {
+  items: GitHubOrgItem[];
+}
+
 export interface SyncCoverageResponse {
   connectors: Array<{
     connector_name: string;
@@ -158,8 +168,31 @@ export interface SyncCoverageResponse {
   total_developers: number;
 }
 
+export interface SyncStatusResponse {
+  total_prs: number;
+  prs_with_details: number;
+  prs_without_details: number;
+  progress_percent: number;
+  is_complete: boolean;
+  repositories: Array<{
+    name: string;
+    total_prs: number;
+    with_details: number;
+    without_details: number;
+  }>;
+  sync_in_progress: boolean;
+  current_job: string | null;
+}
+
+export interface DailyCountItem {
+  date: string;
+  count: number;
+}
+
 export interface DailyCoverageResponse {
-  [key: string]: unknown;
+  github: DailyCountItem[];
+  github_actions: DailyCountItem[];
+  linear: DailyCountItem[];
 }
 
 export interface PRDetailRepository {

@@ -196,6 +196,62 @@ class DevelopmentMetricsService:
             "median_hours": round(median_hours, 2),
         }
 
+    async def get_cycle_time_by_period(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        period: Literal["day", "week", "month"] = "week",
+        team_id: int | None = None,
+    ) -> list[dict]:
+        """
+        Cycle time median per period (for charts).
+
+        Returns list of {"period": str, "median_hours": float} sorted by period.
+        """
+        query = (
+            select(LinearIssue.started_at, PullRequest.merged_at)
+            .join(PullRequest, LinearIssue.linked_pr_id == PullRequest.id)
+            .where(
+                and_(
+                    LinearIssue.started_at.isnot(None),
+                    PullRequest.merged_at.isnot(None),
+                    PullRequest.merged_at >= start_date,
+                    PullRequest.merged_at <= end_date,
+                )
+            )
+        )
+        if team_id:
+            query = query.where(LinearIssue.team_id == team_id)
+
+        result = await self._db.execute(query)
+        rows = result.all()
+
+        def get_period_key(dt: datetime | None) -> str:
+            if not dt:
+                return ""
+            if period == "day":
+                return dt.strftime("%Y-%m-%d")
+            if period == "week":
+                return dt.strftime("%Y-W%W")
+            return dt.strftime("%Y-%m")
+
+        by_period: dict[str, list[float]] = {}
+        for started_at, merged_at in rows:
+            if not started_at or not merged_at:
+                continue
+            key = get_period_key(merged_at)
+            if not key:
+                continue
+            hours = (merged_at - started_at).total_seconds() / 3600
+            by_period.setdefault(key, []).append(round(hours, 2))
+
+        out = []
+        for key in sorted(by_period.keys()):
+            times = sorted(by_period[key])
+            median = times[len(times) // 2] if times else 0.0
+            out.append({"period": key, "median_hours": median})
+        return out
+
     async def get_throughput(
         self,
         start_date: datetime,

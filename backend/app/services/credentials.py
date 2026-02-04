@@ -101,6 +101,17 @@ class CredentialsService:
         await self._db.commit()
         await self._db.refresh(row)
 
+    async def clear_github_token(self) -> None:
+        """Remove the stored GitHub token (e.g. on disconnect)."""
+        result = await self._db.execute(
+            select(AppSettings).where(AppSettings.id == SINGLETON_ID)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            row.github_token_encrypted = None
+            await self._db.commit()
+            await self._db.refresh(row)
+
     async def get_masked(self) -> dict:
         """
         Return public/masked state for API: no raw secrets.
