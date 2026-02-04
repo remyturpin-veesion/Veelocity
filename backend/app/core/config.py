@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     pagination_default_limit: int = 20
     pagination_max_limit: int = 100  # Hard limit, cannot be exceeded
 
+    # GitHub OAuth (optional – if set, "Connect with GitHub" in Settings uses OAuth instead of only PAT)
+    github_oauth_client_id: str | None = None
+    github_oauth_client_secret: str | None = None
+    # URL where the backend is reachable (for OAuth callback). e.g. http://localhost:8000
+    oauth_backend_base_url: str = "http://localhost:8000"
+    # Where to redirect the user after successful GitHub OAuth. e.g. http://localhost:5173
+    oauth_frontend_redirect_url: str = "http://localhost:5173"
+
     # Rate limiting for API calls
     rate_limit_max_per_sync: int = 500  # Max API calls per sync session
     rate_limit_max_per_hour: int = 4000  # Max API calls per hour (GitHub limit is 5000)

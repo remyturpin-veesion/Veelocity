@@ -5,6 +5,7 @@ class SettingsResponse(BaseModel):
     """Public/masked settings (no secrets)."""
 
     github_configured: bool
+    github_has_token: bool = False  # True when token is set (e.g. after OAuth), even if repos not set
     github_repos: str
     linear_configured: bool
     linear_workspace_name: str

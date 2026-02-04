@@ -122,6 +122,7 @@ export interface PaginatedResponse<T> {
 
 export interface SettingsResponse {
   github_configured: boolean;
+  github_has_token?: boolean;
   github_repos?: string;
   linear_configured: boolean;
   linear_workspace_name?: string;

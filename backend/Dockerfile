@@ -13,5 +13,9 @@ RUN uv sync --frozen --no-dev --no-install-project
 # Copy application code
 COPY . .
 
+# Entrypoint runs migrations then starts the app
+RUN chmod +x docker-entrypoint.sh
+ENTRYPOINT ["./docker-entrypoint.sh"]
+
 # Run the application
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

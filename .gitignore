@@ -3,6 +3,9 @@
 # macOS
 .DS_Store
 
+# pnpm
+.pnpm-store/
+
 # Environment files
 .env
 .env.local

@@ -34,8 +34,19 @@ Developer Analytics Platform - Mesure et visualisation des métriques de perform
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Node.js 18+ et npm
+- Node.js 18+ et npm ou pnpm
 - Docker & Docker Compose
+
+### First-time setup
+
+- **Backend (Docker)** : `make dev` ne nécessite que Docker. Optionnel : copier `infra/docker/.env.example` vers `infra/docker/.env` et définir `VEELOCITY_ENCRYPTION_KEY` pour enregistrer les clés API dans l’app (Settings).
+- **Backend (local, hot reload)** : installer uv puis `make dev-local`.
+  ```bash
+  # Install uv (macOS/Linux)
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+- **Frontend** : `make dev-frontend` utilise pnpm ; installer Node.js puis `npm install -g pnpm` ou utiliser `cd frontend-react && npm run dev` si vous avez seulement npm.
+- **macOS** : si vous voyez un message sur la licence Xcode, exécuter une fois : `sudo xcodebuild -license`.
 
 ### Installation
 

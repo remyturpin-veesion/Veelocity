@@ -16,6 +16,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     masked = await service.get_masked()
     return SettingsResponse(
         github_configured=masked["github_configured"],
+        github_has_token=masked.get("github_has_token", False),
         github_repos=masked["github_repos"],
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
@@ -52,6 +53,7 @@ async def update_settings(
     masked = await service.get_masked()
     return SettingsResponse(
         github_configured=masked["github_configured"],
+        github_has_token=masked.get("github_has_token", False),
         github_repos=masked["github_repos"],
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],

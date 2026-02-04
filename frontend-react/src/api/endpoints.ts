@@ -35,6 +35,10 @@ export async function triggerSync(): Promise<void> {
   await apiPost(`${prefix}/connectors/sync`);
 }
 
+export async function getGitHubOAuthStatus(): Promise<{ enabled: boolean }> {
+  return apiGet(prefix + '/auth/github/status');
+}
+
 export async function getSettings(): Promise<SettingsResponse> {
   return apiGet(prefix + '/settings');
 }

@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     actions,
     alerts,
+    auth,
     connectors,
     developers,
     export,
@@ -16,6 +17,7 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 
+api_router.include_router(auth.router)
 api_router.include_router(connectors.router)
 api_router.include_router(github.router)
 api_router.include_router(actions.router)

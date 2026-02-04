@@ -104,12 +104,14 @@ class CredentialsService:
     async def get_masked(self) -> dict:
         """
         Return public/masked state for API: no raw secrets.
+        github_configured = token + repos both set; github_has_token = token only (e.g. after OAuth).
         """
         creds = await self.get_credentials()
+        has_repos = bool((creds.github_repos or "").strip())
+        has_token = bool(creds.github_token)
         return {
-            "github_configured": bool(
-                creds.github_token and (creds.github_repos or "").strip()
-            ),
+            "github_configured": has_token and has_repos,
+            "github_has_token": has_token,
             "github_repos": creds.github_repos or "",
             "linear_configured": bool(creds.linear_api_key),
             "linear_workspace_name": creds.linear_workspace_name or "",

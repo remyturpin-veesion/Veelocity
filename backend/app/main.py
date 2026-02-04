@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -51,6 +53,22 @@ app = FastAPI(
     version="0.6.1",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(Exception)
+async def log_unhandled_exception(request, exc: Exception):
+    """Log every unhandled exception with full traceback so 500s appear in backend logs."""
+    logger.exception(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
 
 # CORS middleware for frontend access
 app.add_middleware(
