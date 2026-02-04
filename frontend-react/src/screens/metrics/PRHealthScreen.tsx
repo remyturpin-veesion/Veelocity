@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRHealth } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
@@ -31,9 +30,6 @@ export function PRHealthScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR health</h1>
         <EmptyState
           title="No repositories selected"
@@ -45,9 +41,6 @@ export function PRHealthScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR health</h1>
         <SkeletonCard />
       </div>
@@ -56,9 +49,6 @@ export function PRHealthScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR health</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -75,9 +65,6 @@ export function PRHealthScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/" label="Dashboard" />
-      </p>
       <h1 className="screen-title">PR health</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}

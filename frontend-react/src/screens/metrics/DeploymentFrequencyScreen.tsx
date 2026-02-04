@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getDeploymentFrequency, getDeploymentReliability } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { TrendChart } from '@/components/TrendChart.js';
@@ -42,9 +41,6 @@ export function DeploymentFrequencyScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Deployment frequency</h1>
         <EmptyState
           title="No repositories selected"
@@ -56,9 +52,6 @@ export function DeploymentFrequencyScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Deployment frequency</h1>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
           <SkeletonCard />
@@ -70,9 +63,6 @@ export function DeploymentFrequencyScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Deployment frequency</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -97,9 +87,6 @@ export function DeploymentFrequencyScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/" label="Dashboard" />
-      </p>
       <h1 className="screen-title">Deployment frequency</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}

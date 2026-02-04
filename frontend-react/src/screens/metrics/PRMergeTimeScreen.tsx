@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRMergeTime } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
@@ -30,9 +29,6 @@ export function PRMergeTimeScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR merge time</h1>
         <EmptyState
           title="No repositories selected"
@@ -44,9 +40,6 @@ export function PRMergeTimeScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR merge time</h1>
         <SkeletonCard />
       </div>
@@ -55,9 +48,6 @@ export function PRMergeTimeScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">PR merge time</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -68,9 +58,6 @@ export function PRMergeTimeScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/" label="Dashboard" />
-      </p>
       <h1 className="screen-title">PR merge time</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}

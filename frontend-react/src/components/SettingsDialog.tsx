@@ -127,168 +127,188 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <div
         className="card"
         style={{
-          maxWidth: 480,
+          maxWidth: 520,
           width: '90%',
           maxHeight: '90vh',
           overflow: 'auto',
           background: 'var(--surface)',
           position: 'relative',
           zIndex: 1,
+          paddingBottom: 24,
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 16px', fontSize: '1.25rem' }}>Settings</h2>
+        <h2 style={{ margin: '0 0 20px', fontSize: '1.25rem', fontWeight: 600 }}>Settings</h2>
         {loading && <div className="loading">Loading…</div>}
         {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
         {!loading && (
           <>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                <label style={{ margin: 0, fontWeight: 500 }}>GitHub</label>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: (githubConfigured || githubHasToken) ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface-elevated)',
-                    color: (githubConfigured || githubHasToken) ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
-                    border: '1px solid ' + ((githubConfigured || githubHasToken) ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
-                  }}
-                >
-                  {githubConfigured ? 'Connected' : githubHasToken ? 'Token set' : 'Not connected'}
-                </span>
-                {githubOAuthEnabled && (
-                  <>
-                    <a
-                      href={`${baseUrl}/api/v1/auth/github`}
-                      target="_self"
-                      rel="noopener noreferrer"
+            <section className="settings-section settings-section--github" aria-labelledby="settings-github-title">
+              <div className="settings-section__header">
+                <div className="settings-section__icon" aria-hidden>G</div>
+                <div className="settings-section__title-wrap">
+                  <h3 id="settings-github-title" className="settings-section__title">GitHub</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '6px 12px',
-                        borderRadius: 6,
-                        background: (githubConfigured || githubHasToken) ? 'transparent' : 'var(--surface-elevated)',
-                        border: '1px solid var(--surface-border)',
-                        color: 'var(--text)',
-                        textDecoration: 'none',
+                        fontSize: '0.75rem',
                         fontWeight: 500,
-                        fontSize: '0.875rem',
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        background: (githubConfigured || githubHasToken) ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface)',
+                        color: (githubConfigured || githubHasToken) ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
+                        border: '1px solid ' + ((githubConfigured || githubHasToken) ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
                       }}
                     >
-                      {(githubConfigured || githubHasToken) ? 'Reconnect with GitHub' : 'Connect with GitHub'}
-                    </a>
-                    {(githubConfigured || githubHasToken) && (
-                      <button
-                        type="button"
-                        onClick={handleDisconnectGitHub}
-                        disabled={saving}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 6,
-                          border: '1px solid var(--surface-border)',
-                          background: 'transparent',
-                          color: 'var(--text-muted)',
-                          fontWeight: 500,
-                          fontSize: '0.875rem',
-                          cursor: saving ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        Déconnecter
-                      </button>
+                      {githubConfigured ? 'Connected' : githubHasToken ? 'Token set' : 'Not connected'}
+                    </span>
+                    {githubOAuthEnabled && (
+                      <>
+                        <a
+                          href={`${baseUrl}/api/v1/auth/github`}
+                          target="_self"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '6px 12px',
+                            borderRadius: 6,
+                            background: (githubConfigured || githubHasToken) ? 'transparent' : 'var(--surface)',
+                            border: '1px solid var(--surface-border)',
+                            color: 'var(--text)',
+                            textDecoration: 'none',
+                            fontWeight: 500,
+                            fontSize: '0.8125rem',
+                          }}
+                        >
+                          {(githubConfigured || githubHasToken) ? 'Reconnect with GitHub' : 'Connect with GitHub'}
+                        </a>
+                        {(githubConfigured || githubHasToken) && (
+                          <button
+                            type="button"
+                            onClick={handleDisconnectGitHub}
+                            disabled={saving}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 6,
+                              border: '1px solid var(--surface-border)',
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                              fontWeight: 500,
+                              fontSize: '0.8125rem',
+                              cursor: saving ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            Déconnecter
+                          </button>
+                        )}
+                      </>
                     )}
-                  </>
+                  </div>
+                </div>
+              </div>
+              <div className="settings-section__body">
+                {githubOAuthEnabled ? (
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    {(githubConfigured || githubHasToken) ? (githubConfigured ? 'Use a different account or refresh access.' : 'Token is set. Add repos below and Save to start syncing.') : 'Sign in with GitHub to grant access.'}
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Configure GitHub OAuth on the server (GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET) to connect.
+                  </p>
+                )}
+                <label style={{ display: 'block', marginTop: 12, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>
+                  GitHub repositories
+                </label>
+                <GitHubRepoMultiSelect
+                  value={githubRepos}
+                  onChange={setGithubRepos}
+                  disabled={!githubHasToken}
+                  placeholder={
+                    githubHasToken
+                      ? 'Search and select repositories…'
+                      : 'Connect with GitHub to search repositories'
+                  }
+                />
+                {githubHasToken && !githubConfigured && (
+                  <p style={{ margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                    Add at least one repo above and click Save to start syncing.
+                  </p>
                 )}
               </div>
-              {githubOAuthEnabled ? (
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                  {(githubConfigured || githubHasToken) ? (githubConfigured ? 'Use a different account or refresh access.' : 'Token is set. Add repos below and Save to start syncing.') : 'Sign in with GitHub to grant access.'}
-                </p>
-              ) : (
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                  Configure GitHub OAuth on the server (GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET) to connect.
-                </p>
-              )}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                GitHub repositories
-              </label>
-              <GitHubRepoMultiSelect
-                value={githubRepos}
-                onChange={setGithubRepos}
-                disabled={!githubHasToken}
-                placeholder={
-                  githubHasToken
-                    ? 'Search and select repositories…'
-                    : 'Connect with GitHub to search repositories'
-                }
-              />
-              {githubHasToken && !githubConfigured && (
-                <p style={{ margin: '4px 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                  Add at least one repo above and click Save to start syncing.
-                </p>
-              )}
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <label style={{ margin: 0, fontWeight: 500 }}>Linear</label>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: linearConfigured ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface-elevated)',
-                    color: linearConfigured ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
-                    border: '1px solid ' + (linearConfigured ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
-                  }}
-                >
-                  {linearConfigured ? 'Connected' : 'Not connected'}
-                </span>
+            </section>
+
+            <section className="settings-section settings-section--linear" aria-labelledby="settings-linear-title">
+              <div className="settings-section__header">
+                <div className="settings-section__icon" aria-hidden>L</div>
+                <div className="settings-section__title-wrap">
+                  <h3 id="settings-linear-title" className="settings-section__title">Linear</h3>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 6,
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: linearConfigured ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface)',
+                      color: linearConfigured ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
+                      border: '1px solid ' + (linearConfigured ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
+                    }}
+                  >
+                    {linearConfigured ? 'Connected' : 'Not connected'}
+                  </span>
+                </div>
               </div>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Linear API key</label>
-              <input
-                type="password"
-                placeholder={linearConfigured ? '•••••••• (leave blank to keep)' : 'Optional'}
-                value={linearApiKey}
-                onChange={(e) => setLinearApiKey(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: 8,
-                  borderRadius: 6,
-                  border: '1px solid var(--surface-border)',
-                  background: 'var(--surface)',
-                  color: 'var(--text)',
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Linear workspace name</label>
-              <input
-                type="text"
-                placeholder="Optional"
-                value={linearWorkspaceName}
-                onChange={(e) => setLinearWorkspaceName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: 8,
-                  borderRadius: 6,
-                  border: '1px solid var(--surface-border)',
-                  background: 'var(--surface)',
-                  color: 'var(--text)',
-                }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={onClose}>
+              <div className="settings-section__body">
+                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Linear API key</label>
+                <input
+                  type="password"
+                  placeholder={linearConfigured ? '•••••••• (leave blank to keep)' : 'Optional'}
+                  value={linearApiKey}
+                  onChange={(e) => setLinearApiKey(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Linear workspace name</label>
+                <input
+                  type="text"
+                  placeholder="Optional"
+                  value={linearWorkspaceName}
+                  onChange={(e) => setLinearWorkspaceName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+            </section>
+
+            <footer className="settings-dialog__footer">
+              <button type="button" onClick={onClose} className="settings-dialog__btn settings-dialog__btn--secondary">
                 Cancel
               </button>
-              <button type="button" onClick={handleSave} disabled={saving}>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="settings-dialog__btn settings-dialog__btn--primary"
+              >
                 {saving ? 'Saving…' : 'Save'}
               </button>
-            </div>
+            </footer>
           </>
         )}
       </div>

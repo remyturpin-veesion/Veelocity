@@ -172,18 +172,54 @@ export function DataCoverageScreen() {
               {data.connectors.map((c) => (
                 <li
                   key={c.connector_name}
-                  className="data-coverage__connector-row"
-                  style={{ '--connector-accent': CONNECTOR_ACCENT[c.connector_name] ?? 'var(--primary)' } as React.CSSProperties}
+                  className={c.connector_name === 'github' && repos.length > 0 ? 'data-coverage__connector-item data-coverage__connector-item--with-repos' : 'data-coverage__connector-item'}
                 >
-                  <span className="data-coverage__connector-dot" />
-                  <div className="data-coverage__connector-info">
-                    <span className="data-coverage__connector-name">
-                      {c.display_name ?? c.connector_name.replace(/_/g, ' ')}
-                    </span>
-                    <span className="data-coverage__connector-sync">
-                      Last sync: {formatLastSync(c.last_sync_at)}
-                    </span>
+                  <div
+                    className="data-coverage__connector-row"
+                    style={{ '--connector-accent': CONNECTOR_ACCENT[c.connector_name] ?? 'var(--primary)' } as React.CSSProperties}
+                  >
+                    <span className="data-coverage__connector-dot" />
+                    <div className="data-coverage__connector-info">
+                      <span className="data-coverage__connector-name">
+                        {c.display_name ?? c.connector_name.replace(/_/g, ' ')}
+                      </span>
+                      <span className="data-coverage__connector-sync">
+                        Last sync: {formatLastSync(c.last_sync_at)}
+                      </span>
+                    </div>
                   </div>
+                  {c.connector_name === 'github' && repos.length > 0 && (
+                    <div className="data-coverage__repos-inline">
+                      <h3 className="data-coverage__subsection-title">GitHub repos progression update</h3>
+                      <p className="data-coverage__repos-desc">
+                        PR detail sync (reviews, comments, commits) per repo.
+                      </p>
+                      <ul className="data-coverage__repo-list">
+                        {repos.map((r) => {
+                          const pct = r.total_prs > 0 ? Math.round((r.with_details / r.total_prs) * 100) : 100;
+                          const isRepoComplete = r.without_details === 0;
+                          return (
+                            <li
+                              key={r.name}
+                              className={`data-coverage__repo-row ${isRepoComplete ? 'data-coverage__repo-row--complete' : ''}`}
+                              style={{ '--repo-pct': `${pct}%` } as React.CSSProperties}
+                            >
+                              <span className="data-coverage__repo-row-fill" aria-hidden />
+                              <span className="data-coverage__repo-name" title={r.name}>
+                                {r.name}
+                              </span>
+                              <span className="data-coverage__repo-counts">
+                                {r.with_details.toLocaleString()} / {r.total_prs.toLocaleString()} PRs
+                              </span>
+                              <span className="data-coverage__repo-pct" aria-label={`${pct}% synced`}>
+                                {pct}%
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -192,37 +228,6 @@ export function DataCoverageScreen() {
           )}
         </div>
       </section>
-
-      {repos.length > 0 && (
-        <section className="data-coverage__repos">
-          <h2 className="data-coverage__section-title">GitHub repositories — PR detail sync</h2>
-          <div className="card data-coverage__repos-card">
-            <p className="data-coverage__repos-desc">
-              PR detail sync (reviews, comments, commits) per repo. Linear is synced separately; see Connectors above for Linear and GitHub Actions last sync.
-            </p>
-            <ul className="data-coverage__repo-list">
-              {repos.map((r) => {
-                const pct = r.total_prs > 0 ? Math.round((r.with_details / r.total_prs) * 100) : 100;
-                const isRepoComplete = r.without_details === 0;
-                return (
-                  <li
-                    key={r.name}
-                    className={`data-coverage__repo-row ${isRepoComplete ? 'data-coverage__repo-row--complete' : ''}`}
-                  >
-                    <span className="data-coverage__repo-name">{r.name}</span>
-                    <span className="data-coverage__repo-counts">
-                      {r.with_details.toLocaleString()} / {r.total_prs.toLocaleString()} PRs
-                    </span>
-                    <span className="data-coverage__repo-pct" aria-label={`${pct}% synced`}>
-                      {pct}%
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </section>
-      )}
 
       {chartData.length > 0 && (
         <section className="data-coverage__chart">

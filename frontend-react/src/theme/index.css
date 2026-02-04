@@ -919,6 +919,14 @@ button {
   margin: 0;
 }
 
+.data-coverage__connector-item {
+  margin-bottom: 8px;
+}
+
+.data-coverage__connector-item:last-child {
+  margin-bottom: 0;
+}
+
 .data-coverage__connector-row {
   display: flex;
   align-items: center;
@@ -927,12 +935,28 @@ button {
   border-radius: 8px;
   background: var(--surface);
   border-left: 4px solid var(--connector-accent, var(--primary));
-  margin-bottom: 8px;
+  margin-bottom: 0;
   transition: background 0.15s ease;
 }
 
-.data-coverage__connector-row:last-child {
+.data-coverage__connector-item:not(.data-coverage__connector-item--with-repos) .data-coverage__connector-row {
   margin-bottom: 0;
+}
+
+.data-coverage__repos-inline {
+  margin-top: 10px;
+  padding: 12px 16px 4px 20px;
+  border-left: 4px solid var(--primary);
+  background: var(--surface);
+  border-radius: 0 0 8px 8px;
+}
+
+.data-coverage__repos-inline .data-coverage__subsection-title {
+  margin-top: 0;
+}
+
+.data-coverage__repos-inline .data-coverage__repo-list {
+  margin-top: 10px;
 }
 
 .data-coverage__connector-row:hover {
@@ -985,6 +1009,15 @@ button {
   margin-bottom: 0;
 }
 
+.data-coverage__subsection-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
 .data-coverage__repos-desc {
   margin: 0 0 14px;
   font-size: 0.875rem;
@@ -999,6 +1032,7 @@ button {
 }
 
 .data-coverage__repo-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1007,6 +1041,18 @@ button {
   border-left: 4px solid var(--surface-border);
   margin-bottom: 6px;
   transition: background 0.15s ease;
+  overflow: hidden;
+}
+
+.data-coverage__repo-row-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--repo-pct, 0%);
+  background: var(--primary);
+  opacity: 0.08;
+  pointer-events: none;
 }
 
 .data-coverage__repo-row:last-child {
@@ -1017,22 +1063,47 @@ button {
   border-left-color: var(--metric-green);
 }
 
+/* GitHub repos inline: keep blue (--primary) for all rows */
+.data-coverage__repos-inline .data-coverage__repo-row {
+  border-left-color: var(--primary);
+}
+
+.data-coverage__repos-inline .data-coverage__repo-row--complete {
+  border-left-color: var(--primary);
+}
+
+.data-coverage__repos-inline .data-coverage__repo-row--complete .data-coverage__repo-pct {
+  color: var(--primary);
+}
+
 .data-coverage__repo-row:hover {
   background: var(--surface-hover);
 }
 
 .data-coverage__repo-name {
+  position: relative;
+  z-index: 1;
   flex: 1;
+  min-width: 0;
   font-size: 0.9375rem;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-coverage__repo-counts {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
 .data-coverage__repo-pct {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -1341,6 +1412,129 @@ button {
 [data-theme='dark'] .error {
   background: hsl(0, 40%, 18%);
   color: hsl(0, 60%, 75%);
+}
+
+/* Settings dialog sections and footer */
+.settings-section {
+  padding: 20px;
+  margin-bottom: 20px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-section:last-of-type {
+  margin-bottom: 24px;
+}
+
+.settings-section__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.settings-section__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.settings-section--github .settings-section__icon {
+  background: rgba(36, 41, 46, 0.12);
+  color: hsl(210, 14%, 28%);
+}
+
+[data-theme='dark'] .settings-section--github .settings-section__icon {
+  background: rgba(255, 255, 255, 0.1);
+  color: hsl(0, 0%, 85%);
+}
+
+.settings-section--linear .settings-section__icon {
+  background: rgba(93, 93, 255, 0.12);
+  color: hsl(240, 100%, 65%);
+}
+
+[data-theme='dark'] .settings-section--linear .settings-section__icon {
+  background: rgba(93, 93, 255, 0.2);
+  color: hsl(240, 100%, 75%);
+}
+
+.settings-section__title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-section__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+}
+
+.settings-section__body {
+  margin: 0;
+}
+
+.settings-section__body > * + * {
+  margin-top: 14px;
+}
+
+.settings-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  margin-top: 4px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.settings-dialog__btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.settings-dialog__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-dialog__btn--secondary {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  color: var(--text);
+}
+
+.settings-dialog__btn--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--surface-border);
+}
+
+.settings-dialog__btn--primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.settings-dialog__btn--primary:hover:not(:disabled) {
+  opacity: 0.92;
+  filter: brightness(1.05);
 }
 
 /* Responsive: small viewports */

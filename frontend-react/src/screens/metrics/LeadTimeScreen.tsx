@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLeadTime } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { TrendChart } from '@/components/TrendChart.js';
@@ -32,9 +31,6 @@ export function LeadTimeScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Lead time for changes</h1>
         <EmptyState
           title="No repositories selected"
@@ -46,9 +42,6 @@ export function LeadTimeScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Lead time for changes</h1>
         <SkeletonCard />
       </div>
@@ -57,9 +50,6 @@ export function LeadTimeScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Lead time for changes</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -79,9 +69,6 @@ export function LeadTimeScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/" label="Dashboard" />
-      </p>
       <h1 className="screen-title">Lead time for changes</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
