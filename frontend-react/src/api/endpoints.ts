@@ -166,6 +166,7 @@ export async function getDeploymentFrequency(params?: {
   end_date?: string;
   period?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   include_trend?: boolean;
   include_benchmark?: boolean;
@@ -175,30 +176,32 @@ export async function getDeploymentFrequency(params?: {
     period: params?.period ?? 'week',
     include_trend: params?.include_trend ?? false,
     include_benchmark: params?.include_benchmark ?? false,
-  } as Record<string, string | number | boolean>);
+  } as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getLeadTime(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/dora/lead-time`, params as Record<string, string | number | boolean>);
+  return apiGet(`${prefix}/metrics/dora/lead-time`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getDeploymentReliability(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
   include_trend?: boolean;
 }): Promise<unknown> {
   return apiGet(`${prefix}/metrics/dora/deployment-reliability`, {
     ...params,
     include_trend: params?.include_trend ?? false,
-  } as Record<string, string | number | boolean>);
+  } as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getDevelopmentMetrics(params?: {
@@ -217,22 +220,24 @@ export async function getPRReviewTime(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/development/pr-review-time`, params as Record<string, string | number | boolean>);
+  return apiGet(`${prefix}/metrics/development/pr-review-time`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getPRMergeTime(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/development/pr-merge-time`, params as Record<string, string | number | boolean>);
+  return apiGet(`${prefix}/metrics/development/pr-merge-time`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getCycleTime(params?: {
@@ -250,6 +255,7 @@ export async function getLeadTimeByPeriod(params?: {
   end_date?: string;
   period?: 'day' | 'week' | 'month';
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
 }): Promise<{ period: string; median_hours: number }[]> {
   const data = await apiGet<{ period: string; median_hours: number }[]>(
@@ -277,6 +283,7 @@ export async function getThroughput(params?: {
   end_date?: string;
   period?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   include_trend?: boolean;
   include_benchmark?: boolean;
@@ -286,13 +293,14 @@ export async function getThroughput(params?: {
     period: params?.period ?? 'week',
     include_trend: params?.include_trend ?? false,
     include_benchmark: params?.include_benchmark ?? false,
-  } as Record<string, string | number | boolean>);
+  } as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getPRHealth(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
   author_login?: string;
   min_score?: number;
   max_score?: number;
@@ -301,23 +309,25 @@ export async function getPRHealth(params?: {
   return apiGet(`${prefix}/metrics/pr-health`, {
     ...params,
     include_summary: params?.include_summary ?? true,
-  } as Record<string, string | number | boolean>);
+  } as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getReviewerWorkload(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/reviewer-workload`, params as Record<string, string | number>);
+  return apiGet(`${prefix}/metrics/reviewer-workload`, params as Record<string, string | number | number[]>);
 }
 
 export async function getRecommendations(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
 }): Promise<RecommendationsResponse> {
-  return apiGet(`${prefix}/metrics/recommendations`, params as Record<string, string | number>);
+  return apiGet(`${prefix}/metrics/recommendations`, params as Record<string, string | number | number[]>);
 }
 
 export async function getCorrelations(params?: {
@@ -325,19 +335,21 @@ export async function getCorrelations(params?: {
   end_date?: string;
   period?: string;
   repo_id?: number;
+  repo_ids?: number[];
 }): Promise<CorrelationsResponse> {
   return apiGet(`${prefix}/metrics/correlations`, {
     ...params,
     period: params?.period ?? 'week',
-  } as Record<string, string | number>);
+  } as Record<string, string | number | number[]>);
 }
 
 export async function getAlerts(params?: {
   start_date?: string;
   end_date?: string;
   repo_id?: number;
+  repo_ids?: number[];
 }): Promise<AlertsResponse> {
-  return apiGet(`${prefix}/alerts`, params as Record<string, string | number>);
+  return apiGet(`${prefix}/alerts`, params as Record<string, string | number | number[]>);
 }
 
 export async function notifyAlerts(): Promise<unknown> {

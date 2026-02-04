@@ -17,6 +17,7 @@ function formatTimeAgo(iso: string | null | undefined): string {
 }
 
 export function LinearOverviewScreen() {
+  useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const { startDate, endDate } = getStartEnd();
   useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes

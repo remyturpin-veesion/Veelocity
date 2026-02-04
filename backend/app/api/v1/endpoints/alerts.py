@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -25,6 +25,7 @@ async def get_alerts(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -41,6 +42,7 @@ async def get_alerts(
         start_date=start_date,
         end_date=end_date,
         repo_id=repo_id,
+        repo_ids=repo_ids,
     )
 
     return {
@@ -55,6 +57,7 @@ async def notify_alerts(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -71,6 +74,7 @@ async def notify_alerts(
         start_date=start_date,
         end_date=end_date,
         repo_id=repo_id,
+        repo_ids=repo_ids,
     )
 
     webhook_urls = [

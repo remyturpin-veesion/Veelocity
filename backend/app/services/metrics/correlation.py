@@ -48,6 +48,7 @@ class CorrelationService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> list[dict]:
         """
         Return pairwise correlations between deployment frequency, throughput,
@@ -59,13 +60,13 @@ class CorrelationService:
         dev = DevelopmentMetricsService(self._db)
 
         deploy = await dora.get_deployment_frequency(
-            start_date, end_date, period, repo_id, None
+            start_date, end_date, period, repo_id, repo_ids, None
         )
         throughput = await dev.get_throughput(
-            start_date, end_date, period, repo_id, None
+            start_date, end_date, period, repo_id, repo_ids, None
         )
         lead_by_period = await dora.get_lead_time_by_period(
-            start_date, end_date, period, repo_id, None
+            start_date, end_date, period, repo_id, repo_ids, None
         )
 
         data_deploy = deploy.get("data") or []

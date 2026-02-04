@@ -50,6 +50,7 @@ class AlertsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> list[Alert]:
         """
         Evaluate rules and return active alerts for the given period.
@@ -67,7 +68,7 @@ class AlertsService:
 
         # 1. Deployment frequency < 1/week
         dep_freq = await dora.get_deployment_frequency(
-            start_date, end_date, "week", repo_id, None
+            start_date, end_date, "week", repo_id, repo_ids, None
         )
         avg_per_week = dep_freq.get("average") or 0
         if avg_per_week < 1:
@@ -85,7 +86,7 @@ class AlertsService:
 
         # 2. Lead time > 48h
         lead_time = await dora.get_lead_time_for_changes(
-            start_date, end_date, repo_id, None
+            start_date, end_date, repo_id, repo_ids, None
         )
         avg_lead_hours = lead_time.get("average_hours") or 0
         count_lead = lead_time.get("count") or 0
@@ -104,7 +105,7 @@ class AlertsService:
 
         # 3. PR review time > 24h
         review_time = await dev.get_pr_review_time(
-            start_date, end_date, repo_id, None
+            start_date, end_date, repo_id, repo_ids, None
         )
         avg_review_hours = review_time.get("average_hours") or 0
         count_review = review_time.get("count") or 0
@@ -123,7 +124,7 @@ class AlertsService:
 
         # 4. Throughput 0
         throughput = await dev.get_throughput(
-            start_date, end_date, "week", repo_id, None
+            start_date, end_date, "week", repo_id, repo_ids, None
         )
         total_merged = throughput.get("total") or 0
         if total_merged == 0:
@@ -142,7 +143,7 @@ class AlertsService:
         # 5. Reviewer bottleneck
         workload_svc = ReviewerWorkloadService(self._db)
         workloads, summary = await workload_svc.analyze_workload(
-            start_date, end_date, repo_id
+            start_date, end_date, repo_id, repo_ids
         )
         if summary.has_bottleneck and summary.bottleneck_reviewers:
             names = ", ".join(summary.bottleneck_reviewers[:3])

@@ -20,6 +20,15 @@ from sqlalchemy.orm import selectinload
 from app.models.github import PullRequest, PRReview, PRComment
 
 
+def _repo_filter(repo_id: int | None, repo_ids: list[int] | None) -> list[int] | None:
+    """Resolve repo filter: repo_ids if provided, else [repo_id] if repo_id, else None."""
+    if repo_ids is not None:
+        return repo_ids
+    if repo_id is not None:
+        return [repo_id]
+    return None
+
+
 HealthCategory = Literal["excellent", "good", "fair", "poor"]
 
 
@@ -95,6 +104,7 @@ class PRHealthService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
         min_score: int | None = None,
         max_score: int | None = None,
@@ -122,9 +132,10 @@ class PRHealthService:
             .where(PullRequest.state == "closed")
         )
         
-        if repo_id:
-            query = query.where(PullRequest.repo_id == repo_id)
-        
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(PullRequest.repo_id.in_(repo_filter))
+
         if author_login:
             query = query.where(PullRequest.author_login == author_login)
         
@@ -408,15 +419,16 @@ class PRHealthService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> dict:
         """
         Get summary statistics for PR health in the period.
-        
+
         Returns:
             Dictionary with counts by category and average score
         """
         health_scores = await self.calculate_pr_health(
-            start_date, end_date, repo_id=repo_id
+            start_date, end_date, repo_id=repo_id, repo_ids=repo_ids
         )
         
         if not health_scores:

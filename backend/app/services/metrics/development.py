@@ -11,6 +11,15 @@ from app.models.github import PRReview, PullRequest
 from app.models.linear import LinearIssue
 
 
+def _repo_filter(repo_id: int | None, repo_ids: list[int] | None) -> list[int] | None:
+    """Resolve repo filter: repo_ids if provided, else [repo_id] if repo_id, else None."""
+    if repo_ids is not None:
+        return repo_ids
+    if repo_id is not None:
+        return [repo_id]
+    return None
+
+
 class DevelopmentMetricsService:
     """Calculate development metrics from synced data."""
 
@@ -22,6 +31,7 @@ class DevelopmentMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> dict:
         """
@@ -46,8 +56,9 @@ class DevelopmentMetricsService:
             .group_by(PullRequest.id, PullRequest.created_at)
         )
 
-        if repo_id:
-            query = query.where(PullRequest.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(PullRequest.repo_id.in_(repo_filter))
 
         if author_login:
             query = query.where(PullRequest.author_login == author_login)
@@ -87,6 +98,7 @@ class DevelopmentMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> dict:
         """
@@ -102,8 +114,9 @@ class DevelopmentMetricsService:
             )
         )
 
-        if repo_id:
-            query = query.where(PullRequest.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(PullRequest.repo_id.in_(repo_filter))
 
         if author_login:
             query = query.where(PullRequest.author_login == author_login)
@@ -258,6 +271,7 @@ class DevelopmentMetricsService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> dict:
         """
@@ -273,8 +287,9 @@ class DevelopmentMetricsService:
             )
         )
 
-        if repo_id:
-            query = query.where(PullRequest.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(PullRequest.repo_id.in_(repo_filter))
 
         if author_login:
             query = query.where(PullRequest.author_login == author_login)

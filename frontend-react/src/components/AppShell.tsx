@@ -98,6 +98,9 @@ export function AppShell({ children }: AppShellProps) {
     <div className={`app-shell ${showSidebar ? 'app-shell--with-sidebar' : ''}`}>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <header className="app-shell__top">
+        <Link to="/" className="app-shell__logo" aria-label="Veelocity home">
+          <img src="/Veelocity.png" alt="Veelocity" className="app-shell__logo-img" />
+        </Link>
         <nav className="app-shell__nav">
           {TABS.map(({ path, label }) => (
             <Link

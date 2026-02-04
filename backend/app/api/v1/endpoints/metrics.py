@@ -34,6 +34,7 @@ async def get_dora_metrics(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -53,10 +54,10 @@ async def get_dora_metrics(
     service = DORAMetricsService(db)
 
     deployment_freq = await service.get_deployment_frequency(
-        start_date, end_date, period, repo_id, author_login
+        start_date, end_date, period, repo_id, repo_ids, author_login
     )
     lead_time = await service.get_lead_time_for_changes(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
 
     return {
@@ -71,6 +72,7 @@ async def get_deployment_frequency(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
@@ -90,7 +92,7 @@ async def get_deployment_frequency(
 
     service = DORAMetricsService(db)
     result = await service.get_deployment_frequency(
-        start_date, end_date, period, repo_id, author_login
+        start_date, end_date, period, repo_id, repo_ids, author_login
     )
 
     # Add trend data if requested
@@ -102,7 +104,7 @@ async def get_deployment_frequency(
 
         # Get previous period data
         prev_result = await service.get_deployment_frequency(
-            prev_start, prev_end, period, repo_id, author_login
+            prev_start, prev_end, period, repo_id, repo_ids, author_login
         )
 
         # Calculate trend
@@ -131,6 +133,7 @@ async def get_deployment_reliability(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     include_trend: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
@@ -148,7 +151,7 @@ async def get_deployment_reliability(
 
     service = DORAMetricsService(db)
     result = await service.get_deployment_reliability(
-        start_date, end_date, repo_id
+        start_date, end_date, repo_id, repo_ids
     )
 
     if include_trend:
@@ -157,7 +160,7 @@ async def get_deployment_reliability(
             start_date, end_date
         )
         prev_result = await service.get_deployment_reliability(
-            prev_start, prev_end, repo_id
+            prev_start, prev_end, repo_id, repo_ids
         )
         trend = await comparison_service.calculate_trend(
             metric_name="failure_rate",
@@ -176,6 +179,7 @@ async def get_lead_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
@@ -195,7 +199,7 @@ async def get_lead_time(
 
     service = DORAMetricsService(db)
     result = await service.get_lead_time_for_changes(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
 
     # Add trend data if requested
@@ -207,7 +211,7 @@ async def get_lead_time(
 
         # Get previous period data
         prev_result = await service.get_lead_time_for_changes(
-            prev_start, prev_end, repo_id, author_login
+            prev_start, prev_end, repo_id, repo_ids, author_login
         )
 
         # Calculate trend
@@ -235,6 +239,7 @@ async def get_lead_time_by_period(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "day",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -248,7 +253,7 @@ async def get_lead_time_by_period(
 
     service = DORAMetricsService(db)
     return await service.get_lead_time_by_period(
-        start_date, end_date, period, repo_id, author_login
+        start_date, end_date, period, repo_id, repo_ids, author_login
     )
 
 
@@ -263,6 +268,7 @@ async def get_development_metrics(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -277,14 +283,14 @@ async def get_development_metrics(
     service = DevelopmentMetricsService(db)
 
     pr_review_time = await service.get_pr_review_time(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
     pr_merge_time = await service.get_pr_merge_time(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
     cycle_time = await service.get_cycle_time(start_date, end_date)
     throughput = await service.get_throughput(
-        start_date, end_date, period, repo_id, author_login
+        start_date, end_date, period, repo_id, repo_ids, author_login
     )
 
     return {
@@ -300,6 +306,7 @@ async def get_pr_review_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
@@ -319,7 +326,7 @@ async def get_pr_review_time(
 
     service = DevelopmentMetricsService(db)
     result = await service.get_pr_review_time(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
 
     # Add trend data if requested
@@ -331,7 +338,7 @@ async def get_pr_review_time(
 
         # Get previous period data
         prev_result = await service.get_pr_review_time(
-            prev_start, prev_end, repo_id, author_login
+            prev_start, prev_end, repo_id, repo_ids, author_login
         )
 
         # Calculate trend
@@ -360,6 +367,7 @@ async def get_pr_merge_time(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
@@ -379,7 +387,7 @@ async def get_pr_merge_time(
 
     service = DevelopmentMetricsService(db)
     result = await service.get_pr_merge_time(
-        start_date, end_date, repo_id, author_login
+        start_date, end_date, repo_id, repo_ids, author_login
     )
 
     # Add trend data if requested
@@ -391,7 +399,7 @@ async def get_pr_merge_time(
 
         # Get previous period data
         prev_result = await service.get_pr_merge_time(
-            prev_start, prev_end, repo_id, author_login
+            prev_start, prev_end, repo_id, repo_ids, author_login
         )
 
         # Calculate trend
@@ -490,6 +498,7 @@ async def get_throughput(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
@@ -509,7 +518,7 @@ async def get_throughput(
 
     service = DevelopmentMetricsService(db)
     result = await service.get_throughput(
-        start_date, end_date, period, repo_id, author_login
+        start_date, end_date, period, repo_id, repo_ids, author_login
     )
 
     # Add trend data if requested
@@ -521,7 +530,7 @@ async def get_throughput(
 
         # Get previous period data
         prev_result = await service.get_throughput(
-            prev_start, prev_end, period, repo_id, author_login
+            prev_start, prev_end, period, repo_id, repo_ids, author_login
         )
 
         # Calculate trend
@@ -561,6 +570,7 @@ async def get_anomalies(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -586,7 +596,7 @@ async def get_anomalies(
     if metric == "deployment_frequency":
         service = DORAMetricsService(db)
         data = await service.get_deployment_frequency(
-            start_date, end_date, period, repo_id, author_login
+            start_date, end_date, period, repo_id, repo_ids, author_login
         )
         values = [p["count"] for p in data["data"]]
         dates = [p["period"] for p in data["data"]]
@@ -595,7 +605,7 @@ async def get_anomalies(
     elif metric == "lead_time":
         service = DORAMetricsService(db)
         data = await service.get_lead_time_for_changes(
-            start_date, end_date, repo_id, author_login
+            start_date, end_date, repo_id, repo_ids, author_login
         )
         values = [m["lead_time_hours"] for m in data["measurements"]]
         dates = [m["deployed_at"] for m in data["measurements"]]
@@ -604,7 +614,7 @@ async def get_anomalies(
     elif metric == "pr_review_time":
         service = DevelopmentMetricsService(db)
         data = await service.get_pr_review_time(
-            start_date, end_date, repo_id, author_login
+            start_date, end_date, repo_id, repo_ids, author_login
         )
         # For aggregate metrics, we need to fetch individual data points
         # For now, return empty as this requires fetching PR-level data
@@ -613,7 +623,7 @@ async def get_anomalies(
     elif metric == "pr_merge_time":
         service = DevelopmentMetricsService(db)
         data = await service.get_pr_merge_time(
-            start_date, end_date, repo_id, author_login
+            start_date, end_date, repo_id, repo_ids, author_login
         )
         # Same as above - requires PR-level data
         return {"anomalies": [], "summary": {"total_count": 0}}
@@ -621,7 +631,7 @@ async def get_anomalies(
     elif metric == "throughput":
         service = DevelopmentMetricsService(db)
         data = await service.get_throughput(
-            start_date, end_date, period, repo_id, author_login
+            start_date, end_date, period, repo_id, repo_ids, author_login
         )
         values = [p["count"] for p in data["data"]]
         dates = [p["period"] for p in data["data"]]
@@ -650,6 +660,7 @@ async def get_pr_health(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     author_login: str | None = None,
     min_score: int | None = None,
     max_score: int | None = None,
@@ -686,6 +697,7 @@ async def get_pr_health(
         start_date=start_date,
         end_date=end_date,
         repo_id=repo_id,
+        repo_ids=repo_ids,
         author_login=author_login,
         min_score=min_score,
         max_score=max_score,
@@ -704,6 +716,7 @@ async def get_pr_health(
             start_date=start_date,
             end_date=end_date,
             repo_id=repo_id,
+            repo_ids=repo_ids,
         )
         response["summary"] = summary
     
@@ -715,6 +728,7 @@ async def get_reviewer_workload(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -740,6 +754,7 @@ async def get_reviewer_workload(
         start_date=start_date,
         end_date=end_date,
         repo_id=repo_id,
+        repo_ids=repo_ids,
     )
 
     return {
@@ -755,6 +770,7 @@ async def get_recommendations(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -771,6 +787,7 @@ async def get_recommendations(
         start_date=start_date,
         end_date=end_date,
         repo_id=repo_id,
+        repo_ids=repo_ids,
     )
 
     return {
@@ -786,6 +803,7 @@ async def get_correlations(
     end_date: datetime | None = None,
     period: Literal["day", "week", "month"] = "week",
     repo_id: int | None = None,
+    repo_ids: list[int] | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -801,6 +819,7 @@ async def get_correlations(
         end_date=end_date,
         period=period,
         repo_id=repo_id,
+        repo_ids=repo_ids,
     )
 
     return {

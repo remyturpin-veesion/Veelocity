@@ -74,6 +74,7 @@ class ReviewerWorkloadService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> tuple[list[ReviewerWorkload], WorkloadSummary]:
         """
         Analyze reviewer workload distribution.
@@ -92,13 +93,13 @@ class ReviewerWorkloadService:
             .group_by(PRReview.reviewer_login)
         )
 
-        if repo_id:
-            # Join with pull_requests to filter by repo
+        ids = repo_ids if repo_ids is not None else ([repo_id] if repo_id is not None else None)
+        if ids is not None:
             from app.models.github import PullRequest
 
             query = query.join(
                 PullRequest, PRReview.pr_id == PullRequest.id
-            ).where(PullRequest.repo_id == repo_id)
+            ).where(PullRequest.repo_id.in_(ids))
 
         result = await self.db.execute(query)
         rows = result.all()

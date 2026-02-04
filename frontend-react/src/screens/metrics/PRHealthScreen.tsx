@@ -3,25 +3,45 @@ import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRHealth } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
+import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function PRHealthScreen() {
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
+  const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
+  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
+  const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'pr-health', startDate, endDate, repoId],
+    queryKey: ['metrics', 'pr-health', startDate, endDate, repoIds],
     queryFn: () =>
       getPRHealth({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_summary: true,
       }),
+    enabled: !noReposSelected,
   });
 
+  if (noReposSelected) {
+    return (
+      <div>
+        <p style={{ marginBottom: 16 }}>
+          <Breadcrumb to="/" label="Dashboard" />
+        </p>
+        <h1 className="screen-title">PR health</h1>
+        <EmptyState
+          title="No repositories selected"
+          message="Select at least one repository in the filter above to see this metric."
+        />
+      </div>
+    );
+  }
   if (isLoading) {
     return (
       <div>

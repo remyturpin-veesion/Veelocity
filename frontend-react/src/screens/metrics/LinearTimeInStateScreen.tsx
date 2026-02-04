@@ -15,6 +15,7 @@ interface TimeInStateStage {
 }
 
 export function LinearTimeInStateScreen() {
+  useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);

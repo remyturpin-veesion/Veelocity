@@ -15,8 +15,13 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 
 export function GitHubOverviewScreen() {
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
+  const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
+  const repoIds = getRepoIdsForApi();
+  const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
 
   const repos = useQuery({
@@ -24,81 +29,102 @@ export function GitHubOverviewScreen() {
     queryFn: () => getRepositories(),
   });
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoId],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const leadTime = useQuery({
-    queryKey: ['metrics', 'lead-time', startDate, endDate, repoId],
+    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds],
     queryFn: () =>
       getLeadTime({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const throughput = useQuery({
-    queryKey: ['metrics', 'throughput', startDate, endDate, repoId],
+    queryKey: ['metrics', 'throughput', startDate, endDate, repoIds],
     queryFn: () =>
       getThroughput({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const prReviewTime = useQuery({
-    queryKey: ['metrics', 'pr-review-time', startDate, endDate, repoId],
+    queryKey: ['metrics', 'pr-review-time', startDate, endDate, repoIds],
     queryFn: () =>
       getPRReviewTime({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const prMergeTime = useQuery({
-    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoId],
+    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoIds],
     queryFn: () =>
       getPRMergeTime({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const prHealth = useQuery({
-    queryKey: ['metrics', 'pr-health', startDate, endDate, repoId],
+    queryKey: ['metrics', 'pr-health', startDate, endDate, repoIds],
     queryFn: () =>
       getPRHealth({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_summary: true,
       }),
+    enabled: !noReposSelected,
   });
   const reviewerWorkload = useQuery({
-    queryKey: ['metrics', 'reviewer-workload', startDate, endDate, repoId],
+    queryKey: ['metrics', 'reviewer-workload', startDate, endDate, repoIds],
     queryFn: () =>
       getReviewerWorkload({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
       }),
+    enabled: !noReposSelected,
   });
 
   const reposItems = repos.data?.items ?? [];
   const isLoadingRepos = repos.isLoading && !repos.data;
   const hasReposError = repos.error;
   const isLoadingMetrics =
-    (deploymentFreq.isLoading || leadTime.isLoading || throughput.isLoading) && !deploymentFreq.data;
+    !noReposSelected &&
+    (deploymentFreq.isLoading || leadTime.isLoading || throughput.isLoading) &&
+    !deploymentFreq.data;
   const hasMetricsError = deploymentFreq.error || leadTime.error;
+
+  if (noReposSelected) {
+    return (
+      <div>
+        <h1 className="screen-title">GitHub</h1>
+        <EmptyState
+          title="No repositories selected"
+          message="Select at least one repository in the filter above to see GitHub metrics."
+        />
+      </div>
+    );
+  }
 
   if (isLoadingRepos && reposItems.length === 0) {
     return (

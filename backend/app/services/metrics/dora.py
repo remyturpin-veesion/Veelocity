@@ -10,6 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.github import Commit, Workflow, WorkflowRun
 
 
+def _repo_filter(repo_id: int | None, repo_ids: list[int] | None) -> list[int] | None:
+    """Resolve repo filter: repo_ids if provided, else [repo_id] if repo_id, else None."""
+    if repo_ids is not None:
+        return repo_ids
+    if repo_id is not None:
+        return [repo_id]
+    return None
+
+
 class DORAMetricsService:
     """Calculate DORA metrics from synced data."""
 
@@ -22,6 +31,7 @@ class DORAMetricsService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> dict:
         """
@@ -45,8 +55,9 @@ class DORAMetricsService:
             )
         )
 
-        if repo_id:
-            query = query.where(Workflow.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(Workflow.repo_id.in_(repo_filter))
 
         result = await self._db.execute(query.order_by(WorkflowRun.completed_at))
         workflow_runs = list(result.scalars().all())
@@ -87,6 +98,7 @@ class DORAMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> dict:
         """
         Calculate deployment reliability metrics.
@@ -108,8 +120,9 @@ class DORAMetricsService:
                 )
             )
         )
-        if repo_id:
-            query = query.where(Workflow.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            query = query.where(Workflow.repo_id.in_(repo_filter))
 
         result = await self._db.execute(query.order_by(WorkflowRun.completed_at))
         runs = list(result.scalars().all())
@@ -179,6 +192,7 @@ class DORAMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> dict:
         """
@@ -208,8 +222,9 @@ class DORAMetricsService:
             )
         )
 
-        if repo_id:
-            deploy_query = deploy_query.where(Workflow.repo_id == repo_id)
+        repo_filter = _repo_filter(repo_id, repo_ids)
+        if repo_filter is not None:
+            deploy_query = deploy_query.where(Workflow.repo_id.in_(repo_filter))
 
         result = await self._db.execute(deploy_query)
         deployments = result.scalars().all()
@@ -278,6 +293,7 @@ class DORAMetricsService:
         end_date: datetime,
         period: Literal["day", "week", "month"] = "week",
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
         author_login: str | None = None,
     ) -> list[dict]:
         """
@@ -288,7 +304,7 @@ class DORAMetricsService:
         from datetime import datetime as dt
 
         result = await self.get_lead_time_for_changes(
-            start_date, end_date, repo_id, author_login
+            start_date, end_date, repo_id, repo_ids, author_login
         )
         measurements = result.get("measurements") or []
 

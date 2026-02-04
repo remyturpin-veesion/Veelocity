@@ -6,6 +6,8 @@ import { getDeveloperStats } from '@/api/endpoints.js';
 
 export function DeveloperProfileScreen() {
   const { login } = useParams<{ login: string }>();
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
   const { startDate, endDate } = getStartEnd();

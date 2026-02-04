@@ -2,7 +2,7 @@ const baseUrl =
   (import.meta as ImportMeta & { env: { VITE_API_BASE_URL?: string } }).env
     .VITE_API_BASE_URL ?? 'http://localhost:8000';
 
-type QueryParams = Record<string, string | number | boolean | undefined | (string | number)[]>;
+type QueryParams = Record<string, string | number | boolean | undefined | (string | number)[] | number[]>;
 
 function buildUrl(path: string, params?: QueryParams): string {
   const url = new URL(path.startsWith('http') ? path : `${baseUrl}${path}`);

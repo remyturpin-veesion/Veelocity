@@ -4,6 +4,8 @@ import { useFiltersStore } from '@/stores/filters.js';
 import { getDevelopers } from '@/api/endpoints.js';
 
 export function TeamScreen() {
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
   const { startDate, endDate } = getStartEnd();

@@ -1,17 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore } from '@/stores/filters.js';
 import { getAlerts } from '@/api/endpoints.js';
+import { EmptyState } from '@/components/EmptyState.js';
 
 export function AlertsOverviewScreen() {
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
+  const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
+  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
+  const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['alerts', startDate, endDate, repoId],
-    queryFn: () => getAlerts({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
+    queryKey: ['alerts', startDate, endDate, repoIds],
+    queryFn: () => getAlerts({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
+    enabled: !noReposSelected,
   });
 
+  if (noReposSelected) {
+    return (
+      <div>
+        <h1 className="screen-title">Alerts</h1>
+        <EmptyState
+          title="No repositories selected"
+          message="Select at least one repository in the filter above to see alerts."
+        />
+      </div>
+    );
+  }
   if (isLoading) return <div className="loading">Loading alerts…</div>;
   if (error) return <div className="error">{(error as Error).message}</div>;
 

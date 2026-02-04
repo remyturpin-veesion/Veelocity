@@ -50,6 +50,7 @@ class RecommendationEngine:
         start_date: datetime,
         end_date: datetime,
         repo_id: int | None = None,
+        repo_ids: list[int] | None = None,
     ) -> list[Recommendation]:
         """
         Compute prioritized recommendations for the given period.
@@ -66,7 +67,7 @@ class RecommendationEngine:
         # 1. Deployment frequency
         dora = DORAMetricsService(self._db)
         dep_freq = await dora.get_deployment_frequency(
-            start_date, end_date, "week", repo_id, None
+            start_date, end_date, "week", repo_id, repo_ids, None
         )
         avg_per_week = dep_freq.get("average") or 0
         if avg_per_week < 1 and dep_freq.get("total", 0) >= 0:
@@ -82,7 +83,7 @@ class RecommendationEngine:
 
         # 2. Lead time
         lead_time = await dora.get_lead_time_for_changes(
-            start_date, end_date, repo_id, None
+            start_date, end_date, repo_id, repo_ids, None
         )
         avg_lead_hours = lead_time.get("average_hours") or 0
         if avg_lead_hours > 48 and lead_time.get("count", 0) > 0:
@@ -99,7 +100,7 @@ class RecommendationEngine:
         # 3. PR review time
         dev = DevelopmentMetricsService(self._db)
         review_time = await dev.get_pr_review_time(
-            start_date, end_date, repo_id, None
+            start_date, end_date, repo_id, repo_ids, None
         )
         avg_review_hours = review_time.get("average_hours") or 0
         if avg_review_hours > 12 and review_time.get("count", 0) > 0:
@@ -116,7 +117,7 @@ class RecommendationEngine:
         # 4. Large PRs (from PR health: size score ≤ 12 or lines > 500)
         pr_health = PRHealthService(self._db)
         health_scores = await pr_health.calculate_pr_health(
-            start_date, end_date, repo_id, None, None, None
+            start_date, end_date, repo_id=repo_id, repo_ids=repo_ids
         )
         large_pr_count = sum(
             1 for s in health_scores if (s.lines_changed > 500 or s.size_score <= 12)
@@ -135,7 +136,7 @@ class RecommendationEngine:
         # 5. Reviewer bottleneck
         workload_svc = ReviewerWorkloadService(self._db)
         workloads, summary = await workload_svc.analyze_workload(
-            start_date, end_date, repo_id
+            start_date, end_date, repo_id, repo_ids
         )
         if summary.has_bottleneck and summary.bottleneck_reviewers:
             names = ", ".join(summary.bottleneck_reviewers[:3])

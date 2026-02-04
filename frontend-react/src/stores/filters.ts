@@ -74,6 +74,10 @@ interface FiltersState {
 
   /** Empty set = no filter (0 values). Size 1 = that repo. Size > 1 = all repos (null). */
   getRepoIdForApi: () => number | null;
+  /** Returns repo ids array for API (null = all, [] = none, [id,...] = filter). */
+  getRepoIdsForApi: () => number[] | null;
+  /** True when user selected "0 repos" — pages should show no data. */
+  hasNoReposSelected: () => boolean;
   /** Empty set = no filter (0 values). Size 1 = that author. Size > 1 = all (null). */
   getAuthorLoginForApi: () => string | null;
   /** Empty set = no filter (0 values). Non-empty = those team ids. */
@@ -134,6 +138,19 @@ export const useFiltersStore = create<FiltersState>()(
           return id === REPO_ID_NONE ? REPO_ID_NONE : id;
         }
         return null;
+      },
+
+      getRepoIdsForApi() {
+        const { repoIds } = get();
+        if (repoIds.size === 0) return null;
+        const ids = Array.from(repoIds).filter((id) => id !== REPO_ID_NONE);
+        if (ids.length === 0) return []; /* none selected */
+        return ids;
+      },
+
+      hasNoReposSelected() {
+        const ids = get().getRepoIdsForApi();
+        return Array.isArray(ids) && ids.length === 0;
       },
 
       getAuthorLoginForApi() {

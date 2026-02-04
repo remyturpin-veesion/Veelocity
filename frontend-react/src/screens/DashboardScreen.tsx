@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import {
   getDeploymentFrequency,
   getLeadTime,
@@ -10,7 +10,6 @@ import {
   getCycleTimeByPeriod,
   getAlerts,
   getReviewerWorkload,
-  getLinearTeams,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
@@ -29,112 +28,112 @@ function formatLeadOrCycleHours(hours: number): string {
   return `${h}h`;
 }
 
-function getChartDateRange(endDate: string): { start: string; end: string } {
-  const end = new Date(endDate);
-  const start = new Date(end);
-  start.setDate(start.getDate() - 13);
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
-}
-
 export function DashboardScreen() {
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const repoId = useFiltersStore((s) => s.getRepoIdForApi)();
+  const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
+  const repoIds = getRepoIdsForApi();
+  const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
-  const chartRange = useMemo(() => getChartDateRange(endDate), [endDate]);
 
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoId],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         period: 'day',
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const leadTime = useQuery({
-    queryKey: ['metrics', 'lead-time', startDate, endDate, repoId],
+    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds],
     queryFn: () =>
       getLeadTime({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const cycleTime = useQuery({
-    queryKey: ['metrics', 'cycle-time', startDate, endDate, repoId],
+    queryKey: ['metrics', 'cycle-time', startDate, endDate, repoIds],
     queryFn: () =>
       getCycleTime({
         start_date: startDate,
         end_date: endDate,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
   const deploymentReliability = useQuery({
-    queryKey: ['metrics', 'deployment-reliability', startDate, endDate, repoId],
+    queryKey: ['metrics', 'deployment-reliability', startDate, endDate, repoIds],
     queryFn: () =>
       getDeploymentReliability({
         start_date: startDate,
         end_date: endDate,
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
         include_trend: true,
       }),
+    enabled: !noReposSelected,
   });
 
   const deploymentFreqChart = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', chartRange.start, chartRange.end, repoId, 'day'],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, 'day'],
     queryFn: () =>
       getDeploymentFrequency({
-        start_date: chartRange.start,
-        end_date: chartRange.end,
-        repo_id: repoId ?? undefined,
+        start_date: startDate,
+        end_date: endDate,
+        repo_ids: repoIds ?? undefined,
         period: 'day',
       }),
+    enabled: !noReposSelected,
   });
   const leadTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'lead-time-by-period', chartRange.start, chartRange.end, repoId],
+    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds],
     queryFn: () =>
       getLeadTimeByPeriod({
-        start_date: chartRange.start,
-        end_date: chartRange.end,
+        start_date: startDate,
+        end_date: endDate,
         period: 'day',
-        repo_id: repoId ?? undefined,
+        repo_ids: repoIds ?? undefined,
       }),
+    enabled: !noReposSelected,
   });
   const cycleTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'cycle-time-by-period', chartRange.start, chartRange.end],
+    queryKey: ['metrics', 'cycle-time-by-period', startDate, endDate, repoIds],
     queryFn: () =>
       getCycleTimeByPeriod({
-        start_date: chartRange.start,
-        end_date: chartRange.end,
+        start_date: startDate,
+        end_date: endDate,
         period: 'day',
       }),
+    enabled: !noReposSelected,
   });
 
   const alerts = useQuery({
-    queryKey: ['alerts', startDate, endDate, repoId],
-    queryFn: () => getAlerts({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
+    queryKey: ['alerts', startDate, endDate, repoIds],
+    queryFn: () => getAlerts({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
+    enabled: !noReposSelected,
   });
   const reviewerWorkload = useQuery({
-    queryKey: ['metrics', 'reviewer-workload', startDate, endDate, repoId],
+    queryKey: ['metrics', 'reviewer-workload', startDate, endDate, repoIds],
     queryFn: () =>
-      getReviewerWorkload({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
-  });
-  const linearTeams = useQuery({
-    queryKey: ['linear', 'teams'],
-    queryFn: () => getLinearTeams({ limit: 10 }),
+      getReviewerWorkload({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
+    enabled: !noReposSelected,
   });
 
   const isLoading =
-    deploymentFreq.isLoading ||
-    leadTime.isLoading ||
-    cycleTime.isLoading ||
-    deploymentReliability.isLoading;
+    !noReposSelected &&
+    (deploymentFreq.isLoading ||
+      leadTime.isLoading ||
+      cycleTime.isLoading ||
+      deploymentReliability.isLoading);
   const hasError =
     deploymentFreq.error || leadTime.error || cycleTime.error || deploymentReliability.error;
 
@@ -206,6 +205,21 @@ export function DashboardScreen() {
       });
     return rows;
   }, [depFreqData, leadTimeData, cycleTimeData, relData]);
+
+  if (noReposSelected) {
+    return (
+      <div>
+        <h1 className="screen-title">Dashboard</h1>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+          {startDate} – {endDate}
+        </p>
+        <EmptyState
+          title="No repositories selected"
+          message="Select at least one repository in the filter above to see dashboard data."
+        />
+      </div>
+    );
+  }
 
   if (isLoading && !depFreqData) {
     return (
@@ -328,7 +342,7 @@ export function DashboardScreen() {
           <div className="card">
             <GlobalFlowChart
               data={fluxChartData}
-              title="Global flow (last 14 days)"
+              title={`Global flow (${formatDateRangeDisplay(startDate, endDate)})`}
               height={280}
             />
           </div>
@@ -442,86 +456,7 @@ export function DashboardScreen() {
             </ul>
           </div>
         </div>
-
-        <div className="card">
-          <h3 className="dashboard-section-title">Performance by team</h3>
-          <div className="dashboard-team-perf">
-            <TeamCycleTimeTable
-              teams={(linearTeams.data?.items ?? []) as { id: number; name?: string }[]}
-              startDate={startDate}
-              endDate={endDate}
-            />
-          </div>
-        </div>
       </div>
     </div>
-  );
-}
-
-function TeamCycleTimeRow({
-  team,
-  startDate,
-  endDate,
-}: {
-  team: { id: number; name?: string };
-  startDate: string;
-  endDate: string;
-}) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['metrics', 'cycle-time', startDate, endDate, team.id],
-    queryFn: () => getCycleTime({ start_date: startDate, end_date: endDate, team_id: team.id }),
-  });
-  const cycleData = data as { average_hours?: number; count?: number } | undefined;
-  return (
-    <tr>
-      <td>{team.name ?? `Team ${team.id}`}</td>
-      <td>
-        {cycleData?.average_hours != null
-          ? formatLeadOrCycleHours(cycleData.average_hours)
-          : isLoading
-            ? '…'
-            : '—'}
-      </td>
-      <td>{cycleData?.count ?? (isLoading ? '…' : '—')}</td>
-    </tr>
-  );
-}
-
-function TeamCycleTimeTable({
-  teams,
-  startDate,
-  endDate,
-}: {
-  teams: { id: number; name?: string }[];
-  startDate: string;
-  endDate: string;
-}) {
-  if (teams.length === 0) {
-    return (
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-        No teams. Configure Linear to see cycle time by team.
-      </p>
-    );
-  }
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Team</th>
-          <th>Cycle time</th>
-          <th>Count</th>
-        </tr>
-      </thead>
-      <tbody>
-        {teams.map((team) => (
-          <TeamCycleTimeRow
-            key={team.id}
-            team={team}
-            startDate={startDate}
-            endDate={endDate}
-          />
-        ))}
-      </tbody>
-    </table>
   );
 }
