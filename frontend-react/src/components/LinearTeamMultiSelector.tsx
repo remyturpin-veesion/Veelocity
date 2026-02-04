@@ -1,5 +1,5 @@
+import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
 import { getLinearTeams } from '@/api/endpoints.js';
 import { useFiltersStore } from '@/stores/filters.js';
 
@@ -10,76 +10,126 @@ interface LinearTeamItem {
   [key: string]: unknown;
 }
 
-function Chip({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
+function ChevronDown() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`filter-chip ${selected ? 'filter-chip--selected' : ''}`}
-      aria-pressed={selected}
-      aria-label={`${label}, ${selected ? 'selected' : 'not selected'}`}
-    >
-      {label}
-    </button>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   );
 }
 
 export function LinearTeamMultiSelector() {
-  const teamIdsArray = useFiltersStore(useShallow((s) => Array.from(s.teamIds)));
+  const teamIds = useFiltersStore((s) => s.teamIds);
   const setTeamIds = useFiltersStore((s) => s.setTeamIds);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['linear', 'teams'],
     queryFn: () => getLinearTeams({ limit: 100 }),
   });
   const teams = (data?.items ?? []) as LinearTeamItem[];
-  const allSelected = teams.length > 0 && teamIdsArray.length === teams.length;
-  const teamIdsSet = new Set(teamIdsArray);
 
-  const toggleTeam = (id: number, currentlySelected: boolean) => {
-    if (teamIdsArray.length === 0) {
-      setTeamIds(currentlySelected ? [] : [id]);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const allSelected = teamIds.size === 0;
+  const selectedTeams = teams.filter((t) => teamIds.size === 0 || teamIds.has(t.id));
+
+  const toggleTeam = (id: number) => {
+    if (teamIds.size === 0) {
+      setTeamIds(teams.filter((t) => t.id !== id).map((t) => t.id));
       return;
     }
-    if (currentlySelected) {
-      const next = teamIdsArray.filter((x) => x !== id);
-      setTeamIds(next.length ? next : []);
-    } else {
-      setTeamIds([...teamIdsArray, id]);
-    }
+    const next = new Set(teamIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setTeamIds(next.size ? next : []);
+  };
+
+  const removeTeam = (id: number) => {
+    if (teamIds.size === 0) return;
+    const next = new Set(teamIds);
+    next.delete(id);
+    setTeamIds(next.size ? next : []);
   };
 
   if (isLoading) return <span className="filter-label muted">Loading teams…</span>;
   if (teams.length === 0) return null;
 
+  const label = allSelected ? 'All' : `${selectedTeams.length} team${selectedTeams.length !== 1 ? 's' : ''}`;
+
   return (
-    <div className="filter-chips">
-      <Chip
-        label="All"
-        selected={allSelected}
-        onClick={() => {
-          setTeamIds(allSelected ? [] : teams.map((t) => t.id));
-        }}
-      />
-      {teams.map((t) => {
-        const selected = teamIdsSet.has(t.id);
-        const label = `${t.name} (${t.key})`;
-        return (
-          <Chip
-            key={t.id}
-            label={label}
-            selected={selected}
-            onClick={() => toggleTeam(t.id, selected)}
-          />
-        );
-      })}
+    <div ref={containerRef} className="filter-dropdown-wrap">
+      <button
+        type="button"
+        className="filter-dropdown-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span>{label}</span>
+        <ChevronDown />
+      </button>
+      {open && (
+        <div className="filter-dropdown-popover" role="listbox" aria-label="Select teams">
+          <button
+            type="button"
+            role="option"
+            className="filter-dropdown-option"
+            aria-selected={allSelected}
+            onClick={() => {
+              setTeamIds([]);
+              setOpen(false);
+            }}
+          >
+            All
+          </button>
+          {teams.map((t) => {
+            const selected = teamIds.size === 0 || teamIds.has(t.id);
+            const teamLabel = `${t.name} (${t.key})`;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="option"
+                className="filter-dropdown-option"
+                aria-selected={selected}
+                onClick={() => toggleTeam(t.id)}
+              >
+                {teamLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {!allSelected && selectedTeams.length > 0 && (
+        <div className="filter-tags">
+          {selectedTeams.map((t) => {
+            const teamLabel = `${t.name} (${t.key})`;
+            return (
+              <span key={t.id} className="filter-tag">
+                {teamLabel}
+                <button
+                  type="button"
+                  className="filter-tag-remove"
+                  onClick={() => removeTeam(t.id)}
+                  aria-label={`Remove ${teamLabel}`}
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

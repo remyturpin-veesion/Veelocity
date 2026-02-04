@@ -1,33 +1,13 @@
+import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDevelopers } from '@/api/endpoints.js';
 import { useFiltersStore } from '@/stores/filters.js';
 
-function Chip({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
+function ChevronDown() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '6px 12px',
-        borderRadius: 16,
-        border: `1px solid var(--surface-border)`,
-        background: selected ? 'var(--primary)' : 'var(--surface)',
-        color: selected ? 'var(--primary-foreground)' : 'var(--text)',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-        marginRight: 6,
-      }}
-    >
-      {label}
-    </button>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   );
 }
 
@@ -37,54 +17,112 @@ export function DeveloperMultiSelector() {
   const { startDate, endDate } = getStartEnd();
   const developerLogins = useFiltersStore((s) => s.developerLogins);
   const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['developers', startDate, endDate, repoId],
     queryFn: () => getDevelopers({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
   });
   const developers = data?.developers ?? [];
-  const allSelected = developers.length > 0 && developerLogins.size === developers.length;
 
-  const toggleLogin = (login: string, selected: boolean) => {
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const allSelected = developers.length > 0 && (developerLogins.size === 0 || developerLogins.size === developers.length);
+  const selectedDevelopers = developers.filter(
+    (d) => developerLogins.size === 0 || developerLogins.has(d.login)
+  );
+
+  const toggleLogin = (login: string) => {
     if (developerLogins.size === 0) {
-      setDeveloperLogins(selected ? [] : [login]);
+      setDeveloperLogins(developers.filter((d) => d.login !== login).map((d) => d.login));
       return;
     }
-    if (selected) {
-      setDeveloperLogins([...developerLogins, login]);
-    } else {
-      const next = new Set(developerLogins);
-      next.delete(login);
-      setDeveloperLogins(next.size ? next : []);
-    }
+    const next = new Set(developerLogins);
+    if (next.has(login)) next.delete(login);
+    else next.add(login);
+    setDeveloperLogins(next);
   };
 
-  if (isLoading) return <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading developers…</span>;
+  const removeLogin = (login: string) => {
+    if (developerLogins.size === 0) return;
+    const next = new Set(developerLogins);
+    next.delete(login);
+    setDeveloperLogins(next.size ? next : []);
+  };
+
+  if (isLoading) return <span className="filter-label muted">Loading developers…</span>;
   if (developers.length === 0) return null;
 
+  const label = allSelected ? 'All' : `${selectedDevelopers.length} developer${selectedDevelopers.length !== 1 ? 's' : ''}`;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-      <Chip
-        label="All"
-        selected={allSelected}
-        onClick={() => {
-          setDeveloperLogins(allSelected ? [] : developers.map((d) => d.login));
-        }}
-      />
-      <span style={{ width: 1, height: 20, background: 'var(--surface-border)', marginRight: 6 }} />
-      {developers.slice(0, 20).map((d) => {
-        const selected = developerLogins.has(d.login);
-        return (
-          <Chip
-            key={d.login}
-            label={d.login}
-            selected={selected}
-            onClick={() => toggleLogin(d.login, !selected)}
-          />
-        );
-      })}
-      {developers.length > 20 && (
-        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>+{developers.length - 20} more</span>
+    <div ref={containerRef} className="filter-dropdown-wrap">
+      <button
+        type="button"
+        className="filter-dropdown-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span>{label}</span>
+        <ChevronDown />
+      </button>
+      {open && (
+        <div className="filter-dropdown-popover" role="listbox" aria-label="Select developers">
+          <button
+            type="button"
+            role="option"
+            className="filter-dropdown-option"
+            aria-selected={allSelected}
+            onClick={() => {
+              setDeveloperLogins([]);
+              setOpen(false);
+            }}
+          >
+            All
+          </button>
+          {developers.map((d) => {
+            const selected = developerLogins.size === 0 || developerLogins.has(d.login);
+            return (
+              <button
+                key={d.login}
+                type="button"
+                role="option"
+                className="filter-dropdown-option"
+                aria-selected={selected}
+                onClick={() => toggleLogin(d.login)}
+              >
+                {d.login}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {!allSelected && selectedDevelopers.length > 0 && (
+        <div className="filter-tags">
+          {selectedDevelopers.map((d) => (
+            <span key={d.login} className="filter-tag">
+              {d.login}
+              <button
+                type="button"
+                className="filter-tag-remove"
+                onClick={() => removeLogin(d.login)}
+                aria-label={`Remove ${d.login}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -192,17 +192,19 @@ export function AppShell({ children }: AppShellProps) {
       </header>
       <div className="app-shell__filters">
         <div className="app-shell__filters-inner">
-          <span className="filter-label muted">Repos:</span>
-          <RepoMultiSelector />
-          <span className="app-shell__filters-sep" />
-          <span className="filter-label muted">Developers:</span>
-          <DeveloperMultiSelector />
+          <div className="app-shell__filter-row">
+            <span className="app-shell__filter-label">Repos</span>
+            <RepoMultiSelector />
+          </div>
+          <div className="app-shell__filter-row">
+            <span className="app-shell__filter-label">Developers</span>
+            <DeveloperMultiSelector />
+          </div>
           {showLinearSidebar && (
-            <>
-              <span className="app-shell__filters-sep" />
-              <span className="filter-label muted">Teams:</span>
+            <div className="app-shell__filter-row">
+              <span className="app-shell__filter-label">Teams</span>
               <LinearTeamMultiSelector />
-            </>
+            </div>
           )}
         </div>
       </div>
