@@ -1,6 +1,7 @@
 """Cursor connection status and overview (team, usage, spend)."""
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,8 +15,77 @@ from app.services.cursor_client import (
     get_spend,
     get_team_members,
 )
+from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
+
+def _get_num(record: dict, *keys: str) -> int:
+    """Get first present numeric value from record (supports camelCase/snake_case)."""
+    for k in keys:
+        v = record.get(k)
+        if v is not None and isinstance(v, (int, float)):
+            return int(v)
+    return 0
+
+
+def _get_date(record: dict) -> str | None:
+    """Extract date string from record (date, day, or timestamp)."""
+    date_val = record.get("date") or record.get("day")
+    if isinstance(date_val, str) and len(date_val) >= 10:
+        return date_val[:10]
+    if isinstance(date_val, (int, float)):
+        try:
+            dt = datetime.fromtimestamp(date_val / 1000 if date_val > 1e12 else date_val, tz=timezone.utc)
+            return dt.date().isoformat()
+        except (OSError, ValueError):
+            pass
+    return None
+
+
+def _aggregate_usage_data(raw_data: list) -> tuple[list[dict], dict]:
+    """
+    Aggregate raw daily-usage records by date. Returns (usage_by_day, usage_totals).
+    Handles per-user-per-day or per-day records; normalizes common field names.
+    """
+    by_date: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for record in raw_data:
+        if not isinstance(record, dict):
+            continue
+        date_str = _get_date(record)
+        if not date_str:
+            continue
+        row = by_date[date_str]
+        row["lines_added"] += _get_num(record, "totalLinesAdded", "total_lines_added")
+        row["lines_deleted"] += _get_num(
+            record, "totalLinesDeleted", "totalLinesRemoved", "total_lines_deleted"
+        )
+        row["accepted_lines_added"] += _get_num(
+            record, "acceptedLinesAdded", "accepted_lines_added"
+        )
+        row["accepted_lines_deleted"] += _get_num(
+            record, "acceptedLinesDeleted", "accepted_lines_deleted"
+        )
+        row["composer_requests"] += _get_num(record, "composerRequests", "composer_requests")
+        row["chat_requests"] += _get_num(record, "chatRequests", "chat_requests")
+        row["agent_requests"] += _get_num(record, "agentRequests", "agent_requests")
+        row["tabs_shown"] += _get_num(record, "totalTabsShown", "total_tabs_shown")
+        row["tabs_accepted"] += _get_num(record, "totalTabsAccepted", "total_tabs_accepted")
+        row["applies"] += _get_num(record, "totalApplies", "total_applies")
+        row["accepts"] += _get_num(record, "totalAccepts", "total_accepts")
+        row["rejects"] += _get_num(record, "totalRejects", "total_rejects")
+        row["cmdk_usages"] += _get_num(record, "cmdkUsages", "cmdk_usages")
+        row["bugbot_usages"] += _get_num(record, "bugbotUsages", "bugbot_usages")
+
+    usage_by_day = [
+        {"date": d, **dict(row)}
+        for d, row in sorted(by_date.items())
+    ]
+    totals: dict[str, int] = defaultdict(int)
+    for row in by_date.values():
+        for k, v in row.items():
+            totals[k] += v
+    usage_totals = dict(totals)
+    return usage_by_day, usage_totals
 
 router = APIRouter(prefix="/cursor", tags=["cursor"])
 
@@ -64,6 +134,8 @@ async def cursor_overview(db: AsyncSession = Depends(get_db)):
         "spend_cents": None,
         "spend_members": None,
         "usage_summary": None,
+        "usage_by_day": None,
+        "usage_totals": None,
     }
 
     # Team members (Admin API - all plans)
@@ -98,6 +170,16 @@ async def cursor_overview(db: AsyncSession = Depends(get_db)):
     start_ts = int((datetime.now(timezone.utc) - timedelta(days=7)).timestamp() * 1000)
     usage_data = await get_daily_usage(key, start_ts, end_ts)
     if usage_data and usage_data.get("data"):
-        overview["usage_summary"] = usage_data.get("data")
+        raw = usage_data["data"]
+        overview["usage_summary"] = raw
+        if isinstance(raw, list):
+            usage_by_day, usage_totals = _aggregate_usage_data(raw)
+            overview["usage_by_day"] = usage_by_day
+            overview["usage_totals"] = usage_totals
+
+    # Record last "sync" (fetch) for data coverage page
+    sync_state = SyncStateService(db)
+    await sync_state.update_last_sync("cursor")
+    await db.commit()
 
     return overview

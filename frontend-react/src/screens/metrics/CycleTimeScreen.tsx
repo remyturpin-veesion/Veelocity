@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getCycleTime } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function CycleTimeScreen() {
@@ -28,7 +29,7 @@ export function CycleTimeScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">Cycle time</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Cycle time</h1><MetricInfoButton metricKey="cycle-time" /></div>
         <SkeletonCard />
       </div>
     );
@@ -36,7 +37,7 @@ export function CycleTimeScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">Cycle time</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Cycle time</h1><MetricInfoButton metricKey="cycle-time" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -46,7 +47,7 @@ export function CycleTimeScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">Cycle time</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Cycle time</h1><MetricInfoButton metricKey="cycle-time" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

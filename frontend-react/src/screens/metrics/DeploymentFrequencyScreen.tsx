@@ -3,6 +3,7 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getDeploymentFrequency, getDeploymentReliability } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { TrendChart } from '@/components/TrendChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
@@ -41,7 +42,7 @@ export function DeploymentFrequencyScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <h1 className="screen-title">Deployment frequency</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Deployment frequency</h1><MetricInfoButton metricKey="deployment-frequency" /></div>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see this metric."
@@ -52,7 +53,7 @@ export function DeploymentFrequencyScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">Deployment frequency</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Deployment frequency</h1><MetricInfoButton metricKey="deployment-frequency" /></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
           <SkeletonCard />
           <SkeletonCard />
@@ -63,7 +64,7 @@ export function DeploymentFrequencyScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">Deployment frequency</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Deployment frequency</h1><MetricInfoButton metricKey="deployment-frequency" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -87,7 +88,7 @@ export function DeploymentFrequencyScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">Deployment frequency</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Deployment frequency</h1><MetricInfoButton metricKey="deployment-frequency" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

@@ -3,6 +3,7 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRReviewTime } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function PRReviewTimeScreen() {
@@ -29,7 +30,7 @@ export function PRReviewTimeScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <h1 className="screen-title">PR review time</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR review time</h1><MetricInfoButton metricKey="pr-review-time" /></div>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see this metric."
@@ -40,7 +41,7 @@ export function PRReviewTimeScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">PR review time</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR review time</h1><MetricInfoButton metricKey="pr-review-time" /></div>
         <SkeletonCard />
       </div>
     );
@@ -48,7 +49,7 @@ export function PRReviewTimeScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">PR review time</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR review time</h1><MetricInfoButton metricKey="pr-review-time" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -58,7 +59,7 @@ export function PRReviewTimeScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">PR review time</h1>
+      <div className="screen-title-row"><h1 className="screen-title">PR review time</h1><MetricInfoButton metricKey="pr-review-time" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

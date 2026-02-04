@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getReviewerWorkload } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function ReviewerWorkloadScreen() {
@@ -27,7 +28,7 @@ export function ReviewerWorkloadScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <h1 className="screen-title">Reviewer workload</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Reviewer workload</h1><MetricInfoButton metricKey="reviewer-workload" /></div>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see this metric."
@@ -38,7 +39,7 @@ export function ReviewerWorkloadScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">Reviewer workload</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Reviewer workload</h1><MetricInfoButton metricKey="reviewer-workload" /></div>
         <SkeletonCard />
       </div>
     );
@@ -46,7 +47,7 @@ export function ReviewerWorkloadScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">Reviewer workload</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Reviewer workload</h1><MetricInfoButton metricKey="reviewer-workload" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -60,7 +61,7 @@ export function ReviewerWorkloadScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">Reviewer workload</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Reviewer workload</h1><MetricInfoButton metricKey="reviewer-workload" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
         {d.summary?.gini_coefficient != null && ` · Gini: ${d.summary.gini_coefficient.toFixed(2)}`}

@@ -139,6 +139,43 @@ export interface CursorStatusResponse {
   team_members_count?: number;
 }
 
+/** Per-day aggregated usage from Cursor Admin API (daily-usage-data). */
+export interface CursorUsageDay {
+  date: string;
+  lines_added: number;
+  lines_deleted: number;
+  accepted_lines_added: number;
+  accepted_lines_deleted: number;
+  composer_requests: number;
+  chat_requests: number;
+  agent_requests: number;
+  tabs_shown: number;
+  tabs_accepted: number;
+  applies: number;
+  accepts: number;
+  rejects: number;
+  cmdk_usages: number;
+  bugbot_usages: number;
+}
+
+/** Totals over the usage period (e.g. last 7 days). */
+export interface CursorUsageTotals {
+  lines_added: number;
+  lines_deleted: number;
+  accepted_lines_added: number;
+  accepted_lines_deleted: number;
+  composer_requests: number;
+  chat_requests: number;
+  agent_requests: number;
+  tabs_shown: number;
+  tabs_accepted: number;
+  applies: number;
+  accepts: number;
+  rejects: number;
+  cmdk_usages: number;
+  bugbot_usages: number;
+}
+
 export interface CursorOverviewResponse {
   team_members_count: number;
   dau: Array<{ date: string; dau: number; cli_dau?: number; cloud_agent_dau?: number; bugbot_dau?: number }> | null;
@@ -146,6 +183,8 @@ export interface CursorOverviewResponse {
   spend_cents: number | null;
   spend_members: number | null;
   usage_summary: unknown[] | null;
+  usage_by_day: CursorUsageDay[] | null;
+  usage_totals: CursorUsageTotals | null;
 }
 
 export interface GitHubRepoSearchItem {
@@ -205,6 +244,8 @@ export interface SyncStatusResponse {
   }>;
   sync_in_progress: boolean;
   current_job: string | null;
+  cursor_connected?: boolean;
+  cursor_team_members_count?: number | null;
 }
 
 export interface DailyCountItem {

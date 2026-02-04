@@ -1,5 +1,15 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import {
@@ -216,6 +226,64 @@ export function DashboardScreen() {
     return rows;
   }, [depFreqData, leadTimeData, cycleTimeData, relData]);
 
+  const cursor = cursorOverview.data;
+  const cursorUsageChartData = useMemo(() => {
+    const byDay = cursor?.usage_by_day;
+    if (!byDay?.length) return [];
+    return byDay.map((d) => ({
+      date: d.date,
+      lines_added: d.lines_added,
+      lines_deleted: d.lines_deleted,
+      composer: d.composer_requests,
+      chat: d.chat_requests,
+      agent: d.agent_requests,
+      tabs_accepted: d.tabs_accepted,
+    }));
+  }, [cursor?.usage_by_day]);
+
+  const tot = cursor?.usage_totals;
+  const cursorSummaryBlock =
+    settings.data?.cursor_configured && cursor ? (
+      <div className="card">
+        <h3 className="dashboard-section-title">
+          <Link to="/cursor" style={{ color: 'var(--text)', textDecoration: 'none' }}>Cursor</Link>
+        </h3>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Team members</span>
+          <span>{cursor.team_members_count}</span>
+        </div>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Current cycle spend</span>
+          <span>
+            {cursor.spend_cents != null ? `$${(cursor.spend_cents / 100).toFixed(2)}` : '—'}
+          </span>
+        </div>
+        {tot && (
+          <>
+            <div className="dashboard-quick-overview__row">
+              <span style={{ color: 'var(--text-muted)' }}>Lines added (7d)</span>
+              <span>{tot.lines_added.toLocaleString()}</span>
+            </div>
+            <div className="dashboard-quick-overview__row">
+              <span style={{ color: 'var(--text-muted)' }}>Composer requests (7d)</span>
+              <span>{tot.composer_requests.toLocaleString()}</span>
+            </div>
+            <div className="dashboard-quick-overview__row">
+              <span style={{ color: 'var(--text-muted)' }}>Chat requests (7d)</span>
+              <span>{tot.chat_requests.toLocaleString()}</span>
+            </div>
+            <div className="dashboard-quick-overview__row">
+              <span style={{ color: 'var(--text-muted)' }}>Tabs accepted (7d)</span>
+              <span>{tot.tabs_accepted.toLocaleString()}</span>
+            </div>
+          </>
+        )}
+        <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.8125rem' }}>
+          <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
+        </p>
+      </div>
+    ) : null;
+
   if (noReposSelected) {
     return (
       <div>
@@ -265,37 +333,6 @@ export function DashboardScreen() {
     );
   }
 
-  const cursor = cursorOverview.data;
-  const cursorBlock =
-    settings.data?.cursor_configured && cursor ? (
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h3 className="dashboard-section-title">
-          <Link to="/cursor" style={{ color: 'var(--text)', textDecoration: 'none' }}>Cursor</Link>
-        </h3>
-        <div className="dashboard-quick-overview__row">
-          <span style={{ color: 'var(--text-muted)' }}>Team members</span>
-          <span>{cursor.team_members_count}</span>
-        </div>
-        <div className="dashboard-quick-overview__row">
-          <span style={{ color: 'var(--text-muted)' }}>Current cycle spend</span>
-          <span>
-            {cursor.spend_cents != null ? `$${(cursor.spend_cents / 100).toFixed(2)}` : '—'}
-          </span>
-        </div>
-        <div className="dashboard-quick-overview__row">
-          <span style={{ color: 'var(--text-muted)' }}>Daily active users (7d)</span>
-          <span>
-            {cursor.dau && cursor.dau.length > 0
-              ? cursor.dau[cursor.dau.length - 1]?.dau ?? '—'
-              : '—'}
-          </span>
-        </div>
-        <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.8125rem' }}>
-          <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
-        </p>
-      </div>
-    ) : null;
-
   return (
     <div>
       <h1 className="screen-title">Dashboard</h1>
@@ -303,7 +340,6 @@ export function DashboardScreen() {
         {startDate} – {endDate}
       </p>
       <div className="dashboard">
-        {cursorBlock}
         <div className="dashboard__kpi-row">
           <KpiCard
             title="Lead time"
@@ -400,6 +436,43 @@ export function DashboardScreen() {
             </div>
           </div>
         </div>
+
+        {settings.data?.cursor_configured && cursor != null && (
+          <div className="dashboard__middle" style={{ marginTop: 20 }}>
+            <div className="card">
+              {cursorUsageChartData.length > 0 ? (
+                <>
+                  <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Cursor — Usage</p>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={cursorUsageChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                      <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                      <Tooltip
+                        contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                        labelStyle={{ color: 'var(--text)' }}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="lines_added" name="Lines added" yAxisId="right" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="lines_deleted" name="Lines deleted" yAxisId="right" stroke="var(--metric-orange)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="composer" name="Composer" yAxisId="left" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="chat" name="Chat" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="agent" name="Agent" yAxisId="left" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              ) : (
+                <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontWeight: 600, margin: 0 }}>Cursor — Usage</p>
+                  <p style={{ fontSize: '0.875rem', margin: 0 }}>No usage data yet. Data appears after Cursor Admin API returns daily usage.</p>
+                </div>
+              )}
+            </div>
+            {cursorSummaryBlock}
+          </div>
+        )}
 
         <div className="dashboard__bottom-three">
           <div className="card">

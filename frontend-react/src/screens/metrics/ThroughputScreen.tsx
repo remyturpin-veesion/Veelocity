@@ -3,6 +3,7 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getThroughput } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { TrendChart } from '@/components/TrendChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
@@ -31,7 +32,7 @@ export function ThroughputScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <h1 className="screen-title">Throughput</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Throughput</h1><MetricInfoButton metricKey="throughput" /></div>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see this metric."
@@ -42,7 +43,7 @@ export function ThroughputScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">Throughput</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Throughput</h1><MetricInfoButton metricKey="throughput" /></div>
         <SkeletonCard />
       </div>
     );
@@ -50,7 +51,7 @@ export function ThroughputScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">Throughput</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Throughput</h1><MetricInfoButton metricKey="throughput" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -65,7 +66,7 @@ export function ThroughputScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">Throughput</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Throughput</h1><MetricInfoButton metricKey="throughput" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

@@ -3,6 +3,7 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearTimeInState } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { TrendChart } from '@/components/TrendChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
@@ -41,7 +42,7 @@ export function LinearTimeInStateScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <h1 className="screen-title">Linear time in state</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
         <SkeletonCard />
       </div>
     );
@@ -52,7 +53,7 @@ export function LinearTimeInStateScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <h1 className="screen-title">Linear time in state</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -93,7 +94,7 @@ export function LinearTimeInStateScreen() {
       <p style={{ marginBottom: 16 }}>
         <Breadcrumb to="/linear" label="Linear" />
       </p>
-      <h1 className="screen-title">Linear time in state</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

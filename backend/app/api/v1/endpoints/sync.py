@@ -296,8 +296,23 @@ async def get_sync_status(
         })
 
     from app.services.scheduler import get_sync_job_state
+    from app.services.credentials import CredentialsService
 
     sync_in_progress, current_job = get_sync_job_state()
+
+    # Cursor: connected and team members count (for data coverage progression)
+    cursor_connected = False
+    cursor_team_members_count: int | None = None
+    creds = await CredentialsService(db).get_credentials()
+    if creds.cursor_api_key:
+        cursor_connected = True
+        try:
+            from app.services.cursor_client import get_team_members
+            members = await get_team_members(creds.cursor_api_key)
+            if members and members.get("teamMembers"):
+                cursor_team_members_count = len(members["teamMembers"])
+        except Exception:
+            pass
 
     return {
         "total_prs": total_prs,
@@ -309,6 +324,8 @@ async def get_sync_status(
         "linear_teams": linear_teams_status,
         "sync_in_progress": sync_in_progress,
         "current_job": current_job,
+        "cursor_connected": cursor_connected,
+        "cursor_team_members_count": cursor_team_members_count,
     }
 
 
@@ -905,6 +922,7 @@ async def get_sync_coverage(
     sync_states_result = await db.execute(select(SyncState))
     sync_states = sync_states_result.scalars().all()
     linear_display_name = creds.linear_workspace_name.strip() or None
+    connector_names_seen = {s.connector_name for s in sync_states}
     connectors = [
         ConnectorSyncState(
             connector_name=s.connector_name,
@@ -916,6 +934,19 @@ async def get_sync_coverage(
         )
         for s in sync_states
     ]
+    # Add Cursor when configured (may not have a SyncState row yet)
+    if creds.cursor_api_key and "cursor" not in connector_names_seen:
+        cursor_state = next(
+            (s for s in sync_states if s.connector_name == "cursor"), None
+        )
+        connectors.append(
+            ConnectorSyncState(
+                connector_name="cursor",
+                display_name="Cursor",
+                last_sync_at=cursor_state.last_sync_at if cursor_state else None,
+                last_full_sync_at=cursor_state.last_full_sync_at if cursor_state else None,
+            )
+        )
 
     # Get all repositories
     repos_result = await db.execute(select(Repository).order_by(Repository.full_name))

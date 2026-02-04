@@ -4,6 +4,7 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRHealth } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function PRHealthScreen() {
@@ -30,7 +31,7 @@ export function PRHealthScreen() {
   if (noReposSelected) {
     return (
       <div>
-        <h1 className="screen-title">PR health</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR health</h1><MetricInfoButton metricKey="pr-health" /></div>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see this metric."
@@ -41,7 +42,7 @@ export function PRHealthScreen() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="screen-title">PR health</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR health</h1><MetricInfoButton metricKey="pr-health" /></div>
         <SkeletonCard />
       </div>
     );
@@ -49,7 +50,7 @@ export function PRHealthScreen() {
   if (error) {
     return (
       <div>
-        <h1 className="screen-title">PR health</h1>
+        <div className="screen-title-row"><h1 className="screen-title">PR health</h1><MetricInfoButton metricKey="pr-health" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -65,7 +66,7 @@ export function PRHealthScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">PR health</h1>
+      <div className="screen-title-row"><h1 className="screen-title">PR health</h1><MetricInfoButton metricKey="pr-health" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         {formatDateRangeDisplay(startDate, endDate)}
       </p>

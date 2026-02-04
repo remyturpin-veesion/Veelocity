@@ -3,6 +3,7 @@ import { useFiltersStore } from '@/stores/filters.js';
 import { getLinearBacklog } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function LinearBacklogScreen() {
@@ -25,7 +26,7 @@ export function LinearBacklogScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <h1 className="screen-title">Linear backlog</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Linear backlog</h1><MetricInfoButton metricKey="linear-backlog" /></div>
         <SkeletonCard />
       </div>
     );
@@ -36,7 +37,7 @@ export function LinearBacklogScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <h1 className="screen-title">Linear backlog</h1>
+        <div className="screen-title-row"><h1 className="screen-title">Linear backlog</h1><MetricInfoButton metricKey="linear-backlog" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -49,7 +50,7 @@ export function LinearBacklogScreen() {
       <p style={{ marginBottom: 16 }}>
         <Breadcrumb to="/linear" label="Linear" />
       </p>
-      <h1 className="screen-title">Linear backlog</h1>
+      <div className="screen-title-row"><h1 className="screen-title">Linear backlog</h1><MetricInfoButton metricKey="linear-backlog" /></div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <KpiCard title="Open issues" value={String(d.total ?? '—')} />
       </div>
