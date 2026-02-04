@@ -52,6 +52,12 @@ export function toStartEnd(state: DateRangeState): { startDate: string; endDate:
 /** Sentinel for "no author" filter; backend returns empty when this is passed. */
 export const AUTHOR_LOGIN_NONE = '__none__';
 
+/** Sentinel for "no repo" filter; backend returns empty when repo_id is this. */
+export const REPO_ID_NONE = -1;
+
+/** Sentinel for "no team" filter; backend returns empty when team_ids contains only this. */
+export const TEAM_ID_NONE = -1;
+
 interface FiltersState {
   dateRange: DateRangeState;
   repoIds: Set<number>;
@@ -123,19 +129,28 @@ export const useFiltersStore = create<FiltersState>()(
       getRepoIdForApi() {
         const { repoIds } = get();
         if (repoIds.size === 0) return null;
-        return repoIds.size === 1 ? [...repoIds][0]! : null;
+        if (repoIds.size === 1) {
+          const id = [...repoIds][0]!;
+          return id === REPO_ID_NONE ? REPO_ID_NONE : id;
+        }
+        return null;
       },
 
       getAuthorLoginForApi() {
         const { developerLogins } = get();
-        if (developerLogins.size === 0) return AUTHOR_LOGIN_NONE;
-        return developerLogins.size === 1 ? [...developerLogins][0]! : null;
+        if (developerLogins.size === 0) return null;
+        if (developerLogins.size === 1) {
+          const login = [...developerLogins][0]!;
+          return login === AUTHOR_LOGIN_NONE ? AUTHOR_LOGIN_NONE : login;
+        }
+        return null;
       },
 
       getTeamIdsForApi() {
         const { teamIds } = get();
         if (teamIds.size === 0) return [];
-        return Array.from(teamIds);
+        if (teamIds.size === 1 && teamIds.has(TEAM_ID_NONE)) return [TEAM_ID_NONE];
+        return Array.from(teamIds).filter((id) => id !== TEAM_ID_NONE);
       },
 
       getStartEnd() {

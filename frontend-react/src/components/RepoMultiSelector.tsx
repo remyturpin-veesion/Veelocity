@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRepositories } from '@/api/endpoints.js';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, REPO_ID_NONE } from '@/stores/filters.js';
 import type { Repository } from '@/types/index.js';
 
 function ChevronDown() {
@@ -31,12 +31,21 @@ export function RepoMultiSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const allSelected = repos.length > 0 && (repoIds.size === 0 || repoIds.size === repos.length);
-  const selectedRepos = repos.filter((r) => repoIds.size === 0 || repoIds.has(r.id));
+  const allSelected =
+    repos.length > 0 &&
+    (repoIds.size === 0 || (repoIds.size === repos.length && !repoIds.has(REPO_ID_NONE)));
+  const selectedRepos =
+    repoIds.has(REPO_ID_NONE)
+      ? []
+      : repos.filter((r) => repoIds.size === 0 || repoIds.has(r.id));
 
   const toggleRepo = (id: number) => {
     if (repoIds.size === 0) {
       setRepoIds(repos.filter((r) => r.id !== id).map((r) => r.id));
+      return;
+    }
+    if (repoIds.has(REPO_ID_NONE)) {
+      setRepoIds([id]);
       return;
     }
     const next = new Set(repoIds);
@@ -46,10 +55,19 @@ export function RepoMultiSelector() {
   };
 
   const removeRepo = (id: number) => {
-    if (repoIds.size === 0) return;
+    if (repoIds.has(REPO_ID_NONE)) return;
+    if (repoIds.size === 0) {
+      setRepoIds(repos.filter((r) => r.id !== id).map((r) => r.id));
+      return;
+    }
     const next = new Set(repoIds);
     next.delete(id);
     setRepoIds(next.size ? next : []);
+  };
+
+  const selectOnlyRepo = (id: number) => {
+    setRepoIds([id]);
+    setOpen(false);
   };
 
   if (isLoading) return <span className="filter-label muted">Loading repos…</span>;
@@ -77,32 +95,55 @@ export function RepoMultiSelector() {
             className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
-              setRepoIds([]);
-              setOpen(false);
+              if (allSelected) {
+                setRepoIds(new Set([REPO_ID_NONE]));
+              } else {
+                setRepoIds([]);
+              }
             }}
           >
             <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {repos.map((r) => {
-            const selected = repoIds.size === 0 || repoIds.has(r.id);
+            const selected =
+              !repoIds.has(REPO_ID_NONE) && (repoIds.size === 0 || repoIds.has(r.id));
             return (
-              <button
+              <div
                 key={r.id}
-                type="button"
                 role="option"
-                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
                 aria-selected={selected}
-                onClick={() => toggleRepo(r.id)}
+                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
               >
-                <span className="filter-dropdown-option__check" aria-hidden>{selected ? '✓' : ''}</span>
-                {r.full_name}
-              </button>
+                <button
+                  type="button"
+                  className="filter-dropdown-option__check"
+                  aria-label={selected ? `Uncheck ${r.full_name}` : `Check ${r.full_name}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleRepo(r.id);
+                  }}
+                >
+                  {selected ? '✓' : ''}
+                </button>
+                <button
+                  type="button"
+                  className="filter-dropdown-option__name"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectOnlyRepo(r.id);
+                  }}
+                >
+                  {r.full_name}
+                </button>
+              </div>
             );
           })}
         </div>
       )}
-      {!allSelected && selectedRepos.length > 0 && (
+      {selectedRepos.length > 0 && (
         <div className="filter-tags">
           {selectedRepos.map((r) => (
             <span key={r.id} className="filter-tag">

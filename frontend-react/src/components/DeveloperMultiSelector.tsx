@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDevelopers } from '@/api/endpoints.js';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, AUTHOR_LOGIN_NONE } from '@/stores/filters.js';
 
 function ChevronDown() {
   return (
@@ -36,14 +36,21 @@ export function DeveloperMultiSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const allSelected = developers.length > 0 && (developerLogins.size === 0 || developerLogins.size === developers.length);
-  const selectedDevelopers = developers.filter(
-    (d) => developerLogins.size === 0 || developerLogins.has(d.login)
-  );
+  const allSelected =
+    developers.length > 0 &&
+    (developerLogins.size === 0 ||
+      (developerLogins.size === developers.length && !developerLogins.has(AUTHOR_LOGIN_NONE)));
+  const selectedDevelopers = developerLogins.has(AUTHOR_LOGIN_NONE)
+    ? []
+    : developers.filter((d) => developerLogins.size === 0 || developerLogins.has(d.login));
 
   const toggleLogin = (login: string) => {
     if (developerLogins.size === 0) {
       setDeveloperLogins(developers.filter((d) => d.login !== login).map((d) => d.login));
+      return;
+    }
+    if (developerLogins.has(AUTHOR_LOGIN_NONE)) {
+      setDeveloperLogins([login]);
       return;
     }
     const next = new Set(developerLogins);
@@ -53,7 +60,7 @@ export function DeveloperMultiSelector() {
   };
 
   const removeLogin = (login: string) => {
-    if (developerLogins.size === 0) return;
+    if (developerLogins.size === 0 || developerLogins.has(AUTHOR_LOGIN_NONE)) return;
     const next = new Set(developerLogins);
     next.delete(login);
     setDeveloperLogins(next.size ? next : []);
@@ -84,15 +91,20 @@ export function DeveloperMultiSelector() {
             className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
-              setDeveloperLogins([]);
-              setOpen(false);
+              if (allSelected) {
+                setDeveloperLogins([AUTHOR_LOGIN_NONE]);
+              } else {
+                setDeveloperLogins([]);
+              }
             }}
           >
             <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {developers.map((d) => {
-            const selected = developerLogins.size === 0 || developerLogins.has(d.login);
+            const selected =
+              !developerLogins.has(AUTHOR_LOGIN_NONE) &&
+              (developerLogins.size === 0 || developerLogins.has(d.login));
             return (
               <button
                 key={d.login}

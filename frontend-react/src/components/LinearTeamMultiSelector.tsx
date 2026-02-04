@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLinearTeams } from '@/api/endpoints.js';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, TEAM_ID_NONE } from '@/stores/filters.js';
 
 interface LinearTeamItem {
   id: number;
@@ -40,12 +40,19 @@ export function LinearTeamMultiSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const allSelected = teamIds.size === 0;
-  const selectedTeams = teams.filter((t) => teamIds.size === 0 || teamIds.has(t.id));
+  const allSelected =
+    teamIds.size === 0 || (teamIds.size === teams.length && !teamIds.has(TEAM_ID_NONE));
+  const selectedTeams = teamIds.has(TEAM_ID_NONE)
+    ? []
+    : teams.filter((t) => teamIds.size === 0 || teamIds.has(t.id));
 
   const toggleTeam = (id: number) => {
     if (teamIds.size === 0) {
       setTeamIds(teams.filter((t) => t.id !== id).map((t) => t.id));
+      return;
+    }
+    if (teamIds.has(TEAM_ID_NONE)) {
+      setTeamIds([id]);
       return;
     }
     const next = new Set(teamIds);
@@ -55,7 +62,7 @@ export function LinearTeamMultiSelector() {
   };
 
   const removeTeam = (id: number) => {
-    if (teamIds.size === 0) return;
+    if (teamIds.size === 0 || teamIds.has(TEAM_ID_NONE)) return;
     const next = new Set(teamIds);
     next.delete(id);
     setTeamIds(next.size ? next : []);
@@ -86,15 +93,19 @@ export function LinearTeamMultiSelector() {
             className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
-              setTeamIds([]);
-              setOpen(false);
+              if (allSelected) {
+                setTeamIds(new Set([TEAM_ID_NONE]));
+              } else {
+                setTeamIds([]);
+              }
             }}
           >
             <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {teams.map((t) => {
-            const selected = teamIds.size === 0 || teamIds.has(t.id);
+            const selected =
+              !teamIds.has(TEAM_ID_NONE) && (teamIds.size === 0 || teamIds.has(t.id));
             const teamLabel = `${t.name} (${t.key})`;
             return (
               <button
