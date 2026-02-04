@@ -83,13 +83,14 @@ export function LinearTeamMultiSelector() {
           <button
             type="button"
             role="option"
-            className="filter-dropdown-option"
+            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
               setTeamIds([]);
               setOpen(false);
             }}
           >
+            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {teams.map((t) => {
@@ -100,10 +101,11 @@ export function LinearTeamMultiSelector() {
                 key={t.id}
                 type="button"
                 role="option"
-                className="filter-dropdown-option"
+                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
                 aria-selected={selected}
                 onClick={() => toggleTeam(t.id)}
               >
+                <span className="filter-dropdown-option__check" aria-hidden>{selected ? '✓' : ''}</span>
                 {teamLabel}
               </button>
             );

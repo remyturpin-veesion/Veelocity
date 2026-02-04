@@ -74,13 +74,14 @@ export function RepoMultiSelector() {
           <button
             type="button"
             role="option"
-            className="filter-dropdown-option"
+            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
               setRepoIds([]);
               setOpen(false);
             }}
           >
+            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {repos.map((r) => {
@@ -90,10 +91,11 @@ export function RepoMultiSelector() {
                 key={r.id}
                 type="button"
                 role="option"
-                className="filter-dropdown-option"
+                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
                 aria-selected={selected}
                 onClick={() => toggleRepo(r.id)}
               >
+                <span className="filter-dropdown-option__check" aria-hidden>{selected ? '✓' : ''}</span>
                 {r.full_name}
               </button>
             );

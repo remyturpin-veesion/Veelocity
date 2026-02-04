@@ -98,7 +98,6 @@ make format          # Black format (backend)
 veelocity/
 ├── backend/          # API FastAPI
 ├── frontend-react/   # App React (Vite, TypeScript)
-├── frontend/         # Ancienne app Flutter (conservée pour référence)
 ├── infra/docker/     # Docker Compose
 ├── docs/plans/       # Design documents
 ├── CLAUDE.md         # Guide pour Claude Code

@@ -81,13 +81,14 @@ export function DeveloperMultiSelector() {
           <button
             type="button"
             role="option"
-            className="filter-dropdown-option"
+            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
             onClick={() => {
               setDeveloperLogins([]);
               setOpen(false);
             }}
           >
+            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
             All
           </button>
           {developers.map((d) => {
@@ -97,10 +98,11 @@ export function DeveloperMultiSelector() {
                 key={d.login}
                 type="button"
                 role="option"
-                className="filter-dropdown-option"
+                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
                 aria-selected={selected}
                 onClick={() => toggleLogin(d.login)}
               >
+                <span className="filter-dropdown-option__check" aria-hidden>{selected ? '✓' : ''}</span>
                 {d.login}
               </button>
             );

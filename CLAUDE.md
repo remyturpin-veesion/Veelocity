@@ -255,8 +255,6 @@ veelocity/
 │       ├── stores/               # Zustand (filters, theme)
 │       ├── theme/                # CSS variables
 │       └── types/                # TS types
-├── frontend/                     # Legacy Flutter app (optional)
-│   └── lib/
 ├── infra/docker/
 │   ├── docker-compose.yml
 │   └── .env.example

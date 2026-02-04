@@ -110,66 +110,6 @@ export function AppShell({ children }: AppShellProps) {
           ))}
         </nav>
         <div className="app-shell__spacer" />
-        <div className="app-shell__date-range-wrap" ref={datePickerRef}>
-          <button
-            type="button"
-            className="app-shell__date-pill"
-            title="Choose date range"
-            onClick={() => setDatePickerOpen((o) => !o)}
-            aria-expanded={datePickerOpen}
-            aria-haspopup="dialog"
-          >
-            {formatDateRangeDisplay(startDate, endDate)}
-          </button>
-          {datePickerOpen && (
-            <div className="app-shell__date-popover" role="dialog" aria-label="Date range">
-              <PeriodSelector
-                preset={dateRange.preset}
-                onPresetChange={(p) => {
-                  setDateRangePreset(p);
-                }}
-              />
-              <div className="app-shell__date-custom">
-                <span className="app-shell__date-custom-label">Custom range</span>
-                <div className="app-shell__date-custom-inputs">
-                  <label className="app-shell__date-custom-field">
-                    <span>From</span>
-                    <input
-                      type="date"
-                      value={dateRange.customStart ?? startDate}
-                      onChange={(e) => {
-                        const start = e.target.value;
-                        const end = dateRange.customEnd ?? endDate;
-                        setDateRangeCustom(start, end && start <= end ? end : start);
-                      }}
-                    />
-                  </label>
-                  <label className="app-shell__date-custom-field">
-                    <span>To</span>
-                    <input
-                      type="date"
-                      value={dateRange.customEnd ?? endDate}
-                      onChange={(e) => {
-                        const end = e.target.value;
-                        const start = dateRange.customStart ?? startDate;
-                        setDateRangeCustom(start && start <= end ? start : end, end);
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-              <div className="app-shell__date-actions">
-                <button
-                  type="button"
-                  className="app-shell__date-ok"
-                  onClick={() => setDatePickerOpen(false)}
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
         <ExportButton />
         <button
           type="button"
@@ -196,16 +136,78 @@ export function AppShell({ children }: AppShellProps) {
             <span className="app-shell__filter-label">Repos</span>
             <RepoMultiSelector />
           </div>
-          <div className="app-shell__filter-row">
-            <span className="app-shell__filter-label">Developers</span>
-            <DeveloperMultiSelector />
-          </div>
+          {!isActive('/', location.pathname) && (
+            <div className="app-shell__filter-row">
+              <span className="app-shell__filter-label">Developers</span>
+              <DeveloperMultiSelector />
+            </div>
+          )}
           {showLinearSidebar && (
             <div className="app-shell__filter-row">
               <span className="app-shell__filter-label">Teams</span>
               <LinearTeamMultiSelector />
             </div>
           )}
+          <div className="app-shell__date-range-wrap app-shell__date-range-wrap--right" ref={datePickerRef}>
+            <button
+              type="button"
+              className="app-shell__date-pill"
+              title="Choose date range"
+              onClick={() => setDatePickerOpen((o) => !o)}
+              aria-expanded={datePickerOpen}
+              aria-haspopup="dialog"
+            >
+              {formatDateRangeDisplay(startDate, endDate)}
+            </button>
+            {datePickerOpen && (
+              <div className="app-shell__date-popover" role="dialog" aria-label="Date range">
+                <PeriodSelector
+                  preset={dateRange.preset}
+                  onPresetChange={(p) => {
+                    setDateRangePreset(p);
+                  }}
+                />
+                <div className="app-shell__date-custom">
+                  <span className="app-shell__date-custom-label">Custom range</span>
+                  <div className="app-shell__date-custom-inputs">
+                    <label className="app-shell__date-custom-field">
+                      <span>From</span>
+                      <input
+                        type="date"
+                        value={dateRange.customStart ?? startDate}
+                        onChange={(e) => {
+                          const start = e.target.value;
+                          const end = dateRange.customEnd ?? endDate;
+                          setDateRangeCustom(start, end && start <= end ? end : start);
+                        }}
+                      />
+                    </label>
+                    <label className="app-shell__date-custom-field">
+                      <span>To</span>
+                      <input
+                        type="date"
+                        value={dateRange.customEnd ?? endDate}
+                        onChange={(e) => {
+                          const end = e.target.value;
+                          const start = dateRange.customStart ?? startDate;
+                          setDateRangeCustom(start && start <= end ? start : end, end);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div className="app-shell__date-actions">
+                  <button
+                    type="button"
+                    className="app-shell__date-ok"
+                    onClick={() => setDatePickerOpen(false)}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {showGitHubSidebar ? (

@@ -122,7 +122,7 @@ export const useFiltersStore = create<FiltersState>()(
 
       getRepoIdForApi() {
         const { repoIds } = get();
-        if (repoIds.size === 0) return -1;
+        if (repoIds.size === 0) return null;
         return repoIds.size === 1 ? [...repoIds][0]! : null;
       },
 
