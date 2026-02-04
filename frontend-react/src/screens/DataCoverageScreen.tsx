@@ -268,7 +268,7 @@ export function DataCoverageScreen() {
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">Cursor progression</h3>
                       <p className="data-coverage__repos-desc">
-                        Connection and team data from Cursor Admin API (live on overview fetch).
+                        Team, spend, and usage synced to DB (hourly); overview reads from stored data.
                       </p>
                       <ul className="data-coverage__repo-list">
                         <li
@@ -297,7 +297,7 @@ export function DataCoverageScreen() {
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">Greptile progression</h3>
                       <p className="data-coverage__repos-desc">
-                        Connection and indexed repos from Greptile API (live on overview fetch).
+                        Indexed repos synced to DB (hourly); overview reads from stored data.
                       </p>
                       <ul className="data-coverage__repo-list">
                         <li
