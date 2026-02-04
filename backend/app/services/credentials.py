@@ -22,6 +22,7 @@ class ResolvedCredentials:
     linear_api_key: str | None
     linear_workspace_name: str
     cursor_api_key: str | None
+    greptile_api_key: str | None
 
 
 class CredentialsService:
@@ -44,6 +45,7 @@ class CredentialsService:
         linear_api_key: str | None = None
         linear_workspace_name = ""
         cursor_api_key: str | None = None
+        greptile_api_key: str | None = None
         if row:
             if row.github_token_encrypted:
                 dec = decrypt(row.github_token_encrypted)
@@ -59,12 +61,17 @@ class CredentialsService:
                 dec = decrypt(row.cursor_api_key_encrypted)
                 if dec:
                     cursor_api_key = dec
+            if row.greptile_api_key_encrypted:
+                dec = decrypt(row.greptile_api_key_encrypted)
+                if dec:
+                    greptile_api_key = dec
         return ResolvedCredentials(
             github_token=github_token,
             github_repos=github_repos,
             linear_api_key=linear_api_key,
             linear_workspace_name=linear_workspace_name,
             cursor_api_key=cursor_api_key,
+            greptile_api_key=greptile_api_key,
         )
 
     async def set_credentials(
@@ -75,13 +82,14 @@ class CredentialsService:
         linear_api_key: str | None = None,
         linear_workspace_name: str | None = None,
         cursor_api_key: str | None = None,
+        greptile_api_key: str | None = None,
     ) -> None:
         """
         Update stored credentials. Encrypts secrets. Omit a field to leave unchanged.
         Raises ValueError if encryption unavailable and a secret is provided.
         """
         if not encryption_available():
-            if github_token or linear_api_key or cursor_api_key:
+            if github_token or linear_api_key or cursor_api_key or greptile_api_key:
                 raise ValueError(
                     "VEELOCITY_ENCRYPTION_KEY is not set; cannot store credentials in DB"
                 )
@@ -110,6 +118,10 @@ class CredentialsService:
             row.cursor_api_key_encrypted = (
                 encrypt(cursor_api_key) if cursor_api_key else None
             )
+        if greptile_api_key is not None:
+            row.greptile_api_key_encrypted = (
+                encrypt(greptile_api_key) if greptile_api_key else None
+            )
         await self._db.commit()
         await self._db.refresh(row)
 
@@ -135,6 +147,17 @@ class CredentialsService:
             await self._db.commit()
             await self._db.refresh(row)
 
+    async def clear_greptile_api_key(self) -> None:
+        """Remove the stored Greptile API key (e.g. on disconnect)."""
+        result = await self._db.execute(
+            select(AppSettings).where(AppSettings.id == SINGLETON_ID)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            row.greptile_api_key_encrypted = None
+            await self._db.commit()
+            await self._db.refresh(row)
+
     async def get_masked(self) -> dict:
         """
         Return public/masked state for API: no raw secrets.
@@ -150,5 +173,6 @@ class CredentialsService:
             "linear_configured": bool(creds.linear_api_key),
             "linear_workspace_name": creds.linear_workspace_name or "",
             "cursor_configured": bool(creds.cursor_api_key),
+            "greptile_configured": bool(creds.greptile_api_key),
             "storage_available": encryption_available(),
         }

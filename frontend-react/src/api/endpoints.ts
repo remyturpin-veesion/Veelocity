@@ -14,6 +14,8 @@ import type {
   DeveloperStats,
   GitHubOrgsResponse,
   GitHubReposSearchResponse,
+  GreptileOverviewResponse,
+  GreptileStatusResponse,
   LinearOverview,
   PaginatedResponse,
   PRDetail,
@@ -52,8 +54,26 @@ export async function getCursorStatus(): Promise<CursorStatusResponse> {
   return apiGet(prefix + '/cursor/status');
 }
 
-export async function getCursorOverview(): Promise<CursorOverviewResponse> {
-  return apiGet(prefix + '/cursor/overview');
+export async function getCursorOverview(params?: {
+  start_date?: string;
+  end_date?: string;
+}): Promise<CursorOverviewResponse> {
+  return apiGet(prefix + '/cursor/overview', params as Record<string, string>);
+}
+
+export async function getGreptileStatus(): Promise<GreptileStatusResponse> {
+  return apiGet(prefix + '/greptile/status');
+}
+
+export async function getGreptileOverview(params?: {
+  repo_ids?: number[] | null;
+}): Promise<GreptileOverviewResponse> {
+  if (!params?.repo_ids?.length) {
+    return apiGet(prefix + '/greptile/overview');
+  }
+  return apiGet(prefix + '/greptile/overview', {
+    repo_ids: params.repo_ids,
+  } as Record<string, number[]>);
 }
 
 export async function getGitHubOrgs(): Promise<GitHubOrgsResponse> {
@@ -78,6 +98,7 @@ export async function updateSettings(updates: {
   linear_api_key?: string;
   linear_workspace_name?: string;
   cursor_api_key?: string;
+  greptile_api_key?: string;
 }): Promise<SettingsResponse> {
   const body: Record<string, string | undefined> = {};
   if (updates.github_token != null) body.github_token = updates.github_token;
@@ -85,6 +106,7 @@ export async function updateSettings(updates: {
   if (updates.linear_api_key != null) body.linear_api_key = updates.linear_api_key;
   if (updates.linear_workspace_name != null) body.linear_workspace_name = updates.linear_workspace_name;
   if (updates.cursor_api_key != null) body.cursor_api_key = updates.cursor_api_key;
+  if (updates.greptile_api_key != null) body.greptile_api_key = updates.greptile_api_key;
   return apiPut(prefix + '/settings', body);
 }
 

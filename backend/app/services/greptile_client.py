@@ -1,0 +1,98 @@
+"""Greptile API client using stored API key (Bearer token)."""
+
+import logging
+from typing import Any
+
+import httpx
+
+GREPTILE_API_BASE = "https://api.greptile.com/v2"
+
+logger = logging.getLogger(__name__)
+
+
+def _headers(api_key: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Accept": "application/json",
+    }
+
+
+async def list_repositories(api_key: str) -> list[dict[str, Any]] | None:
+    """
+    Try to list repositories. GET /repositories may return a list (not in public docs).
+    Returns None on auth/error; empty list if no repos or endpoint not available.
+    """
+    try:
+        async with httpx.AsyncClient(
+            base_url=GREPTILE_API_BASE,
+            headers={**_headers(api_key), "Content-Type": "application/json"},
+            timeout=15.0,
+        ) as client:
+            resp = await client.get("/repositories")
+            if resp.status_code == 401:
+                logger.warning("Greptile API: invalid API key")
+                return None
+            if resp.status_code == 403:
+                logger.warning("Greptile API: forbidden")
+                return None
+            if resp.status_code == 429:
+                logger.warning("Greptile API: rate limited")
+                return None
+            if resp.status_code == 404 or resp.status_code == 405:
+                # No list endpoint or method not allowed
+                return []
+            if resp.status_code != 200:
+                logger.warning(
+                    "Greptile API list repos: %s %s", resp.status_code, resp.text[:200]
+                )
+                return []
+            data = resp.json()
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and "repositories" in data:
+                return data["repositories"]
+            if isinstance(data, dict) and "items" in data:
+                return data["items"]
+            return []
+    except Exception as e:
+        logger.exception("Greptile API list repositories failed: %s", e)
+        return None
+
+
+async def get_repository(
+    api_key: str, repository_id: str
+) -> dict[str, Any] | None:
+    """
+    GET /repositories/{repositoryId}. repository_id format: remote:branch:owner/repo
+    e.g. github:main:owner/repo (URL-encoded when used in path).
+    """
+    import urllib.parse
+
+    try:
+        encoded_id = urllib.parse.quote(repository_id, safe="")
+        async with httpx.AsyncClient(
+            base_url=GREPTILE_API_BASE,
+            headers=_headers(api_key),
+            timeout=15.0,
+        ) as client:
+            resp = await client.get(f"/repositories/{encoded_id}")
+            if resp.status_code == 401:
+                logger.warning("Greptile API: invalid API key")
+                return None
+            if resp.status_code in (403, 404, 429):
+                return None
+            if resp.status_code != 200:
+                return None
+            return resp.json()
+    except Exception as e:
+        logger.debug("Greptile get repository %s failed: %s", repository_id, e)
+        return None
+
+
+async def validate_api_key(api_key: str) -> bool:
+    """Validate API key by calling list or a minimal request. Returns True if key seems valid."""
+    result = await list_repositories(api_key)
+    # None = auth error, [] = no list endpoint or no repos
+    if result is None:
+        return False
+    return True

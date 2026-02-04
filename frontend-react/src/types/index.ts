@@ -128,8 +128,37 @@ export interface SettingsResponse {
   linear_configured: boolean;
   linear_workspace_name?: string;
   cursor_configured?: boolean;
+  greptile_configured?: boolean;
   storage_available?: boolean;
   [key: string]: unknown;
+}
+
+export interface GreptileStatusResponse {
+  connected: boolean;
+  valid?: boolean;
+  message?: string;
+  repos_count?: number;
+}
+
+export interface GreptileRepoInfo {
+  repository: string;
+  remote: string;
+  branch: string;
+  private?: boolean;
+  status: string;
+  files_processed?: number;
+  num_files?: number;
+  sha?: string;
+}
+
+export interface GreptileOverviewResponse {
+  repos_count: number;
+  repositories: GreptileRepoInfo[];
+  repos_by_status: Record<string, number>;
+  repos_by_remote?: Record<string, number>;
+  total_files_processed?: number;
+  total_num_files?: number;
+  indexing_complete_pct?: number | null;
 }
 
 export interface CursorStatusResponse {
@@ -246,6 +275,8 @@ export interface SyncStatusResponse {
   current_job: string | null;
   cursor_connected?: boolean;
   cursor_team_members_count?: number | null;
+  greptile_connected?: boolean;
+  greptile_repos_count?: number | null;
 }
 
 export interface DailyCountItem {

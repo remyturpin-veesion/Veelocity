@@ -56,6 +56,7 @@ const CONNECTOR_ACCENT: Record<string, string> = {
   github_actions: 'var(--metric-green)',
   linear: 'var(--metric-orange)',
   cursor: 'var(--metric-blue)',
+  greptile: 'var(--metric-green)',
 };
 
 const JOB_LABELS: Record<string, string> = {
@@ -102,13 +103,15 @@ export function DataCoverageScreen() {
   const linearTeams = syncStatus?.linear_teams ?? [];
   const cursorConnected = syncStatus?.cursor_connected ?? false;
   const cursorTeamMembersCount = syncStatus?.cursor_team_members_count ?? null;
+  const greptileConnected = syncStatus?.greptile_connected ?? false;
+  const greptileReposCount = syncStatus?.greptile_repos_count ?? null;
 
   return (
     <div className="data-coverage">
       <header className="data-coverage__header">
         <h1 className="screen-title">Data coverage</h1>
         <p className="data-coverage__subtitle">
-          Synced data from GitHub, GitHub Actions, Linear, and Cursor. Trigger sync from Settings or the connector pages.
+          Synced data from GitHub, GitHub Actions, Linear, Cursor, and Greptile. Trigger sync from Settings or the connector pages.
         </p>
       </header>
 
@@ -169,7 +172,7 @@ export function DataCoverageScreen() {
       </section>
 
       <section className="data-coverage__connectors">
-        <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor)</h2>
+        <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor, Greptile)</h2>
         <div className="card data-coverage__connectors-card">
           {data?.connectors?.length ? (
             <ul className="data-coverage__connector-list">
@@ -179,7 +182,8 @@ export function DataCoverageScreen() {
                   className={
                     (c.connector_name === 'github' && repos.length > 0) ||
                     (c.connector_name === 'linear' && linearTeams.length > 0) ||
-                    c.connector_name === 'cursor'
+                    c.connector_name === 'cursor' ||
+                    c.connector_name === 'greptile'
                       ? 'data-coverage__connector-item data-coverage__connector-item--with-repos'
                       : 'data-coverage__connector-item'
                   }
@@ -284,6 +288,35 @@ export function DataCoverageScreen() {
                           </span>
                           <span className="data-coverage__repo-pct" aria-label={cursorConnected ? '100% connected' : '0%'}>
                             {cursorConnected ? '100%' : '0%'}
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                  {c.connector_name === 'greptile' && (
+                    <div className="data-coverage__repos-inline">
+                      <h3 className="data-coverage__subsection-title">Greptile progression</h3>
+                      <p className="data-coverage__repos-desc">
+                        Connection and indexed repos from Greptile API (live on overview fetch).
+                      </p>
+                      <ul className="data-coverage__repo-list">
+                        <li
+                          className={`data-coverage__repo-row ${greptileConnected ? 'data-coverage__repo-row--complete' : ''}`}
+                          style={{ '--repo-pct': greptileConnected ? '100%' : '0%' } as React.CSSProperties}
+                        >
+                          <span className="data-coverage__repo-row-fill" aria-hidden />
+                          <span className="data-coverage__repo-name" title="Greptile API">
+                            Greptile API
+                          </span>
+                          <span className="data-coverage__repo-counts">
+                            {greptileConnected
+                              ? greptileReposCount != null
+                                ? `${greptileReposCount.toLocaleString()} indexed repo${greptileReposCount === 1 ? '' : 's'}`
+                                : 'Connected'
+                              : 'Not configured'}
+                          </span>
+                          <span className="data-coverage__repo-pct" aria-label={greptileConnected ? '100% connected' : '0%'}>
+                            {greptileConnected ? '100%' : '0%'}
                           </span>
                         </li>
                       </ul>

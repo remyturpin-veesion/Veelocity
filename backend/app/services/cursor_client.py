@@ -46,10 +46,22 @@ async def get_team_members(api_key: str) -> dict[str, Any] | None:
 
 
 async def get_daily_usage(
-    api_key: str, start_date_ms: int, end_date_ms: int
+    api_key: str,
+    start_date_ms: int,
+    end_date_ms: int,
+    *,
+    use_seconds: bool = False,
 ) -> dict[str, Any] | None:
-    """POST /teams/daily-usage-data - daily usage. Returns None on error."""
+    """POST /teams/daily-usage-data - daily usage. Returns None on error.
+    By default sends timestamps in milliseconds; set use_seconds=True to send seconds.
+    """
     try:
+        if use_seconds:
+            start_val = start_date_ms // 1000
+            end_val = end_date_ms // 1000
+        else:
+            start_val = start_date_ms
+            end_val = end_date_ms
         async with httpx.AsyncClient(
             base_url=CURSOR_API_BASE,
             headers={
@@ -61,7 +73,7 @@ async def get_daily_usage(
         ) as client:
             resp = await client.post(
                 "/teams/daily-usage-data",
-                json={"startDate": start_date_ms, "endDate": end_date_ms},
+                json={"startDate": start_val, "endDate": end_val},
             )
             if resp.status_code in (401, 403, 429):
                 return None

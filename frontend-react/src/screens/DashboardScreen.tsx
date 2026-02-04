@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -23,6 +25,7 @@ import {
   getReviewerWorkload,
   getSettings,
   getCursorOverview,
+  getGreptileOverview,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
@@ -143,9 +146,18 @@ export function DashboardScreen() {
 
   const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
   const cursorOverview = useQuery({
-    queryKey: ['cursor', 'overview'],
-    queryFn: getCursorOverview,
-    enabled: settings.data?.cursor_configured === true,
+    queryKey: ['cursor', 'overview', startDate, endDate],
+    queryFn: () =>
+      getCursorOverview({
+        start_date: startDate,
+        end_date: endDate,
+      }),
+    enabled: settings.data?.cursor_configured === true && !noReposSelected,
+  });
+  const greptileOverview = useQuery({
+    queryKey: ['greptile', 'overview', repoIds],
+    queryFn: () => getGreptileOverview({ repo_ids: repoIds ?? undefined }),
+    enabled: settings.data?.greptile_configured === true && !noReposSelected,
   });
 
   const isLoading =
@@ -242,6 +254,28 @@ export function DashboardScreen() {
   }, [cursor?.usage_by_day]);
 
   const tot = cursor?.usage_totals;
+  const greptile = greptileOverview.data;
+  /** Per-repo data for the big dashboard chart: name, files_processed, pending (for stacked bar) */
+  const greptilePerRepoChartData = useMemo(() => {
+    const repos = greptile?.repositories ?? [];
+    if (!repos.length) return [];
+    return repos
+      .map((r) => {
+        const name = r.repository?.split('/').slice(-2).join('/') || r.repository || '—';
+        const fp = r.files_processed ?? 0;
+        const nf = r.num_files ?? 0;
+        const pending = Math.max(0, nf - fp);
+        return {
+          name: name.length > 32 ? name.slice(0, 29) + '…' : name,
+          fullName: r.repository,
+          files_processed: fp,
+          num_files: nf,
+          pending,
+          status: r.status,
+        };
+      })
+      .sort((a, b) => (b.num_files || 0) - (a.num_files || 0));
+  }, [greptile?.repositories]);
   const cursorSummaryBlock =
     settings.data?.cursor_configured && cursor ? (
       <div className="card">
@@ -278,9 +312,43 @@ export function DashboardScreen() {
             </div>
           </>
         )}
-        <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.8125rem' }}>
-          <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
-        </p>
+      </div>
+    ) : null;
+
+  /** Greptile summary card content (no link); link is rendered below the block, left-aligned */
+  const greptileSummaryCard =
+    settings.data?.greptile_configured && greptile ? (
+      <div className="card">
+        <h3 className="dashboard-section-title">
+          <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
+        </h3>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Indexed repos</span>
+          <span>{greptile.repos_count}</span>
+        </div>
+        {(greptile.total_files_processed ?? 0) > 0 && (
+          <div className="dashboard-quick-overview__row">
+            <span style={{ color: 'var(--text-muted)' }}>Files indexed</span>
+            <span>
+              {(greptile.total_files_processed ?? 0).toLocaleString()}
+              {(greptile.total_num_files ?? 0) > 0 && ` / ${(greptile.total_num_files ?? 0).toLocaleString()}`}
+            </span>
+          </div>
+        )}
+        {greptile.indexing_complete_pct != null && (
+          <div className="dashboard-quick-overview__row">
+            <span style={{ color: 'var(--text-muted)' }}>Progress</span>
+            <span>{greptile.indexing_complete_pct}%</span>
+          </div>
+        )}
+        {Object.keys(greptile.repos_by_status ?? {}).length > 0 && (
+          <div className="dashboard-quick-overview__row">
+            <span style={{ color: 'var(--text-muted)' }}>By status</span>
+            <span>
+              {Object.entries(greptile.repos_by_status ?? {}).map(([s, c]) => `${s}: ${c}`).join(', ') || '—'}
+            </span>
+          </div>
+        )}
       </div>
     ) : null;
 
@@ -437,40 +505,104 @@ export function DashboardScreen() {
           </div>
         </div>
 
+        {/* Cursor: same layout as Greptile row — big chart left, little block right, link below block */}
         {settings.data?.cursor_configured && cursor != null && (
-          <div className="dashboard__middle" style={{ marginTop: 20 }}>
-            <div className="card">
-              {cursorUsageChartData.length > 0 ? (
-                <>
-                  <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Cursor — Usage</p>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={cursorUsageChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
-                      <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+          <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <div className="card">
+                {cursorUsageChartData.length > 0 ? (
+                  <>
+                    <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Cursor — Usage</p>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={cursorUsageChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                        <YAxis yAxisId="left" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                        <Tooltip
+                          contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                          labelStyle={{ color: 'var(--text)' }}
+                        />
+                        <Legend />
+                        <Line type="monotone" dataKey="lines_added" name="Lines added" yAxisId="right" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="lines_deleted" name="Lines deleted" yAxisId="right" stroke="var(--metric-orange)" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="composer" name="Composer" yAxisId="left" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="chat" name="Chat" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="agent" name="Agent" yAxisId="left" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                ) : (
+                  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontWeight: 600, margin: 0 }}>Cursor — Usage</p>
+                    <p style={{ fontSize: '0.875rem', margin: 0 }}>No usage data yet. Data appears after Cursor Admin API returns daily usage.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {cursorSummaryBlock}
+              <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
+                <Link to="/cursor" style={{ color: 'var(--link)' }}>View Cursor overview →</Link>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Greptile: chart on the left, summary block on the right; link below the block, left-aligned */}
+        {settings.data?.greptile_configured && greptile != null && (
+          <div style={{ marginTop: 24, display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <div className="card" style={{ padding: '20px 20px 16px' }}>
+                <h3 className="dashboard-section-title" style={{ marginBottom: 4 }}>
+                  <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
+                  {' — Files indexed by repository'}
+                </h3>
+                {greptilePerRepoChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.min(560, 280 + greptilePerRepoChartData.length * 32)}>
+                    <BarChart
+                      data={greptilePerRepoChartData}
+                      layout="vertical"
+                      margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
                       <Tooltip
                         contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
-                        labelStyle={{ color: 'var(--text)' }}
+                        content={({ active, payload }) =>
+                          active && payload?.length && payload[0].payload ? (
+                            <div style={{ padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--surface-border)', borderRadius: 8, fontSize: '0.8125rem' }}>
+                              <div style={{ fontWeight: 600, marginBottom: 6 }}>{(payload[0].payload as { fullName?: string }).fullName}</div>
+                              <div>Indexed: {((payload[0].payload as { files_processed?: number }).files_processed ?? 0).toLocaleString()}</div>
+                              <div>Total: {((payload[0].payload as { num_files?: number }).num_files ?? 0).toLocaleString()}</div>
+                              {((payload[0].payload as { status?: string }).status) && (
+                                <div style={{ color: 'var(--text-muted)' }}>Status: {(payload[0].payload as { status?: string }).status}</div>
+                              )}
+                            </div>
+                          ) : null
+                        }
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="lines_added" name="Lines added" yAxisId="right" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="lines_deleted" name="Lines deleted" yAxisId="right" stroke="var(--metric-orange)" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="composer" name="Composer" yAxisId="left" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="chat" name="Chat" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="agent" name="Agent" yAxisId="left" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" yAxisId="left" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
-                    </LineChart>
+                      <Bar dataKey="files_processed" name="Indexed" fill="var(--metric-green)" radius={[0, 4, 4, 0]} stackId="a" />
+                      <Bar dataKey="pending" name="Pending" fill="var(--surface-border)" radius={[0, 4, 4, 0]} stackId="a" />
+                    </BarChart>
                   </ResponsiveContainer>
-                </>
-              ) : (
-                <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ fontWeight: 600, margin: 0 }}>Cursor — Usage</p>
-                  <p style={{ fontSize: '0.875rem', margin: 0 }}>No usage data yet. Data appears after Cursor Admin API returns daily usage.</p>
-                </div>
-              )}
+                ) : (
+                  <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontWeight: 600, margin: 0 }}>Files indexed by repository</p>
+                    <p style={{ fontSize: '0.875rem', margin: 0 }}>No indexed repos yet. Index repos in Greptile to see data here.</p>
+                  </div>
+                )}
+              </div>
             </div>
-            {cursorSummaryBlock}
+            <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {greptileSummaryCard}
+              <p style={{ margin: 0, fontSize: '0.8125rem', textAlign: 'left' }}>
+                <Link to="/greptile" style={{ color: 'var(--link)' }}>View Greptile overview →</Link>
+              </p>
+            </div>
           </div>
         )}
 

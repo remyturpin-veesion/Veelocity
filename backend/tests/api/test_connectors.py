@@ -13,6 +13,8 @@ async def test_connectors_status_no_config(client):
         github_repos="",
         linear_api_key=None,
         linear_workspace_name="",
+        cursor_api_key=None,
+        greptile_api_key=None,
     )
     with patch(
         "app.api.v1.endpoints.connectors.CredentialsService"

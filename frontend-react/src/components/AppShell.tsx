@@ -14,6 +14,7 @@ const TABS = [
   { path: '/github', label: 'GitHub' },
   { path: '/linear', label: 'Linear' },
   { path: '/cursor', label: 'Cursor' },
+  { path: '/greptile', label: 'Greptile' },
   { path: '/data-coverage', label: 'Data coverage' },
   { path: '/alerts', label: 'Alerts' },
 ] as const;

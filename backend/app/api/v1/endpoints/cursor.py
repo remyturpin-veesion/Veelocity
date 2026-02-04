@@ -113,10 +113,15 @@ async def cursor_status(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/overview")
-async def cursor_overview(db: AsyncSession = Depends(get_db)):
+async def cursor_overview(
+    db: AsyncSession = Depends(get_db),
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
     """
     Return homepage-relevant Cursor data: team size, DAU (if Enterprise),
-    current cycle spend summary, recent usage.
+    current cycle spend summary, usage in the given date range.
+    Optional start_date/end_date (YYYY-MM-DD); default last 7 days.
     """
     service = CredentialsService(db)
     creds = await service.get_credentials()
@@ -154,28 +159,110 @@ async def cursor_overview(db: AsyncSession = Depends(get_db)):
         overview["spend_cents"] = total_cents
         overview["spend_members"] = spend_data.get("totalMembers")
 
+    # Date range for DAU and usage (default last 7 days)
+    end_dt = datetime.now(timezone.utc).date()
+    start_dt = end_dt - timedelta(days=6)
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00")).date()
+        except (ValueError, TypeError):
+            pass
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00")).date()
+        except (ValueError, TypeError):
+            pass
+    if start_dt > end_dt:
+        start_dt, end_dt = end_dt, start_dt
+    # Cap to today so we never ask the API for future dates
+    today_utc = datetime.now(timezone.utc).date()
+    if end_dt > today_utc:
+        end_dt = today_utc
+    if start_dt > today_utc:
+        start_dt = today_utc
+    if start_dt > end_dt:
+        start_dt = end_dt
+    start_str = start_dt.isoformat()
+    end_str = end_dt.isoformat()
+
     # DAU (Analytics API - Enterprise only)
-    end = datetime.now(timezone.utc).date()
-    start = end - timedelta(days=6)
-    start_str = start.isoformat()
-    end_str = end.isoformat()
     dau_data = await get_analytics_dau(key, start_str, end_str)
     if dau_data and dau_data.get("data"):
         data = dau_data["data"]
         overview["dau"] = data
         overview["dau_period"] = {"start": start_str, "end": end_str}
 
-    # Recent daily usage (Admin API) - last 7 days
-    end_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-    start_ts = int((datetime.now(timezone.utc) - timedelta(days=7)).timestamp() * 1000)
-    usage_data = await get_daily_usage(key, start_ts, end_ts)
-    if usage_data and usage_data.get("data"):
-        raw = usage_data["data"]
-        overview["usage_summary"] = raw
-        if isinstance(raw, list):
-            usage_by_day, usage_totals = _aggregate_usage_data(raw)
-            overview["usage_by_day"] = usage_by_day
-            overview["usage_totals"] = usage_totals
+    # Daily usage (Admin API) for the selected date range.
+    # Cursor API appears to return data only for a limited window (~7 days); chunk into
+    # 7-day requests and merge results to support longer ranges.
+    def _extract_usage_list(payload: dict | list | None) -> list[dict]:
+        """Extract list of daily usage records from API response (handles multiple shapes)."""
+        if payload is None:
+            return []
+        if isinstance(payload, list):
+            return [r for r in payload if isinstance(r, dict)]
+        if not isinstance(payload, dict):
+            return []
+        # Try common response shapes
+        for key in ("data", "dailyUsage", "usage", "dailyUsageData", "records", "items"):
+            val = payload.get(key)
+            if isinstance(val, list):
+                return [r for r in val if isinstance(r, dict)]
+        # If "data" is an object, it might wrap the list
+        data = payload.get("data")
+        if isinstance(data, dict):
+            for key in ("dailyUsage", "usage", "records", "items", "data"):
+                val = data.get(key) if isinstance(data, dict) else None
+                if isinstance(val, list):
+                    return [r for r in val if isinstance(r, dict)]
+        return []
+
+    CHUNK_DAYS = 7
+    raw_usage: list[dict] = []
+    use_seconds = False  # Try seconds if first chunk returns empty (API format fallback)
+    chunk_start = start_dt
+    while chunk_start <= end_dt:
+        chunk_end = min(
+            chunk_start + timedelta(days=CHUNK_DAYS - 1),
+            end_dt,
+        )
+        start_ts = int(
+            datetime(
+                chunk_start.year, chunk_start.month, chunk_start.day,
+                0, 0, 0, tzinfo=timezone.utc,
+            ).timestamp() * 1000
+        )
+        end_ts = int(
+            datetime(
+                chunk_end.year, chunk_end.month, chunk_end.day,
+                23, 59, 59, tzinfo=timezone.utc,
+            ).timestamp() * 1000
+        )
+        usage_data = await get_daily_usage(key, start_ts, end_ts, use_seconds=use_seconds)
+        chunk_list = _extract_usage_list(usage_data)
+        # If we got nothing and haven't tried seconds yet, retry this chunk with seconds
+        if not chunk_list and not use_seconds and usage_data is not None:
+            usage_data = await get_daily_usage(key, start_ts, end_ts, use_seconds=True)
+            chunk_list = _extract_usage_list(usage_data)
+            if chunk_list:
+                use_seconds = True
+        if usage_data and not chunk_list:
+            # Log response shape to debug "no usage data" (API may use different structure)
+            data_val = usage_data.get("data") if isinstance(usage_data, dict) else None
+            logger.info(
+                "Cursor daily-usage: keys=%s, data type=%s, len(data)=%s",
+                list(usage_data.keys()) if isinstance(usage_data, dict) else "n/a",
+                type(data_val).__name__ if data_val is not None else "missing",
+                len(data_val) if isinstance(data_val, (list, dict)) else "n/a",
+            )
+        raw_usage.extend(chunk_list)
+        chunk_start = chunk_end + timedelta(days=1)
+
+    if raw_usage:
+        overview["usage_summary"] = raw_usage
+        usage_by_day, usage_totals = _aggregate_usage_data(raw_usage)
+        overview["usage_by_day"] = usage_by_day
+        overview["usage_totals"] = usage_totals
 
     # Record last "sync" (fetch) for data coverage page
     sync_state = SyncStateService(db)

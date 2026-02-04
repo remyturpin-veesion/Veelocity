@@ -19,6 +19,7 @@ class AppSettings(Base):
     linear_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     linear_workspace_name: Mapped[str] = mapped_column(String(500), default="")
     cursor_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    greptile_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )

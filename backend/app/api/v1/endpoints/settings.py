@@ -33,6 +33,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),
+        greptile_configured=masked.get("greptile_configured", False),
         storage_available=masked["storage_available"],
     )
 
@@ -47,7 +48,7 @@ async def update_settings(
     Omit a field to leave it unchanged. Requires VEELOCITY_ENCRYPTION_KEY to store secrets.
     """
     if not encryption_available() and (
-        body.github_token or body.linear_api_key or body.cursor_api_key
+        body.github_token or body.linear_api_key or body.cursor_api_key or body.greptile_api_key
     ):
         raise HTTPException(
             status_code=400,
@@ -71,6 +72,11 @@ async def update_settings(
             await service.clear_cursor_api_key()
         else:
             updates["cursor_api_key"] = body.cursor_api_key
+    if body.greptile_api_key is not None:
+        if (body.greptile_api_key or "").strip() == "":
+            await service.clear_greptile_api_key()
+        else:
+            updates["greptile_api_key"] = body.greptile_api_key
     if updates:
         await service.set_credentials(**updates)
     masked = await service.get_masked()
@@ -81,6 +87,7 @@ async def update_settings(
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),
+        greptile_configured=masked.get("greptile_configured", False),
         storage_available=masked["storage_available"],
     )
 

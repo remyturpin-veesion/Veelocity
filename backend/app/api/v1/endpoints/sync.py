@@ -303,6 +303,9 @@ async def get_sync_status(
     # Cursor: connected and team members count (for data coverage progression)
     cursor_connected = False
     cursor_team_members_count: int | None = None
+    # Greptile: connected and indexed repos count
+    greptile_connected = False
+    greptile_repos_count: int | None = None
     creds = await CredentialsService(db).get_credentials()
     if creds.cursor_api_key:
         cursor_connected = True
@@ -311,6 +314,15 @@ async def get_sync_status(
             members = await get_team_members(creds.cursor_api_key)
             if members and members.get("teamMembers"):
                 cursor_team_members_count = len(members["teamMembers"])
+        except Exception:
+            pass
+    if creds.greptile_api_key:
+        greptile_connected = True
+        try:
+            from app.services.greptile_client import list_repositories
+            repos = await list_repositories(creds.greptile_api_key)
+            if repos is not None:
+                greptile_repos_count = len(repos)
         except Exception:
             pass
 
@@ -326,6 +338,8 @@ async def get_sync_status(
         "current_job": current_job,
         "cursor_connected": cursor_connected,
         "cursor_team_members_count": cursor_team_members_count,
+        "greptile_connected": greptile_connected,
+        "greptile_repos_count": greptile_repos_count,
     }
 
 
@@ -945,6 +959,19 @@ async def get_sync_coverage(
                 display_name="Cursor",
                 last_sync_at=cursor_state.last_sync_at if cursor_state else None,
                 last_full_sync_at=cursor_state.last_full_sync_at if cursor_state else None,
+            )
+        )
+    # Add Greptile when configured (may not have a SyncState row yet)
+    if creds.greptile_api_key and "greptile" not in connector_names_seen:
+        greptile_state = next(
+            (s for s in sync_states if s.connector_name == "greptile"), None
+        )
+        connectors.append(
+            ConnectorSyncState(
+                connector_name="greptile",
+                display_name="Greptile",
+                last_sync_at=greptile_state.last_sync_at if greptile_state else None,
+                last_full_sync_at=greptile_state.last_full_sync_at if greptile_state else None,
             )
         )
 

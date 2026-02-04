@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     connectors,
     cursor,
     developers,
+    greptile,
     export,
     github,
     linear,
@@ -30,6 +31,7 @@ api_router.include_router(alerts.router)
 api_router.include_router(export.router)
 api_router.include_router(settings.router)
 api_router.include_router(cursor.router)
+api_router.include_router(greptile.router)
 api_router.include_router(sync.router)
 
 

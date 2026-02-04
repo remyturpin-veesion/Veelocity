@@ -10,6 +10,7 @@ class SettingsResponse(BaseModel):
     linear_configured: bool
     linear_workspace_name: str
     cursor_configured: bool = False
+    greptile_configured: bool = False
     storage_available: bool
 
 
@@ -21,6 +22,7 @@ class SettingsUpdate(BaseModel):
     linear_api_key: str | None = None
     linear_workspace_name: str | None = None
     cursor_api_key: str | None = None
+    greptile_api_key: str | None = None
 
 
 class GitHubRepoItem(BaseModel):
