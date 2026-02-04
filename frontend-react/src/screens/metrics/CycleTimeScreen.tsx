@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getCycleTime } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -7,8 +7,11 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function CycleTimeScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
-  const teamId = teamIds.size === 1 ? [...teamIds][0] : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
+  const teamId =
+    teamIdsParam?.length === 0 ? -1 : teamIdsParam?.length === 1 ? teamIdsParam[0] : undefined;
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
@@ -17,7 +20,7 @@ export function CycleTimeScreen() {
       getCycleTime({
         start_date: startDate,
         end_date: endDate,
-        team_id: teamId,
+        team_id: teamId ?? undefined,
         include_benchmark: true,
       }),
   });
@@ -45,7 +48,7 @@ export function CycleTimeScreen() {
     );
   }
 
-  const d = data as { start_date?: string; end_date?: string; count?: number; average_hours?: number };
+  const d = data as { count?: number; average_hours?: number };
 
   return (
     <div>
@@ -54,7 +57,7 @@ export function CycleTimeScreen() {
       </p>
       <h1 className="screen-title">Cycle time</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
         <KpiCard title="Issues" value={String(d.count ?? '—')} />

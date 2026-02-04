@@ -43,11 +43,11 @@ export function DeveloperMultiSelector() {
     queryFn: () => getDevelopers({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
   });
   const developers = data?.developers ?? [];
-  const allSelected = developers.length > 0 && (developerLogins.size === 0 || developerLogins.size === developers.length);
+  const allSelected = developers.length > 0 && developerLogins.size === developers.length;
 
   const toggleLogin = (login: string, selected: boolean) => {
     if (developerLogins.size === 0) {
-      setDeveloperLogins(selected ? [login] : developers.filter((d) => d.login !== login).map((d) => d.login));
+      setDeveloperLogins(selected ? [] : [login]);
       return;
     }
     if (selected) {
@@ -55,7 +55,7 @@ export function DeveloperMultiSelector() {
     } else {
       const next = new Set(developerLogins);
       next.delete(login);
-      setDeveloperLogins(next);
+      setDeveloperLogins(next.size ? next : []);
     }
   };
 
@@ -67,11 +67,13 @@ export function DeveloperMultiSelector() {
       <Chip
         label="All"
         selected={allSelected}
-        onClick={() => setDeveloperLogins(allSelected && developers.length ? [developers[0]!.login] : [])}
+        onClick={() => {
+          setDeveloperLogins(allSelected ? [] : developers.map((d) => d.login));
+        }}
       />
       <span style={{ width: 1, height: 20, background: 'var(--surface-border)', marginRight: 6 }} />
       {developers.slice(0, 20).map((d) => {
-        const selected = developerLogins.size === 0 || developerLogins.has(d.login);
+        const selected = developerLogins.has(d.login);
         return (
           <Chip
             key={d.login}

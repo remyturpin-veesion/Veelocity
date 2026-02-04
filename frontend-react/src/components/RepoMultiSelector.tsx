@@ -41,11 +41,11 @@ export function RepoMultiSelector() {
   const setRepoIds = useFiltersStore((s) => s.setRepoIds);
   const { data, isLoading } = useQuery({ queryKey: ['repositories'], queryFn: () => getRepositories() });
   const repos = (data?.items ?? []) as Repository[];
-  const allSelected = repos.length > 0 && (repoIds.size === 0 || repoIds.size === repos.length);
+  const allSelected = repos.length > 0 && repoIds.size === repos.length;
 
   const toggleRepo = (id: number, selected: boolean) => {
     if (repoIds.size === 0) {
-      setRepoIds(selected ? [id] : repos.filter((r) => r.id !== id).map((r) => r.id));
+      setRepoIds(selected ? [] : [id]);
       return;
     }
     if (selected) {
@@ -53,7 +53,7 @@ export function RepoMultiSelector() {
     } else {
       const next = new Set(repoIds);
       next.delete(id);
-      setRepoIds(next);
+      setRepoIds(next.size ? next : []);
     }
   };
 
@@ -65,11 +65,13 @@ export function RepoMultiSelector() {
       <Chip
         label="All"
         selected={allSelected}
-        onClick={() => setRepoIds(allSelected && repos.length ? [repos[0]!.id] : [])}
+        onClick={() => {
+          setRepoIds(allSelected ? [] : repos.map((r) => r.id));
+        }}
       />
       <span style={{ width: 1, height: 20, background: 'var(--surface-border)', marginRight: 6 }} />
       {repos.map((r) => {
-        const selected = repoIds.size === 0 || repoIds.has(r.id);
+        const selected = repoIds.has(r.id);
         return (
           <Chip
             key={r.id}

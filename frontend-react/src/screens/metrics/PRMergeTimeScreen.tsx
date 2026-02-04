@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getPRMergeTime } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -44,7 +44,7 @@ export function PRMergeTimeScreen() {
     );
   }
 
-  const d = data as { start_date?: string; end_date?: string; count?: number; average_hours?: number };
+  const d = data as { count?: number; average_hours?: number };
 
   return (
     <div>
@@ -53,7 +53,7 @@ export function PRMergeTimeScreen() {
       </p>
       <h1 className="screen-title">PR merge time</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
         <KpiCard title="PRs" value={String(d.count ?? '—')} />

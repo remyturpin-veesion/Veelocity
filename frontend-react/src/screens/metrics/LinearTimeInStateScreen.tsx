@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearTimeInState } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -16,19 +16,21 @@ interface TimeInStateStage {
 
 export function LinearTimeInStateScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
   const timeInStateStageIds = useFiltersStore((s) => s.timeInStateStageIds);
   const setTimeInStateStageIds = useFiltersStore((s) => s.setTimeInStateStageIds);
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsArray],
+    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam],
     queryFn: () =>
       getLinearTimeInState({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsArray,
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
       }),
   });
 
@@ -56,8 +58,6 @@ export function LinearTimeInStateScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     stages?: TimeInStateStage[];
     data?: Array<{ period: string; value: number }>;
   };
@@ -94,7 +94,7 @@ export function LinearTimeInStateScreen() {
       </p>
       <h1 className="screen-title">Linear time in state</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
 
       {allStages.length > 0 && (

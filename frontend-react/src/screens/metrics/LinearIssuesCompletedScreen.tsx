@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearIssuesCompleted } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -8,17 +8,19 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function LinearIssuesCompletedScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const teamIds = useFiltersStore((s) => s.teamIds);
-  const teamIdsArray = teamIds.size ? Array.from(teamIds) : undefined;
+  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const teamIdsParam = getTeamIdsForApi();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsArray],
+    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam],
     queryFn: () =>
       getLinearIssuesCompleted({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsArray,
+        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
+        no_teams: teamIdsParam && teamIdsParam.length === 0,
       }),
   });
 
@@ -46,8 +48,6 @@ export function LinearIssuesCompletedScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     total?: number;
     data?: Array<{ period: string; count: number }>;
   };
@@ -60,7 +60,7 @@ export function LinearIssuesCompletedScreen() {
       </p>
       <h1 className="screen-title">Linear issues completed</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <KpiCard title="Total completed" value={String(d.total ?? '—')} />

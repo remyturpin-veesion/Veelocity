@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useThemeStore } from '@/stores/theme.js';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { DeveloperMultiSelector } from '@/components/DeveloperMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
@@ -18,12 +18,33 @@ const TABS = [
   { path: '/alerts', label: 'Alerts' },
 ] as const;
 
-const LINEAR_SIDEBAR_ITEMS: { id: string; icon: string; title: string }[] = [
-  { id: 'overview', icon: '⊞', title: 'Overview' },
-  { id: 'issues-completed', icon: '✓', title: 'Issues completed' },
-  { id: 'backlog', icon: '▢', title: 'Backlog' },
-  { id: 'time-in-state', icon: '◷', title: 'Time in state' },
-];
+/** Sidebar sublinks when on GitHub: Overview + DORA + Dev + Insights, each with icon + label */
+const GITHUB_SIDEBAR = {
+  overview: { path: '/github', icon: '⊞', label: 'Overview' },
+  dora: [
+    { path: '/metrics/deployment-frequency', icon: '🚀', label: 'Deployment frequency' },
+    { path: '/metrics/lead-time', icon: '⏱', label: 'Lead time' },
+  ],
+  dev: [
+    { path: '/metrics/throughput', icon: '📦', label: 'Throughput' },
+    { path: '/metrics/pr-review-time', icon: '👀', label: 'PR review time' },
+    { path: '/metrics/pr-merge-time', icon: '🔀', label: 'PR merge time' },
+    { path: '/metrics/cycle-time', icon: '🔄', label: 'Cycle time' },
+    { path: '/metrics/pr-health', icon: '❤️', label: 'PR health' },
+    { path: '/metrics/reviewer-workload', icon: '👥', label: 'Reviewer workload' },
+  ],
+  insights: [
+    { path: '/insights/recommendations', icon: '🛡', label: 'Recommendations' },
+    { path: '/insights/correlations', icon: '📈', label: 'Correlations' },
+  ],
+} as const;
+
+const LINEAR_SIDEBAR_LINKS = [
+  { path: '/linear', icon: '⊞', title: 'Overview' },
+  { path: '/metrics/linear/issues-completed', icon: '✓', title: 'Issues completed' },
+  { path: '/metrics/linear/backlog', icon: '▢', title: 'Backlog' },
+  { path: '/metrics/linear/time-in-state', icon: '◷', title: 'Time in state' },
+] as const;
 
 function isActive(path: string, current: string): boolean {
   if (path === '/') return current === '/' || current === '/dashboard';
@@ -34,12 +55,12 @@ function isLinearRoute(pathname: string): boolean {
   return pathname === '/linear' || pathname.startsWith('/metrics/linear');
 }
 
-function formatDateRangeLabel(startDate: string, endDate: string): string {
-  const fmt = (s: string) => {
-    const d = new Date(s);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-  return `From: ${fmt(startDate)} To: ${fmt(endDate)}`;
+function isGitHubRoute(pathname: string): boolean {
+  return (
+    pathname === '/github' ||
+    pathname.startsWith('/metrics/') && !pathname.startsWith('/metrics/linear') ||
+    pathname.startsWith('/insights/')
+  );
 }
 
 interface AppShellProps {
@@ -59,6 +80,8 @@ export function AppShell({ children }: AppShellProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const showLinearSidebar = isLinearRoute(location.pathname);
+  const showGitHubSidebar = isGitHubRoute(location.pathname);
+  const showSidebar = showLinearSidebar || showGitHubSidebar;
 
   useEffect(() => {
     if (!datePickerOpen) return;
@@ -70,11 +93,9 @@ export function AppShell({ children }: AppShellProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [datePickerOpen]);
-  const linearSidebarSelection = useFiltersStore((s) => s.linearSidebarSelection);
-  const toggleLinearSidebarItem = useFiltersStore((s) => s.toggleLinearSidebarItem);
 
   return (
-    <div className={`app-shell ${showLinearSidebar ? 'app-shell--with-sidebar' : ''}`}>
+    <div className={`app-shell ${showSidebar ? 'app-shell--with-sidebar' : ''}`}>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <header className="app-shell__top">
         <nav className="app-shell__nav">
@@ -98,7 +119,7 @@ export function AppShell({ children }: AppShellProps) {
             aria-expanded={datePickerOpen}
             aria-haspopup="dialog"
           >
-            {formatDateRangeLabel(startDate, endDate)}
+            {formatDateRangeDisplay(startDate, endDate)}
           </button>
           {datePickerOpen && (
             <div className="app-shell__date-popover" role="dialog" aria-label="Date range">
@@ -136,6 +157,15 @@ export function AppShell({ children }: AppShellProps) {
                     />
                   </label>
                 </div>
+              </div>
+              <div className="app-shell__date-actions">
+                <button
+                  type="button"
+                  className="app-shell__date-ok"
+                  onClick={() => setDatePickerOpen(false)}
+                >
+                  OK
+                </button>
               </div>
             </div>
           )}
@@ -176,23 +206,66 @@ export function AppShell({ children }: AppShellProps) {
           )}
         </div>
       </div>
-      {showLinearSidebar ? (
+      {showGitHubSidebar ? (
         <div className="app-shell__body">
-          <aside className="app-shell__sidebar" aria-label="Linear metrics selection">
-            {LINEAR_SIDEBAR_ITEMS.map(({ id, icon, title }) => {
-              const checked = linearSidebarSelection.has(id);
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="GitHub section">
+            <Link
+              to="/github"
+              className={isActive('/github', location.pathname) && location.pathname === '/github' ? 'active' : ''}
+              aria-current={location.pathname === '/github' ? 'page' : undefined}
+            >
+              <span className="app-shell__sidebar-icon">{GITHUB_SIDEBAR.overview.icon}</span>
+              <span className="app-shell__sidebar-label">{GITHUB_SIDEBAR.overview.label}</span>
+            </Link>
+            <span className="app-shell__sidebar-section">DORA</span>
+            {GITHUB_SIDEBAR.dora.map(({ path, icon, label }) => {
+              const active = isActive(path, location.pathname);
               return (
-                <button
-                  key={id}
-                  type="button"
-                  className={`app-shell__sidebar-btn ${checked ? 'active' : ''}`}
-                  title={`${title} — ${checked ? 'selected' : 'not selected'} (click to toggle)`}
-                  aria-label={`${title}, ${checked ? 'selected' : 'not selected'}`}
-                  aria-pressed={checked}
-                  onClick={() => toggleLinearSidebarItem(id)}
+                <Link key={path} to={path} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+            <span className="app-shell__sidebar-section">Dev</span>
+            {GITHUB_SIDEBAR.dev.map(({ path, icon, label }) => {
+              const active = isActive(path, location.pathname);
+              return (
+                <Link key={path} to={path} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+            <span className="app-shell__sidebar-section">Insights</span>
+            {GITHUB_SIDEBAR.insights.map(({ path, icon, label }) => {
+              const active = isActive(path, location.pathname);
+              return (
+                <Link key={path} to={path} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+          </aside>
+          <main className="app-shell__main">{children}</main>
+        </div>
+      ) : showLinearSidebar ? (
+        <div className="app-shell__body">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Linear section">
+            {LINEAR_SIDEBAR_LINKS.map(({ path, icon, title }) => {
+              const active = isActive(path, location.pathname);
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={active ? 'active' : ''}
+                  title={title}
+                  aria-current={active ? 'page' : undefined}
                 >
-                  {icon}
-                </button>
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{title}</span>
+                </Link>
               );
             })}
           </aside>

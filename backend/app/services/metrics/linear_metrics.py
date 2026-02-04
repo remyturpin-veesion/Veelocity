@@ -22,8 +22,8 @@ class LinearMetricsService:
         self._db = db
 
     def _team_filter(self, team_id: int | None, team_ids: list[int] | None):
-        """Resolve team filter: team_ids if non-empty, else single team_id, else None."""
-        if team_ids:
+        """Resolve team filter: team_ids if provided (including [] = no teams), else single team_id, else None."""
+        if team_ids is not None:
             return list(team_ids)
         if team_id is not None:
             return [team_id]
@@ -89,7 +89,7 @@ class LinearMetricsService:
             )
         )
         ids = self._team_filter(team_id, team_ids)
-        if ids:
+        if ids is not None:
             query = query.where(LinearIssue.team_id.in_(ids))
         matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
         query = self._assignee_filter_sync(query, matching)
@@ -127,7 +127,7 @@ class LinearMetricsService:
             )
         )
         ids = self._team_filter(team_id, team_ids)
-        if ids:
+        if ids is not None:
             query = query.where(LinearIssue.team_id.in_(ids))
         matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
         query = self._assignee_filter_sync(query, matching)
@@ -146,7 +146,7 @@ class LinearMetricsService:
             LinearWorkflowState.position,
             LinearWorkflowState.type,
         )
-        if team_ids:
+        if team_ids is not None:
             q = q.where(LinearWorkflowState.team_id.in_(team_ids))
         q = q.order_by(LinearWorkflowState.team_id, LinearWorkflowState.position)
         result = await self._db.execute(q)
@@ -181,7 +181,7 @@ class LinearMetricsService:
         # Issue counts per state (current state, filtered by team)
         matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
         count_q = select(LinearIssue.state, func.count(LinearIssue.id))
-        if ids:
+        if ids is not None:
             count_q = count_q.where(LinearIssue.team_id.in_(ids))
         count_q = self._assignee_filter_sync(count_q, matching)
         count_q = count_q.group_by(LinearIssue.state)
@@ -200,7 +200,7 @@ class LinearMetricsService:
                 )
             )
         )
-        if ids:
+        if ids is not None:
             started_q = started_q.where(LinearIssue.team_id.in_(ids))
         started_q = self._assignee_filter_sync(started_q, matching)
         started_result = await self._db.execute(started_q)

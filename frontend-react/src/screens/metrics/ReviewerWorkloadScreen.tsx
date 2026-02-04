@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getReviewerWorkload } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
@@ -43,8 +43,6 @@ export function ReviewerWorkloadScreen() {
   }
 
   const d = data as {
-    start_date?: string;
-    end_date?: string;
     reviewers?: Array<{ reviewer_login: string; review_count: number; share?: number }>;
     summary?: { gini_coefficient?: number };
   };
@@ -57,7 +55,7 @@ export function ReviewerWorkloadScreen() {
       </p>
       <h1 className="screen-title">Reviewer workload</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {d.start_date} – {d.end_date}
+        {formatDateRangeDisplay(startDate, endDate)}
         {d.summary?.gini_coefficient != null && ` · Gini: ${d.summary.gini_coefficient.toFixed(2)}`}
       </p>
       <div className="card">

@@ -348,9 +348,10 @@ export async function getLinearOverview(params?: {
   start_date?: string;
   end_date?: string;
   team_ids?: number[];
+  no_teams?: boolean;
   assignee_name?: string;
 }): Promise<LinearOverview> {
-  return apiGet(`${prefix}/metrics/linear/overview`, params as Record<string, string | number | number[]>);
+  return apiGet(`${prefix}/metrics/linear/overview`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getLinearIssuesCompleted(params?: {
@@ -358,28 +359,31 @@ export async function getLinearIssuesCompleted(params?: {
   end_date?: string;
   period?: string;
   team_ids?: number[];
+  no_teams?: boolean;
   assignee_name?: string;
 }): Promise<unknown> {
   return apiGet(`${prefix}/metrics/linear/issues-completed`, {
     ...params,
     period: params?.period ?? 'week',
-  } as Record<string, string | number | number[]>);
+  } as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getLinearBacklog(params?: {
   team_ids?: number[];
+  no_teams?: boolean;
   assignee_name?: string;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/linear/backlog`, params as Record<string, string | number[]>);
+  return apiGet(`${prefix}/metrics/linear/backlog`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getLinearTimeInState(params?: {
   start_date?: string;
   end_date?: string;
   team_ids?: number[];
+  no_teams?: boolean;
   assignee_name?: string;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/linear/time-in-state`, params as Record<string, string | number | number[]>);
+  return apiGet(`${prefix}/metrics/linear/time-in-state`, params as Record<string, string | number | boolean | number[]>);
 }
 
 export async function getAnomalies(params: {

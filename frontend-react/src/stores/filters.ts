@@ -17,6 +17,13 @@ function periodToDays(p: TimePeriodKey): number {
   return p === '7' ? 7 : p === '30' ? 30 : 90;
 }
 
+/** Format date range for display (e.g. "Jan 26, 2026 – Feb 3, 2026"). */
+export function formatDateRangeDisplay(startDate: string, endDate: string): string {
+  const fmt = (s: string) =>
+    new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${fmt(startDate)} – ${fmt(endDate)}`;
+}
+
 export function toStartEnd(state: DateRangeState): { startDate: string; endDate: string } {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
@@ -42,12 +49,8 @@ export function toStartEnd(state: DateRangeState): { startDate: string; endDate:
   };
 }
 
-export const LINEAR_SIDEBAR_IDS = ['overview', 'issues-completed', 'backlog', 'time-in-state'] as const;
-export type LinearSidebarId = (typeof LINEAR_SIDEBAR_IDS)[number];
-
-function getDefaultLinearSidebarSelection(): Set<string> {
-  return new Set(LINEAR_SIDEBAR_IDS);
-}
+/** Sentinel for "no author" filter; backend returns empty when this is passed. */
+export const AUTHOR_LOGIN_NONE = '__none__';
 
 interface FiltersState {
   dateRange: DateRangeState;
@@ -55,7 +58,6 @@ interface FiltersState {
   developerLogins: Set<string>;
   teamIds: Set<number>;
   timeInStateStageIds: Set<string>;
-  linearSidebarSelection: Set<string>;
 
   setDateRangePreset: (preset: TimePeriodKey) => void;
   setDateRangeCustom: (start: string, end: string) => void;
@@ -63,9 +65,13 @@ interface FiltersState {
   setDeveloperLogins: (logins: Set<string> | string[]) => void;
   setTeamIds: (ids: Set<number> | number[]) => void;
   setTimeInStateStageIds: (ids: Set<string> | string[]) => void;
-  toggleLinearSidebarItem: (id: string) => void;
 
+  /** Empty set = no filter (0 values). Size 1 = that repo. Size > 1 = all repos (null). */
   getRepoIdForApi: () => number | null;
+  /** Empty set = no filter (0 values). Size 1 = that author. Size > 1 = all (null). */
+  getAuthorLoginForApi: () => string | null;
+  /** Empty set = no filter (0 values). Non-empty = those team ids. */
+  getTeamIdsForApi: () => number[] | undefined;
   getStartEnd: () => { startDate: string; endDate: string };
 }
 
@@ -79,7 +85,6 @@ export const useFiltersStore = create<FiltersState>()(
       developerLogins: new Set(),
       teamIds: new Set(),
       timeInStateStageIds: new Set(),
-      linearSidebarSelection: getDefaultLinearSidebarSelection(),
 
       setDateRangePreset(preset) {
         set({
@@ -106,9 +111,7 @@ export const useFiltersStore = create<FiltersState>()(
       },
 
       setTeamIds(ids) {
-        set({
-          teamIds: ids instanceof Set ? ids : new Set(ids),
-        });
+        set({ teamIds: new Set(ids instanceof Set ? ids : ids) });
       },
 
       setTimeInStateStageIds(ids) {
@@ -117,17 +120,22 @@ export const useFiltersStore = create<FiltersState>()(
         });
       },
 
-      toggleLinearSidebarItem(id) {
-        const { linearSidebarSelection } = get();
-        const next = new Set(linearSidebarSelection);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        set({ linearSidebarSelection: next });
-      },
-
       getRepoIdForApi() {
         const { repoIds } = get();
+        if (repoIds.size === 0) return -1;
         return repoIds.size === 1 ? [...repoIds][0]! : null;
+      },
+
+      getAuthorLoginForApi() {
+        const { developerLogins } = get();
+        if (developerLogins.size === 0) return AUTHOR_LOGIN_NONE;
+        return developerLogins.size === 1 ? [...developerLogins][0]! : null;
+      },
+
+      getTeamIdsForApi() {
+        const { teamIds } = get();
+        if (teamIds.size === 0) return [];
+        return Array.from(teamIds);
       },
 
       getStartEnd() {
@@ -142,7 +150,6 @@ export const useFiltersStore = create<FiltersState>()(
         developerLogins: Array.from(s.developerLogins),
         teamIds: Array.from(s.teamIds),
         timeInStateStageIds: Array.from(s.timeInStateStageIds),
-        linearSidebarSelection: Array.from(s.linearSidebarSelection),
       }),
       merge: (persisted, current) => {
         const p = persisted as {
@@ -151,7 +158,6 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins?: string[];
           teamIds?: number[];
           timeInStateStageIds?: string[];
-          linearSidebarSelection?: string[];
         };
         return {
           ...current,
@@ -160,7 +166,6 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins: p.developerLogins ? new Set(p.developerLogins) : current.developerLogins,
           teamIds: p.teamIds ? new Set(p.teamIds) : current.teamIds,
           timeInStateStageIds: p.timeInStateStageIds ? new Set(p.timeInStateStageIds) : current.timeInStateStageIds,
-          linearSidebarSelection: p.linearSidebarSelection ? new Set(p.linearSidebarSelection) : current.linearSidebarSelection,
         };
       },
     }

@@ -822,16 +822,19 @@ async def get_linear_overview(
     end_date: datetime | None = None,
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None, description="Filter by team IDs (e.g. ?team_ids=1&team_ids=2)"),
+    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
     assignee_name: str | None = Query(None, description="Filter by Linear assignee name (e.g. for per-developer metrics)"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get Linear overview for dashboard: issues completed, backlog, time-in-state.
 
-    Query params: start_date, end_date (default last 30 days), team_id or team_ids, assignee_name (optional).
+    Query params: start_date, end_date (default last 30 days), team_id or team_ids, no_teams, assignee_name (optional).
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
+    if no_teams:
+        team_ids = []
 
     service = LinearMetricsService(db)
     return await service.get_overview(
@@ -850,16 +853,19 @@ async def get_linear_issues_completed(
     period: Literal["day", "week", "month"] = "week",
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
+    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get issues completed per period (time series).
 
-    Query params: start_date, end_date, period, team_id or team_ids, assignee_name (optional).
+    Query params: start_date, end_date, period, team_id or team_ids, no_teams, assignee_name (optional).
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
+    if no_teams:
+        team_ids = []
 
     service = LinearMetricsService(db)
     return await service.get_issues_completed(
@@ -876,12 +882,15 @@ async def get_linear_issues_completed(
 async def get_linear_backlog(
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
+    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get current backlog count (open issues). Optional team_id, team_ids, assignee_name filter.
+    Get current backlog count (open issues). Optional team_id, team_ids, no_teams, assignee_name filter.
     """
+    if no_teams:
+        team_ids = []
     service = LinearMetricsService(db)
     return await service.get_backlog(
         team_id=team_id,
@@ -896,16 +905,19 @@ async def get_linear_time_in_state(
     end_date: datetime | None = None,
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
+    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get average/median time from issue started to completed.
 
-    Query params: start_date, end_date (default last 30 days), team_id or team_ids, assignee_name (optional).
+    Query params: start_date, end_date (default last 30 days), team_id or team_ids, no_teams, assignee_name (optional).
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
+    if no_teams:
+        team_ids = []
 
     service = LinearMetricsService(db)
     return await service.get_time_in_state(
