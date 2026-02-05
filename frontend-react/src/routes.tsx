@@ -1,33 +1,53 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell.js';
-import { DashboardScreen } from '@/screens/DashboardScreen.js';
-import { TeamScreen } from '@/screens/TeamScreen.js';
-import { DeveloperProfileScreen } from '@/screens/DeveloperProfileScreen.js';
-import { GitHubOverviewScreen } from '@/screens/GitHubOverviewScreen.js';
-import { LinearOverviewScreen } from '@/screens/LinearOverviewScreen.js';
-import { CursorOverviewScreen } from '@/screens/CursorOverviewScreen.js';
-import { GreptileOverviewScreen } from '@/screens/GreptileOverviewScreen.js';
-import { DataCoverageScreen } from '@/screens/DataCoverageScreen.js';
-import { AlertsOverviewScreen } from '@/screens/AlertsOverviewScreen.js';
-import { PRDetailScreen } from '@/screens/PRDetailScreen.js';
-import { RecommendationsScreen } from '@/screens/RecommendationsScreen.js';
-import { CorrelationsScreen } from '@/screens/CorrelationsScreen.js';
-import { DeploymentFrequencyScreen } from '@/screens/metrics/DeploymentFrequencyScreen.js';
-import { LeadTimeScreen } from '@/screens/metrics/LeadTimeScreen.js';
-import { ThroughputScreen } from '@/screens/metrics/ThroughputScreen.js';
-import { PRReviewTimeScreen } from '@/screens/metrics/PRReviewTimeScreen.js';
-import { PRMergeTimeScreen } from '@/screens/metrics/PRMergeTimeScreen.js';
-import { CycleTimeScreen } from '@/screens/metrics/CycleTimeScreen.js';
-import { PRHealthScreen } from '@/screens/metrics/PRHealthScreen.js';
-import { ReviewerWorkloadScreen } from '@/screens/metrics/ReviewerWorkloadScreen.js';
-import { LinearIssuesCompletedScreen } from '@/screens/metrics/LinearIssuesCompletedScreen.js';
-import { LinearBacklogScreen } from '@/screens/metrics/LinearBacklogScreen.js';
-import { LinearTimeInStateScreen } from '@/screens/metrics/LinearTimeInStateScreen.js';
+
+// Lazy-load screens to reduce initial bundle and memory (helps avoid "Aw, Snap!" / Error code: 5)
+const DashboardScreen = lazy(() => import('@/screens/DashboardScreen.js').then((m) => ({ default: m.DashboardScreen })));
+const TeamScreen = lazy(() => import('@/screens/TeamScreen.js').then((m) => ({ default: m.TeamScreen })));
+const DeveloperProfileScreen = lazy(() => import('@/screens/DeveloperProfileScreen.js').then((m) => ({ default: m.DeveloperProfileScreen })));
+const GitHubOverviewScreen = lazy(() => import('@/screens/GitHubOverviewScreen.js').then((m) => ({ default: m.GitHubOverviewScreen })));
+const LinearOverviewScreen = lazy(() => import('@/screens/LinearOverviewScreen.js').then((m) => ({ default: m.LinearOverviewScreen })));
+const CursorOverviewScreen = lazy(() => import('@/screens/CursorOverviewScreen.js').then((m) => ({ default: m.CursorOverviewScreen })));
+const GreptileOverviewScreen = lazy(() => import('@/screens/GreptileOverviewScreen.js').then((m) => ({ default: m.GreptileOverviewScreen })));
+const DataCoverageScreen = lazy(() => import('@/screens/DataCoverageScreen.js').then((m) => ({ default: m.DataCoverageScreen })));
+const AlertsOverviewScreen = lazy(() => import('@/screens/AlertsOverviewScreen.js').then((m) => ({ default: m.AlertsOverviewScreen })));
+const PRDetailScreen = lazy(() => import('@/screens/PRDetailScreen.js').then((m) => ({ default: m.PRDetailScreen })));
+const RecommendationsScreen = lazy(() => import('@/screens/RecommendationsScreen.js').then((m) => ({ default: m.RecommendationsScreen })));
+const CorrelationsScreen = lazy(() => import('@/screens/CorrelationsScreen.js').then((m) => ({ default: m.CorrelationsScreen })));
+const DeploymentFrequencyScreen = lazy(() => import('@/screens/metrics/DeploymentFrequencyScreen.js').then((m) => ({ default: m.DeploymentFrequencyScreen })));
+const LeadTimeScreen = lazy(() => import('@/screens/metrics/LeadTimeScreen.js').then((m) => ({ default: m.LeadTimeScreen })));
+const ThroughputScreen = lazy(() => import('@/screens/metrics/ThroughputScreen.js').then((m) => ({ default: m.ThroughputScreen })));
+const PRReviewTimeScreen = lazy(() => import('@/screens/metrics/PRReviewTimeScreen.js').then((m) => ({ default: m.PRReviewTimeScreen })));
+const PRMergeTimeScreen = lazy(() => import('@/screens/metrics/PRMergeTimeScreen.js').then((m) => ({ default: m.PRMergeTimeScreen })));
+const CycleTimeScreen = lazy(() => import('@/screens/metrics/CycleTimeScreen.js').then((m) => ({ default: m.CycleTimeScreen })));
+const PRHealthScreen = lazy(() => import('@/screens/metrics/PRHealthScreen.js').then((m) => ({ default: m.PRHealthScreen })));
+const ReviewerWorkloadScreen = lazy(() => import('@/screens/metrics/ReviewerWorkloadScreen.js').then((m) => ({ default: m.ReviewerWorkloadScreen })));
+const LinearIssuesCompletedScreen = lazy(() => import('@/screens/metrics/LinearIssuesCompletedScreen.js').then((m) => ({ default: m.LinearIssuesCompletedScreen })));
+const LinearBacklogScreen = lazy(() => import('@/screens/metrics/LinearBacklogScreen.js').then((m) => ({ default: m.LinearBacklogScreen })));
+const LinearTimeInStateScreen = lazy(() => import('@/screens/metrics/LinearTimeInStateScreen.js').then((m) => ({ default: m.LinearTimeInStateScreen })));
 
 function ShellLayout() {
   return (
     <AppShell>
-      <Outlet />
+      <Suspense
+        fallback={
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 200,
+              color: 'var(--color-text-muted, #94a3b8)',
+            }}
+          >
+            Loading…
+          </div>
+        }
+      >
+        <Outlet />
+      </Suspense>
     </AppShell>
   );
 }

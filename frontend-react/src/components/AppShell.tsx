@@ -138,10 +138,12 @@ export function AppShell({ children }: AppShellProps) {
       {location.pathname !== '/data-coverage' && location.pathname !== '/alerts' && (
         <div className="app-shell__filters">
           <div className="app-shell__filters-inner">
-            <div className="app-shell__filter-row">
-              <span className="app-shell__filter-label">Repos</span>
-              <RepoMultiSelector />
-            </div>
+            {!showLinearSidebar && (
+              <div className="app-shell__filter-row">
+                <span className="app-shell__filter-label">Repos</span>
+                <RepoMultiSelector />
+              </div>
+            )}
             {showLinearSidebar && (
               <div className="app-shell__filter-row">
                 <span className="app-shell__filter-label">Teams</span>

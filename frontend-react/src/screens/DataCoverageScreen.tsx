@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   LineChart,
   Line,
@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { getSyncCoverage, getDailyCoverage, getSyncStatus } from '@/api/endpoints.js';
+import { getSyncCoverage, getDailyCoverage, getSyncStatus, triggerLinearFullSync, resetLinearData } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import type { DailyCoverageResponse } from '@/types/index.js';
 
@@ -39,16 +39,33 @@ function formatLastSync(iso: string | null | undefined): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function buildChartData(daily: DailyCoverageResponse) {
+/** Max chart points to avoid heavy render (backend typically returns 90). */
+const MAX_CHART_POINTS = 90;
+
+/** Max list items to render (avoids huge DOM and "Aw, Snap!" on data-coverage). */
+const MAX_VISIBLE_REPOS = 50;
+const MAX_VISIBLE_LINEAR_TEAMS = 50;
+
+function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number }> {
   const { github, github_actions, linear } = daily;
-  if (!github?.length || !github_actions?.length || !linear?.length) return [];
-  return github.map((g, i) => ({
-    date: g.date,
-    name: formatDateLabel(g.date),
-    prs: g.count,
-    workflowRuns: github_actions[i]?.count ?? 0,
-    issues: linear[i]?.count ?? 0,
-  }));
+  if (!github?.length || !Array.isArray(github_actions) || !Array.isArray(linear)) return [];
+  const len = Math.min(github.length, MAX_CHART_POINTS);
+  const result: Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number }> = [];
+  for (let i = 0; i < len; i++) {
+    const g = github[i];
+    const prs = Number(g?.count) || 0;
+    const workflowRuns = Number(github_actions[i]?.count) ?? 0;
+    const issues = Number(linear[i]?.count) ?? 0;
+    if (typeof g?.date !== 'string') continue;
+    result.push({
+      date: g.date,
+      name: formatDateLabel(g.date),
+      prs: Number.isFinite(prs) ? prs : 0,
+      workflowRuns: Number.isFinite(workflowRuns) ? workflowRuns : 0,
+      issues: Number.isFinite(issues) ? issues : 0,
+    });
+  }
+  return result;
 }
 
 const CONNECTOR_ACCENT: Record<string, string> = {
@@ -63,28 +80,65 @@ const JOB_LABELS: Record<string, string> = {
   incremental_sync: 'Incremental sync',
   fill_details: 'Filling PR details',
   full_sync: 'Full sync',
+  linear_sync: 'Linear sync',
+  cursor_sync: 'Cursor sync',
+  greptile_sync: 'Greptile sync',
 };
 
 export function DataCoverageScreen() {
+  const queryClient = useQueryClient();
   const { data: syncStatus } = useQuery({
     queryKey: ['sync', 'status'],
     queryFn: () => getSyncStatus(),
     refetchInterval: (query) => {
       const inProgress = query.state.data?.sync_in_progress;
-      return inProgress ? 2_000 : 15_000;
+      return inProgress ? 5_000 : 15_000;
     },
+    refetchOnWindowFocus: true,
   });
 
-  const pollInterval = syncStatus?.sync_in_progress ? 5_000 : undefined;
-  const { data, isLoading, error } = useQuery({
+  // Poll coverage more often during sync; otherwise every 30s so "Last sync" updates after scheduled jobs
+  const coveragePollInterval = syncStatus?.sync_in_progress ? 5_000 : 30_000;
+  const { data, isLoading, error, dataUpdatedAt } = useQuery({
     queryKey: ['sync', 'coverage'],
     queryFn: () => getSyncCoverage(),
-    refetchInterval: pollInterval,
+    refetchInterval: coveragePollInterval,
   });
+
+  // When coverage refetches (e.g. after scheduled Linear sync), refresh sync status so Linear teams progression updates
+  const prevCoverageUpdated = useRef(0);
+  useEffect(() => {
+    if (dataUpdatedAt && dataUpdatedAt !== prevCoverageUpdated.current) {
+      prevCoverageUpdated.current = dataUpdatedAt;
+      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
+    }
+  }, [dataUpdatedAt, queryClient]);
 
   const { data: dailyData } = useQuery({
     queryKey: ['sync', 'coverage', 'daily', 90],
     queryFn: () => getDailyCoverage(90),
+  });
+
+  const linearFullSyncMutation = useMutation({
+    mutationFn: triggerLinearFullSync,
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['sync', 'coverage'] });
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['sync', 'status'] }),
+        queryClient.refetchQueries({ queryKey: ['sync', 'coverage'] }),
+      ]);
+    },
+  });
+
+  const resetLinearMutation = useMutation({
+    mutationFn: resetLinearData,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['sync', 'coverage'] });
+      void queryClient.refetchQueries({ queryKey: ['sync', 'status'] });
+      void queryClient.refetchQueries({ queryKey: ['sync', 'coverage'] });
+    },
   });
 
   const chartData = useMemo(
@@ -99,8 +153,14 @@ export function DataCoverageScreen() {
   const currentJob = syncStatus?.current_job ?? null;
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
   const isFullySynced = (syncStatus?.is_complete ?? false) && !syncInProgress;
-  const repos = syncStatus?.repositories ?? [];
-  const linearTeams = syncStatus?.linear_teams ?? [];
+  const allRepos = syncStatus?.repositories ?? [];
+  const allLinearTeams = syncStatus?.linear_teams ?? [];
+  const repos = allRepos.slice(0, MAX_VISIBLE_REPOS);
+  const reposOmitted = allRepos.length - repos.length;
+  const linearTeams = allLinearTeams.slice(0, MAX_VISIBLE_LINEAR_TEAMS);
+  const linearTeamsOmitted = allLinearTeams.length - linearTeams.length;
+  const totalLinearIssues = allLinearTeams.reduce((sum, t) => sum + t.total_issues, 0);
+  const totalWorkflowRuns = data?.total_workflow_runs ?? 0;
   const cursorConnected = syncStatus?.cursor_connected ?? false;
   const cursorTeamMembersCount = syncStatus?.cursor_team_members_count ?? null;
   const greptileConnected = syncStatus?.greptile_connected ?? false;
@@ -131,7 +191,16 @@ export function DataCoverageScreen() {
         <div className="data-coverage__sync-banner data-coverage__sync-banner--complete" role="status">
           <span className="data-coverage__sync-banner-check" aria-hidden>✓</span>
           <span className="data-coverage__sync-banner-text">
-            GitHub PR details fully synced — {syncStatus.prs_with_details.toLocaleString()} PR{syncStatus.prs_with_details === 1 ? '' : 's'}. Linear and GitHub Actions status in Connectors below.
+            GitHub PR details fully synced — {syncStatus.prs_with_details.toLocaleString()} PR{syncStatus.prs_with_details === 1 ? '' : 's'}.
+            {allLinearTeams.length > 0 && (
+              <> Linear: {totalLinearIssues.toLocaleString()} issue{totalLinearIssues === 1 ? '' : 's'} across {allLinearTeams.length} team{allLinearTeams.length === 1 ? '' : 's'}.</>
+            )}
+            {totalWorkflowRuns > 0 && (
+              <> GitHub Actions: {totalWorkflowRuns.toLocaleString()} workflow run{totalWorkflowRuns === 1 ? '' : 's'}.</>
+            )}
+            {allLinearTeams.length === 0 && totalWorkflowRuns === 0 && (
+              <> Connector status in Connectors below.</>
+            )}
           </span>
         </div>
       )}
@@ -180,8 +249,8 @@ export function DataCoverageScreen() {
                 <li
                   key={c.connector_name}
                   className={
-                    (c.connector_name === 'github' && repos.length > 0) ||
-                    (c.connector_name === 'linear' && linearTeams.length > 0) ||
+                    (c.connector_name === 'github' && allRepos.length > 0) ||
+                    (c.connector_name === 'linear' && allLinearTeams.length > 0) ||
                     c.connector_name === 'cursor' ||
                     c.connector_name === 'greptile'
                       ? 'data-coverage__connector-item data-coverage__connector-item--with-repos'
@@ -200,7 +269,7 @@ export function DataCoverageScreen() {
                       </span>
                     </div>
                   </div>
-                  {c.connector_name === 'github' && repos.length > 0 && (
+                  {c.connector_name === 'github' && allRepos.length > 0 && (
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">GitHub repos progression update</h3>
                       <p className="data-coverage__repos-desc">
@@ -230,38 +299,89 @@ export function DataCoverageScreen() {
                           );
                         })}
                       </ul>
+                      {reposOmitted > 0 && (
+                        <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
+                          … and {reposOmitted.toLocaleString()} more repo{reposOmitted === 1 ? '' : 's'} (list capped for performance).
+                        </p>
+                      )}
                     </div>
                   )}
-                  {c.connector_name === 'linear' && linearTeams.length > 0 && (
+                  {c.connector_name === 'linear' && allLinearTeams.length > 0 && (
                     <div className="data-coverage__repos-inline">
-                      <h3 className="data-coverage__subsection-title">Linear teams progression</h3>
+                      <div className="data-coverage__subsection-header">
+                        <h3 className="data-coverage__subsection-title">Linear teams progression</h3>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="data-coverage__sync-all-btn"
+                            onClick={() => linearFullSyncMutation.mutate()}
+                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
+                            title="Fetch all Linear issues now (updates counts and what remains)"
+                          >
+                            {linearFullSyncMutation.isPending ? 'Syncing…' : 'Sync all issues'}
+                          </button>
+                          <button
+                            type="button"
+                            className="data-coverage__sync-all-btn"
+                            onClick={() => resetLinearMutation.mutate()}
+                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
+                            title="Delete all Linear data (teams, issues). Next sync will do a full import."
+                          >
+                            {resetLinearMutation.isPending ? 'Resetting…' : 'Reset Linear data'}
+                          </button>
+                          <button
+                            type="button"
+                            className="data-coverage__sync-all-btn"
+                            onClick={() => {
+                              if (window.confirm('Delete all Linear data and run a full sync now? This may take several minutes.')) {
+                                resetLinearMutation.mutate(undefined, {
+                                  onSuccess: () => {
+                                    linearFullSyncMutation.mutate();
+                                  },
+                                });
+                              }
+                            }}
+                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
+                            title="Delete all Linear data then run full sync (start fresh)"
+                          >
+                            Reset and sync
+                          </button>
+                        </div>
+                      </div>
                       <p className="data-coverage__repos-desc">
-                        Issues synced per team; linked count is used for cycle time.
+                        Per team: <strong>linked to a PR</strong> (for cycle time) / <strong>synced in app</strong>. Issues are matched to PRs by identifier (e.g. [PIC-123]) in PR title or body. Click &quot;Sync all issues&quot; to re-import from Linear (includes archived teams).
                       </p>
                       <ul className="data-coverage__repo-list">
                         {linearTeams.map((t) => {
                           const pct = t.total_issues > 0 ? Math.round((t.linked_issues / t.total_issues) * 100) : 100;
+                          const pctDisplay = t.total_issues > 0 && t.linked_issues > 0 && pct === 0 ? '<1%' : `${pct}%`;
+                          const pctStyle = t.total_issues > 0 && t.linked_issues > 0 && pct === 0 ? '1%' : `${pct}%`;
                           const isTeamComplete = t.total_issues === 0 || t.linked_issues === t.total_issues;
                           return (
                             <li
                               key={t.key}
                               className={`data-coverage__repo-row ${isTeamComplete ? 'data-coverage__repo-row--complete' : ''}`}
-                              style={{ '--repo-pct': `${pct}%` } as React.CSSProperties}
+                              style={{ '--repo-pct': pctStyle } as React.CSSProperties}
                             >
                               <span className="data-coverage__repo-row-fill" aria-hidden />
                               <span className="data-coverage__repo-name" title={t.name}>
                                 {t.name}
                               </span>
-                              <span className="data-coverage__repo-counts">
+                              <span className="data-coverage__repo-counts" title="Linked to PR / Synced in app">
                                 {t.linked_issues.toLocaleString()} / {t.total_issues.toLocaleString()} issues
                               </span>
-                              <span className="data-coverage__repo-pct" aria-label={`${pct}% linked`}>
-                                {pct}%
+                              <span className="data-coverage__repo-pct" aria-label={`${pctDisplay} linked`}>
+                                {pctDisplay}
                               </span>
                             </li>
                           );
                         })}
                       </ul>
+                      {linearTeamsOmitted > 0 && (
+                        <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
+                          … and {linearTeamsOmitted.toLocaleString()} more team{linearTeamsOmitted === 1 ? '' : 's'} (list capped for performance).
+                        </p>
+                      )}
                     </div>
                   )}
                   {c.connector_name === 'cursor' && (

@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.linear import LinearConnector
@@ -45,8 +45,8 @@ class SyncLinearService:
         # Build team map for issue linking
         team_map = await self._build_team_map()
 
-        # Sync issues
-        issues = await self._connector.fetch_issues()
+        # Sync all issues (no cap so every team gets full count)
+        issues = await self._connector.fetch_issues(max_results=None)
         count += await self._upsert_issues(issues, team_map)
 
         await self._sync_state.update_last_full_sync(self._connector.name)
@@ -58,9 +58,28 @@ class SyncLinearService:
         """
         Incremental sync of Linear data.
 
-        Linear GraphQL API supports updatedAt filter, but for simplicity
-        we fetch recent issues (limited to 100) and upsert.
+        If no previous sync exists, runs full sync so Data coverage is populated.
+        If we have very few issues for multiple teams (e.g. hit old 1000 cap), run full sync to backfill.
+        Otherwise fetches issues updated since last sync (updatedAt filter).
         """
+        since = await self._sync_state.get_last_sync(self._connector.name)
+        if since is None:
+            logger.info("Linear: no previous sync, running full sync")
+            return await self.sync_all()
+
+        # Backfill: if we have several teams but few issues synced, run full sync so progression catches up
+        team_count_result = await self._db.execute(select(func.count(LinearTeam.id)))
+        team_count = team_count_result.scalar() or 0
+        issues_count_result = await self._db.execute(select(func.count(LinearIssue.id)))
+        issues_count = issues_count_result.scalar() or 0
+        if team_count >= 2 and issues_count < 2000:
+            logger.info(
+                "Linear: low issue count (%s) for %s teams, running full sync to backfill",
+                issues_count,
+                team_count,
+            )
+            return await self.sync_all()
+
         count = 0
 
         # Sync teams (lightweight)
@@ -69,8 +88,13 @@ class SyncLinearService:
 
         team_map = await self._build_team_map()
 
-        # Fetch recent issues (limited)
-        issues = await self._connector.fetch_issues(limit=100)
+        # Fetch issues updated since last sync (incremental)
+        updated_after_iso = since.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        issues = await self._connector.fetch_issues(
+            limit=100,
+            updated_after=updated_after_iso,
+            max_results=2000,
+        )
         count += await self._upsert_issues(issues, team_map)
 
         await self._sync_state.update_last_sync(self._connector.name)

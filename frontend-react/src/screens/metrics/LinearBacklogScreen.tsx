@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
+import { useFiltersStore, TEAM_ID_NONE } from '@/stores/filters.js';
 import { getLinearBacklog } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
@@ -15,8 +15,11 @@ export function LinearBacklogScreen() {
     queryKey: ['metrics', 'linear', 'backlog', teamIdsParam],
     queryFn: () =>
       getLinearBacklog({
-        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
-        no_teams: teamIdsParam && teamIdsParam.length === 0,
+        team_ids:
+          teamIdsParam && teamIdsParam.length > 0 && !(teamIdsParam.length === 1 && teamIdsParam[0] === TEAM_ID_NONE)
+            ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
+            : undefined,
+        no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
       }),
   });
 

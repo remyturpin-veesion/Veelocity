@@ -87,38 +87,79 @@ export function LinearTeamMultiSelector() {
       </button>
       {open && (
         <div className="filter-dropdown-popover" role="listbox" aria-label="Select teams">
-          <button
-            type="button"
+          <div
             role="option"
-            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
             aria-selected={allSelected}
-            onClick={() => {
-              if (allSelected) {
-                setTeamIds(new Set([TEAM_ID_NONE]));
-              } else {
-                setTeamIds([]);
-              }
-            }}
+            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
           >
-            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
-            All
-          </button>
+            <button
+              type="button"
+              className="filter-dropdown-option__check"
+              aria-label={allSelected ? 'Uncheck All' : 'Check All'}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (allSelected) {
+                  setTeamIds(new Set([TEAM_ID_NONE]));
+                } else {
+                  setTeamIds([]);
+                }
+              }}
+            >
+              {allSelected ? '✓' : ''}
+            </button>
+            <button
+              type="button"
+              className="filter-dropdown-option__name"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (allSelected) {
+                  setTeamIds(new Set([TEAM_ID_NONE]));
+                } else {
+                  setTeamIds([]);
+                }
+              }}
+            >
+              All
+            </button>
+          </div>
           {teams.map((t) => {
             const selected =
               !teamIds.has(TEAM_ID_NONE) && (teamIds.size === 0 || teamIds.has(t.id));
             const teamLabel = `${t.name} (${t.key})`;
             return (
-              <button
+              <div
                 key={t.id}
-                type="button"
                 role="option"
-                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
                 aria-selected={selected}
-                onClick={() => toggleTeam(t.id)}
+                className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
               >
-                <span className="filter-dropdown-option__check" aria-hidden>{selected ? '✓' : ''}</span>
-                {teamLabel}
-              </button>
+                <button
+                  type="button"
+                  className="filter-dropdown-option__check"
+                  aria-label={selected ? `Uncheck ${teamLabel}` : `Check ${teamLabel}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleTeam(t.id);
+                  }}
+                >
+                  {selected ? '✓' : ''}
+                </button>
+                <button
+                  type="button"
+                  className="filter-dropdown-option__name"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setTeamIds([t.id]);
+                    setOpen(false);
+                  }}
+                >
+                  {teamLabel}
+                </button>
+              </div>
             );
           })}
         </div>

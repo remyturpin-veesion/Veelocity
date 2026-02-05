@@ -42,6 +42,25 @@ export async function triggerSync(): Promise<void> {
   await apiPost(`${prefix}/connectors/sync`);
 }
 
+const LINEAR_FULL_SYNC_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+export async function triggerLinearFullSync(): Promise<{ status: string; message?: string; items_synced?: number }> {
+  return apiPost(`${prefix}/sync/linear-full`, undefined, {
+    timeoutMs: LINEAR_FULL_SYNC_TIMEOUT_MS,
+  }) as Promise<{
+    status: string;
+    message?: string;
+    items_synced?: number;
+  }>;
+}
+
+export async function resetLinearData(): Promise<{ status: string; message?: string }> {
+  return apiPost(`${prefix}/sync/linear-reset`) as Promise<{
+    status: string;
+    message?: string;
+  }>;
+}
+
 export async function getGitHubOAuthStatus(): Promise<{ enabled: boolean }> {
   return apiGet(prefix + '/auth/github/status');
 }

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime, timedelta
 
@@ -19,7 +18,7 @@ from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
 
-# In-progress state for UI (set/cleared by scheduled jobs)
+# In-progress state for UI (set/cleared by scheduled jobs; any job can run in parallel)
 _sync_in_progress = False
 _sync_job_name: str | None = None
 
@@ -27,6 +26,13 @@ _sync_job_name: str | None = None
 def get_sync_job_state() -> tuple[bool, str | None]:
     """Return (sync_in_progress, current_job_name). Safe to call from API."""
     return _sync_in_progress, _sync_job_name
+
+
+def set_sync_job_state(in_progress: bool, job_name: str | None = None) -> None:
+    """Set sync job state (e.g. for manual linear full sync). Safe to call from API."""
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = in_progress
+    _sync_job_name = job_name if in_progress else None
 
 
 async def _run_alert_notifications(db) -> None:
@@ -102,11 +108,8 @@ async def _sync_connector_safe(connector, db, method: str = "sync_recent"):
 
 async def run_sync():
     """
-    Run smart sync for all configured connectors.
-    
-    - Fast sync (PRs only) for repos without data
-    - Incremental sync for repos with existing data
-    - Continues even if one repo/connector fails
+    Run smart sync for GitHub and GitHub Actions only.
+    Linear, Cursor, Greptile run in separate jobs (every 5 min).
     """
     global _sync_in_progress, _sync_job_name
     _sync_in_progress = True
@@ -152,57 +155,15 @@ async def _run_sync_impl():
             total_errors.extend(errors)
             logger.info(f"GitHub sync: {items} items, {len(errors)} errors")
 
-        # GitHub Actions and Linear sequentially (shared session - cannot add() during flush)
+        # GitHub Actions (Linear, Cursor, Greptile run in separate 5-min jobs)
         github_actions = create_github_actions_connector(
             token=creds.github_token, repos=creds.github_repos
         )
-        linear = create_linear_connector(api_key=creds.linear_api_key)
-
         if github_actions:
             items, errors = await _sync_connector_safe(github_actions, db, "sync_recent")
             total_items += items
             total_errors.extend(errors)
             logger.info(f"GitHub Actions sync: {items} items")
-
-        if linear:
-            items, errors = await _sync_connector_safe(linear, db, "sync_recent")
-            total_items += items
-            total_errors.extend(errors)
-            logger.info(f"Linear sync: {items} items")
-
-        # Link PRs to issues after sync
-        if github and linear:
-            try:
-                linking_service = LinkingService(db)
-                linked = await linking_service.link_all_prs()
-                logger.info(f"Linked {linked} PRs to issues")
-            except Exception as e:
-                logger.error(f"Linking failed: {e}")
-                total_errors.append(str(e))
-
-        # Cursor: sync to DB (team, spend, daily usage, DAU)
-        if creds.cursor_api_key:
-            try:
-                from app.services.sync_cursor import sync_cursor
-                cursor_items = await sync_cursor(db, creds.cursor_api_key)
-                total_items += cursor_items
-                await db.commit()
-                logger.info("Cursor sync: %s items", cursor_items)
-            except Exception as e:
-                logger.error("Cursor sync failed: %s", e)
-                total_errors.append(f"Cursor: {e}")
-
-        # Greptile: sync to DB (indexed repositories)
-        if creds.greptile_api_key:
-            try:
-                from app.services.sync_greptile import sync_greptile
-                greptile_items = await sync_greptile(db, creds.greptile_api_key)
-                total_items += greptile_items
-                await db.commit()
-                logger.info("Greptile sync: %s repos", greptile_items)
-            except Exception as e:
-                logger.error("Greptile sync failed: %s", e)
-                total_errors.append(f"Greptile: {e}")
 
         logger.info(
             f"Sync complete: {total_items} items total, {len(total_errors)} errors"
@@ -212,6 +173,83 @@ async def _run_sync_impl():
 
         # Evaluate alerts and send notifications (webhooks/email) if configured
         await _run_alert_notifications(db)
+
+
+async def run_linear_sync():
+    """Linear incremental sync + PR–issue linking. Runs every 5 min."""
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "linear_sync"
+    try:
+        async with async_session_maker() as db:
+            creds = await CredentialsService(db).get_credentials()
+            linear = create_linear_connector(api_key=creds.linear_api_key)
+            if not linear:
+                return
+            try:
+                items, errors = await _sync_connector_safe(linear, db, "sync_recent")
+                await db.commit()
+                logger.info("Linear sync: %s items", items)
+                if errors:
+                    logger.warning("Linear sync errors: %s", errors)
+                # Link PRs to Linear issues after sync
+                try:
+                    linking_service = LinkingService(db)
+                    linked = await linking_service.link_all_prs()
+                    await db.commit()
+                    if linked:
+                        logger.info("Linked %s PRs to issues", linked)
+                except Exception as e:
+                    logger.error("Linking failed: %s", e)
+            finally:
+                await linear.close()
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
+async def run_cursor_sync():
+    """Cursor API sync (team, spend, usage, DAU). Runs every 5 min."""
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "cursor_sync"
+    try:
+        async with async_session_maker() as db:
+            creds = await CredentialsService(db).get_credentials()
+            if not creds.cursor_api_key:
+                return
+            try:
+                from app.services.sync_cursor import sync_cursor
+                items = await sync_cursor(db, creds.cursor_api_key)
+                await db.commit()
+                logger.info("Cursor sync: %s items", items)
+            except Exception as e:
+                logger.error("Cursor sync failed: %s", e)
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
+async def run_greptile_sync():
+    """Greptile API sync (indexed repos). Runs every 5 min."""
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "greptile_sync"
+    try:
+        async with async_session_maker() as db:
+            creds = await CredentialsService(db).get_credentials()
+            if not creds.greptile_api_key:
+                return
+            try:
+                from app.services.sync_greptile import sync_greptile
+                items = await sync_greptile(db, creds.greptile_api_key)
+                await db.commit()
+                logger.info("Greptile sync: %s repos", items)
+            except Exception as e:
+                logger.error("Greptile sync failed: %s", e)
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
 
 
 async def run_full_sync():
@@ -294,12 +332,7 @@ async def _run_full_sync_impl():
 async def run_fill_details(batch_size: int = 100):
     """
     Fill in missing details (reviews/comments/commits) for PRs.
-    
-    This runs periodically to gradually complete PR data without
-    blocking the initial fast sync.
-    
-    Args:
-        batch_size: Number of PRs to process per run (default 100 = ~300 API calls)
+    Runs every 10 min.
     """
     global _sync_in_progress, _sync_job_name
     _sync_in_progress = True
@@ -464,27 +497,63 @@ async def _run_fill_details_impl(batch_size: int):
 
 
 def start_scheduler():
-    """Start the periodic sync scheduler."""
-    # Main sync every hour
+    """Start the periodic sync scheduler. Jobs are staggered so they don't all run at once."""
+    now = datetime.utcnow()
+
+    # GitHub + GitHub Actions: every 5 min (first run immediately / at :00)
     scheduler.add_job(
         run_sync,
         "interval",
-        hours=1,
+        minutes=5,
         id="incremental_sync",
         replace_existing=True,
     )
-    
-    # Fill details every 10 minutes (gradual background processing)
+
+    # Fill PR details every 10 min (first run in 8 min to stagger)
     scheduler.add_job(
         run_fill_details,
         "interval",
         minutes=10,
+        next_run_time=now + timedelta(minutes=8),
         id="fill_details",
         replace_existing=True,
     )
-    
+
+    # Linear: every 5 min, first run in 2 min
+    scheduler.add_job(
+        run_linear_sync,
+        "interval",
+        minutes=5,
+        next_run_time=now + timedelta(minutes=2),
+        id="linear_sync",
+        replace_existing=True,
+    )
+
+    # Cursor: every 5 min, first run in 4 min
+    scheduler.add_job(
+        run_cursor_sync,
+        "interval",
+        minutes=5,
+        next_run_time=now + timedelta(minutes=4),
+        id="cursor_sync",
+        replace_existing=True,
+    )
+
+    # Greptile: every 5 min, first run in 6 min
+    scheduler.add_job(
+        run_greptile_sync,
+        "interval",
+        minutes=5,
+        next_run_time=now + timedelta(minutes=6),
+        id="greptile_sync",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("Scheduler started: sync every 1h, fill details every 10min")
+    logger.info(
+        "Scheduler started: GitHub+Actions every 5min, Linear/Cursor/Greptile every 5min "
+        "(staggered), fill details every 10min"
+    )
 
 
 def stop_scheduler():

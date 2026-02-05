@@ -17,7 +17,7 @@ from app.models.github import (
     Workflow,
     WorkflowRun,
 )
-from app.models.linear import LinearIssue, LinearTeam
+from app.models.linear import LinearIssue, LinearTeam, LinearWorkflowState
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -200,6 +200,80 @@ async def trigger_full_sync(
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/linear-full")
+async def trigger_linear_full_sync(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Trigger a full sync of all Linear teams and issues only.
+
+    Use this to refresh the Linear teams progression (issues synced per team)
+    when the scheduled incremental sync has not caught up.
+    """
+    from app.connectors.factory import create_linear_connector
+    from app.services.credentials import CredentialsService
+    from app.services.linking import LinkingService
+    from app.services.scheduler import set_sync_job_state
+    from app.services.sync_linear import SyncLinearService
+
+    creds = await CredentialsService(db).get_credentials()
+    linear_conn = create_linear_connector(api_key=creds.linear_api_key)
+    if not linear_conn:
+        return {"status": "error", "message": "Linear connector not configured"}
+
+    set_sync_job_state(True, "linear_sync")
+    try:
+        try:
+            sync_linear = SyncLinearService(db, linear_conn)
+            items = await sync_linear.sync_all()
+            try:
+                linking_service = LinkingService(db)
+                await linking_service.link_all_prs()
+                await db.commit()
+            except Exception as e:
+                await db.rollback()
+                return {
+                    "status": "partial",
+                    "message": f"Synced {items} issues but linking failed: {e}",
+                    "items_synced": items,
+                }
+            return {
+                "status": "success",
+                "message": f"Linear full sync completed ({items} issues)",
+                "items_synced": items,
+            }
+        except Exception as e:
+            await db.rollback()
+            return {"status": "error", "message": str(e)}
+        finally:
+            await linear_conn.close()
+    finally:
+        set_sync_job_state(False)
+
+
+@router.post("/linear-reset")
+async def reset_linear_data(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Delete all Linear data (issues, workflow states, teams) and the linear sync state.
+
+    Use this to start fresh: after reset, the next incremental sync will run a full sync.
+    """
+    from sqlalchemy import delete
+
+    try:
+        await db.execute(delete(LinearIssue))
+        await db.execute(delete(LinearWorkflowState))
+        await db.execute(delete(LinearTeam))
+        await db.execute(delete(SyncState).where(SyncState.connector_name == "linear"))
+        await db.commit()
+        return {"status": "success", "message": "Linear data reset completed"}
+    except Exception as e:
+        await db.rollback()
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/fill-details")
 async def trigger_fill_details(
     batch_size: int = 50,
@@ -273,7 +347,9 @@ async def get_sync_status(
             "without_details": repo_total - repo_with_details,
         })
 
-    # Linear teams progression (issues per team, linked count for cycle time)
+    # Linear teams progression: per-team counts from DB only (not from Linear API).
+    # total_issues = issues synced in app for this team; linked_issues = those with a linked PR (for cycle time).
+    # After a full re-sync, same workspace yields the same counts.
     teams_result = await db.execute(select(LinearTeam).order_by(LinearTeam.name))
     teams = teams_result.scalars().all()
     linear_teams_status = []

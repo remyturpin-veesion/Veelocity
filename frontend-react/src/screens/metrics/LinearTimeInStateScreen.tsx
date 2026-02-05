@@ -1,11 +1,20 @@
+import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay, TEAM_ID_NONE } from '@/stores/filters.js';
 import { getLinearTimeInState } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { TrendChart } from '@/components/TrendChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
+
+function ChevronDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 interface TimeInStateStage {
   id: string;
@@ -31,10 +40,25 @@ export function LinearTimeInStateScreen() {
       getLinearTimeInState({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
-        no_teams: teamIdsParam && teamIdsParam.length === 0,
+        team_ids:
+          teamIdsParam && teamIdsParam.length > 0 && !(teamIdsParam.length === 1 && teamIdsParam[0] === TEAM_ID_NONE)
+            ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
+            : undefined,
+        no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
       }),
   });
+
+  const stagesDropdownRef = useRef<HTMLDivElement>(null);
+  const [stagesOpen, setStagesOpen] = useState(false);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (stagesDropdownRef.current && !stagesDropdownRef.current.contains(e.target as Node)) {
+        setStagesOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (isLoading) {
     return (
@@ -89,6 +113,9 @@ export function LinearTimeInStateScreen() {
     }
   };
 
+  const stagesLabel =
+    allStagesSelected ? 'All' : `${visibleStages.length} stage${visibleStages.length !== 1 ? 's' : ''}`;
+
   return (
     <div>
       <p style={{ marginBottom: 16 }}>
@@ -100,32 +127,63 @@ export function LinearTimeInStateScreen() {
       </p>
 
       {allStages.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <span className="filter-label muted">Stages:</span>
-          <div className="filter-chips" style={{ display: 'inline-flex', marginLeft: 8, flexWrap: 'wrap', gap: 8 }}>
-            <button
-              type="button"
-              className="filter-chip"
-              data-selected={allStagesSelected ? '' : undefined}
-              onClick={() => setTimeInStateStageIds([])}
-            >
-              All
-            </button>
-            {allStages.map((s) => {
-              const selected = allStagesSelected || timeInStateStageIds.has(s.id);
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="filter-chip"
-                  data-selected={selected ? '' : undefined}
-                  onClick={() => toggleStage(s.id, !selected)}
-                >
-                  {s.label} ({s.count})
-                </button>
-              );
-            })}
-          </div>
+        <div ref={stagesDropdownRef} className="filter-dropdown-wrap" style={{ marginBottom: 16 }}>
+          <span className="filter-label muted" style={{ flex: '0 0 72px' }}>Stages</span>
+          <button
+            type="button"
+            className="filter-dropdown-trigger"
+            onClick={() => setStagesOpen((o) => !o)}
+            aria-expanded={stagesOpen}
+            aria-haspopup="listbox"
+          >
+            <span>{stagesLabel}</span>
+            <ChevronDown />
+          </button>
+          {stagesOpen && (
+            <div className="filter-dropdown-popover" role="listbox" aria-label="Select stages" style={{ minWidth: 220 }}>
+              <button
+                type="button"
+                role="option"
+                className={`filter-dropdown-option ${allStagesSelected ? 'filter-dropdown-option--selected' : ''}`}
+                aria-selected={allStagesSelected}
+                onClick={() => setTimeInStateStageIds([])}
+              >
+                <span className="filter-dropdown-option__check" aria-hidden>{allStagesSelected ? '✓' : ''}</span>
+                All
+              </button>
+              {allStages.map((s) => {
+                const selected = allStagesSelected || timeInStateStageIds.has(s.id);
+                return (
+                  <div
+                    key={s.id}
+                    role="option"
+                    aria-selected={selected}
+                    className={`filter-dropdown-option ${selected ? 'filter-dropdown-option--selected' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="filter-dropdown-option__check"
+                      aria-label={selected ? `Uncheck ${s.label}` : `Check ${s.label}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleStage(s.id, !selected);
+                      }}
+                    >
+                      {selected ? '✓' : ''}
+                    </button>
+                    <button
+                      type="button"
+                      className="filter-dropdown-option__name"
+                      onClick={() => toggleStage(s.id, !selected)}
+                    >
+                      {s.label} ({s.count})
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

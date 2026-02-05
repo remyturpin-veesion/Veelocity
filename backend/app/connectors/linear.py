@@ -45,10 +45,10 @@ class LinearConnector(BaseConnector):
             return False
 
     async def fetch_teams(self) -> list[dict]:
-        """Fetch all teams with their workflow states (ordered by position)."""
+        """Fetch all teams (including archived) with their workflow states."""
         query = """
         {
-            teams {
+            teams(includeArchived: true) {
                 nodes {
                     id
                     name
@@ -96,12 +96,15 @@ class LinearConnector(BaseConnector):
         limit: int = 100,
         created_after: str | None = None,
         created_before: str | None = None,
+        updated_after: str | None = None,
+        max_results: int | None = 1000,
     ) -> list[dict]:
         """
-        Fetch issues, optionally filtered by team and/or createdAt date range.
+        Fetch issues, optionally filtered by team, createdAt and/or updatedAt.
 
         Uses pagination with cursor for large datasets.
-        created_after / created_before are ISO 8601 date strings (e.g. "2024-01-15").
+        created_after / created_before / updated_after are ISO 8601 date strings.
+        max_results: cap total issues returned (default 1000); None = fetch all pages.
         """
         issues = []
         cursor = None
@@ -116,12 +119,14 @@ class LinearConnector(BaseConnector):
             filter_obj["createdAt"] = {"gte": created_after}
         elif created_before is not None:
             filter_obj["createdAt"] = {"lte": created_before}
+        if updated_after is not None:
+            filter_obj["updatedAt"] = {"gte": updated_after}
 
         while True:
             # filter may be empty {} for "all issues"
             query = """
             query($filter: IssueFilter, $first: Int!, $after: String) {
-                issues(filter: $filter, first: $first, after: $after) {
+                issues(filter: $filter, first: $first, after: $after, includeArchived: true) {
                     pageInfo {
                         hasNextPage
                         endCursor
@@ -188,9 +193,8 @@ class LinearConnector(BaseConnector):
             if not page_info.get("hasNextPage"):
                 break
             cursor = page_info.get("endCursor")
-            
-            # Safety limit
-            if len(issues) >= 1000:
+
+            if max_results is not None and len(issues) >= max_results:
                 break
 
         return issues

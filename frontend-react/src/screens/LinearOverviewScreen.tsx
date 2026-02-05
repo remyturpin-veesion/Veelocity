@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
-import { getLinearOverview, getSyncCoverage, triggerImportRange } from '@/api/endpoints.js';
+import { useFiltersStore, formatDateRangeDisplay, TEAM_ID_NONE } from '@/stores/filters.js';
+import { getLinearOverview, getSyncCoverage, triggerLinearFullSync } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 
 function formatTimeAgo(iso: string | null | undefined): string {
@@ -31,8 +31,11 @@ export function LinearOverviewScreen() {
       getLinearOverview({
         start_date: startDate,
         end_date: endDate,
-        team_ids: teamIdsParam && teamIdsParam.length > 0 ? teamIdsParam : undefined,
-        no_teams: teamIdsParam && teamIdsParam.length === 0,
+        team_ids:
+          teamIdsParam && teamIdsParam.length > 0 && !(teamIdsParam.length === 1 && teamIdsParam[0] === TEAM_ID_NONE)
+            ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
+            : undefined,
+        no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
       }),
   });
 
@@ -41,15 +44,11 @@ export function LinearOverviewScreen() {
     queryFn: getSyncCoverage,
   });
 
-  const importMutation = useMutation({
-    mutationFn: () =>
-      triggerImportRange({
-        start_date: startDate,
-        end_date: endDate,
-        connector: 'linear',
-      }),
+  const fullSyncMutation = useMutation({
+    mutationFn: triggerLinearFullSync,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sync', 'coverage'] });
+      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
       queryClient.invalidateQueries({ queryKey: ['linear'] });
     },
   });
@@ -78,9 +77,6 @@ export function LinearOverviewScreen() {
           <h1 className="screen-title">Linear</h1>
           <p className="linear-overview__subtitle">Issues, backlog, and time in state</p>
         </div>
-        <button type="button" className="linear-overview__save" disabled>
-          Save
-        </button>
       </div>
 
       <div className="linear-overview__sync">
@@ -92,10 +88,10 @@ export function LinearOverviewScreen() {
           <button
             type="button"
             className="linear-overview__import"
-            onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending}
+            onClick={() => fullSyncMutation.mutate()}
+            disabled={fullSyncMutation.isPending}
           >
-            Import ▾
+            {fullSyncMutation.isPending ? 'Syncing…' : 'Full sync'}
           </button>
         </div>
       </div>
