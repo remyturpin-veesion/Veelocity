@@ -182,7 +182,6 @@ export function GitHubOverviewScreen() {
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
-          <SkeletonCard />
         </div>
       ) : hasMetricsError ? (
         <EmptyState
@@ -219,55 +218,70 @@ export function GitHubOverviewScreen() {
             title="Throughput"
             value={String(throughputData?.total ?? '—')}
             subtitle="PRs merged"
-            to="/metrics/throughput"
+            to="/github/pull-request"
             icon="📦"
-          />
-          <KpiCard
-            title="PR review time"
-            value={
-              prReviewTimeData?.average_hours != null
-                ? `${prReviewTimeData.average_hours.toFixed(1)} h`
-                : '—'
-            }
-            subtitle={prReviewTimeData?.count != null ? `${prReviewTimeData.count} PRs` : undefined}
-            to="/metrics/pr-review-time"
-            icon="👀"
-          />
-          <KpiCard
-            title="PR merge time"
-            value={
-              prMergeTimeData?.average_hours != null
-                ? `${prMergeTimeData.average_hours.toFixed(1)} h`
-                : '—'
-            }
-            subtitle={prMergeTimeData?.count != null ? `${prMergeTimeData.count} PRs` : undefined}
-            to="/metrics/pr-merge-time"
-            icon="🔀"
-          />
-          <KpiCard
-            title="PR health"
-            value={
-              prHealthData?.summary?.average_score != null
-                ? prHealthData.summary.average_score.toFixed(1)
-                : '—'
-            }
-            subtitle={prHealthData?.summary?.total_prs != null ? `${prHealthData.summary.total_prs} PRs` : undefined}
-            to="/metrics/pr-health"
-            icon="❤️"
-          />
-          <KpiCard
-            title="Reviewer workload"
-            value={String(reviewerWorkloadData?.summary?.total_reviews ?? '—')}
-            subtitle={
-              reviewerWorkloadData?.summary?.unique_reviewers != null
-                ? `${reviewerWorkloadData.summary.unique_reviewers} reviewers`
-                : undefined
-            }
-            to="/metrics/reviewer-workload"
-            icon="👥"
           />
         </div>
       )}
+      </section>
+
+      <section className="github-overview__section">
+        <h2 className="github-overview__section-title">Code Review</h2>
+        {isLoadingMetrics && !prReviewTime.data ? (
+          <div className="github-overview__metrics-grid">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : (
+          <div className="github-overview__metrics-grid">
+            <KpiCard
+              title="PR review time"
+              value={
+                prReviewTimeData?.average_hours != null
+                  ? `${prReviewTimeData.average_hours.toFixed(1)} h`
+                  : '—'
+              }
+              subtitle={prReviewTimeData?.count != null ? `${prReviewTimeData.count} PRs` : undefined}
+              to="/github/pull-request"
+              icon="👀"
+            />
+            <KpiCard
+              title="PR merge time"
+              value={
+                prMergeTimeData?.average_hours != null
+                  ? `${prMergeTimeData.average_hours.toFixed(1)} h`
+                  : '—'
+              }
+              subtitle={prMergeTimeData?.count != null ? `${prMergeTimeData.count} PRs` : undefined}
+              to="/github/pull-request"
+              icon="🔀"
+            />
+            <KpiCard
+              title="PR health"
+              value={
+                prHealthData?.summary?.average_score != null
+                  ? prHealthData.summary.average_score.toFixed(1)
+                  : '—'
+              }
+              subtitle={prHealthData?.summary?.total_prs != null ? `${prHealthData.summary.total_prs} PRs` : undefined}
+              to="/github/pull-request"
+              icon="❤️"
+            />
+            <KpiCard
+              title="Reviewer workload"
+              value={String(reviewerWorkloadData?.summary?.total_reviews ?? '—')}
+              subtitle={
+                reviewerWorkloadData?.summary?.unique_reviewers != null
+                  ? `${reviewerWorkloadData.summary.unique_reviewers} reviewers`
+                  : undefined
+              }
+              to="/github/pull-request"
+              icon="👥"
+            />
+          </div>
+        )}
       </section>
 
       <footer className="github-overview__repos-footer">

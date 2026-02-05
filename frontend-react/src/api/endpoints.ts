@@ -177,6 +177,19 @@ export async function getLinearIssues(params?: {
   return apiGet(`${prefix}/linear/issues`, Object.keys(q).length ? q : undefined);
 }
 
+export async function getRepoPRs(
+  repoId: number,
+  params?: { page?: number; limit?: number }
+): Promise<PaginatedResponse<{ id: number; number: number; title: string; state: string; author_login: string; created_at: string; merged_at: string | null }>> {
+  const q: Record<string, number> = {};
+  if (params?.page != null) q.page = params.page;
+  if (params?.limit != null) q.limit = params.limit;
+  return apiGet(
+    `${prefix}/github/repos/${repoId}/prs`,
+    Object.keys(q).length ? (q as Record<string, string | number>) : undefined
+  ) as Promise<PaginatedResponse<{ id: number; number: number; title: string; state: string; author_login: string; created_at: string; merged_at: string | null }>>;
+}
+
 export async function getPRDetail(prId: number, includeHealth = true): Promise<PRDetail> {
   const data = await apiGet<PRDetail | { error: string }>(
     `${prefix}/github/prs/${prId}`,

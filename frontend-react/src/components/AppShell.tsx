@@ -19,21 +19,18 @@ const TABS = [
   { path: '/alerts', label: 'Alerts' },
 ] as const;
 
-/** Sidebar sublinks when on GitHub: Overview + DORA + Dev + Insights, each with icon + label */
+/** Sidebar sublinks when on GitHub: Overview + DORA + Code Review + Dev + Insights */
 const GITHUB_SIDEBAR = {
   overview: { path: '/github', icon: '⊞', label: 'Overview' },
   dora: [
     { path: '/metrics/deployment-frequency', icon: '🚀', label: 'Deployment frequency' },
     { path: '/metrics/lead-time', icon: '⏱', label: 'Lead time' },
   ],
-  dev: [
-    { path: '/metrics/throughput', icon: '📦', label: 'Throughput' },
-    { path: '/metrics/pr-review-time', icon: '👀', label: 'PR review time' },
-    { path: '/metrics/pr-merge-time', icon: '🔀', label: 'PR merge time' },
-    { path: '/metrics/cycle-time', icon: '🔄', label: 'Cycle time' },
-    { path: '/metrics/pr-health', icon: '❤️', label: 'PR health' },
-    { path: '/metrics/reviewer-workload', icon: '👥', label: 'Reviewer workload' },
+  codeReview: [
+    { path: '/github/pull-request', icon: '📋', label: 'Metrics' },
+    { path: '/github/code-review/prs', icon: '📄', label: 'PRs' },
   ],
+  dev: [{ path: '/metrics/cycle-time', icon: '🔄', label: 'Cycle time' }],
   insights: [
     { path: '/insights/recommendations', icon: '🛡', label: 'Recommendations' },
     { path: '/insights/correlations', icon: '📈', label: 'Correlations' },
@@ -59,7 +56,8 @@ function isLinearRoute(pathname: string): boolean {
 function isGitHubRoute(pathname: string): boolean {
   return (
     pathname === '/github' ||
-    pathname.startsWith('/metrics/') && !pathname.startsWith('/metrics/linear') ||
+    pathname.startsWith('/github/') ||
+    (pathname.startsWith('/metrics/') && !pathname.startsWith('/metrics/linear')) ||
     pathname.startsWith('/insights/')
   );
 }
@@ -227,6 +225,16 @@ export function AppShell({ children }: AppShellProps) {
             </Link>
             <span className="app-shell__sidebar-section">DORA</span>
             {GITHUB_SIDEBAR.dora.map(({ path, icon, label }) => {
+              const active = isActive(path, location.pathname);
+              return (
+                <Link key={path} to={path} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+            <span className="app-shell__sidebar-section">Code Review</span>
+            {GITHUB_SIDEBAR.codeReview.map(({ path, icon, label }) => {
               const active = isActive(path, location.pathname);
               return (
                 <Link key={path} to={path} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>

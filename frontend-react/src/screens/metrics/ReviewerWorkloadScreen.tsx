@@ -54,10 +54,16 @@ export function ReviewerWorkloadScreen() {
   }
 
   const d = data as {
-    reviewers?: Array<{ reviewer_login: string; review_count: number; share?: number }>;
+    workloads?: Array<{
+      reviewer_login: string;
+      review_count: number;
+      percentage_of_total?: number;
+      is_bottleneck?: boolean;
+      is_under_utilized?: boolean;
+    }>;
     summary?: { gini_coefficient?: number };
   };
-  const reviewers = d.reviewers ?? [];
+  const workloads = d.workloads ?? [];
 
   return (
     <div>
@@ -68,14 +74,16 @@ export function ReviewerWorkloadScreen() {
       </p>
       <div className="card">
         <div className="card__title">Reviewers</div>
-        {reviewers.length === 0 ? (
+        {workloads.length === 0 ? (
           <div className="empty-state">No review data in this period.</div>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {reviewers.map((r) => (
+            {workloads.map((r) => (
               <li key={r.reviewer_login} style={{ padding: '8px 0', borderBottom: '1px solid var(--surface-border)' }}>
                 <strong>{r.reviewer_login}</strong>: {r.review_count} reviews
-                {r.share != null && ` (${(r.share * 100).toFixed(0)}%)`}
+                {r.percentage_of_total != null && ` (${r.percentage_of_total.toFixed(0)}%)`}
+                {r.is_bottleneck && ' · bottleneck'}
+                {r.is_under_utilized && ' · under-utilized'}
               </li>
             ))}
           </ul>

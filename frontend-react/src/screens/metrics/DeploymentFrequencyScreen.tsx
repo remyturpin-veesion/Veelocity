@@ -101,7 +101,7 @@ export function DeploymentFrequencyScreen() {
         {rel != null && (
           <>
             <KpiCard title="Successful runs" value={String(rel.successful_runs ?? '—')} />
-            <KpiCard title="Stability score" value={rel.stability_score != null ? `${(rel.stability_score * 100).toFixed(0)}%` : '—'} />
+            <KpiCard title="Stability score" value={rel.stability_score != null ? `${rel.stability_score.toFixed(0)}%` : '—'} />
           </>
         )}
       </div>

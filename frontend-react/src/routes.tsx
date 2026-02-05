@@ -7,6 +7,8 @@ const DashboardScreen = lazy(() => import('@/screens/DashboardScreen.js').then((
 const TeamScreen = lazy(() => import('@/screens/TeamScreen.js').then((m) => ({ default: m.TeamScreen })));
 const DeveloperProfileScreen = lazy(() => import('@/screens/DeveloperProfileScreen.js').then((m) => ({ default: m.DeveloperProfileScreen })));
 const GitHubOverviewScreen = lazy(() => import('@/screens/GitHubOverviewScreen.js').then((m) => ({ default: m.GitHubOverviewScreen })));
+const PullRequestScreen = lazy(() => import('@/screens/PullRequestScreen.js').then((m) => ({ default: m.PullRequestScreen })));
+const CodeReviewPRsScreen = lazy(() => import('@/screens/CodeReviewPRsScreen.js').then((m) => ({ default: m.CodeReviewPRsScreen })));
 const LinearOverviewScreen = lazy(() => import('@/screens/LinearOverviewScreen.js').then((m) => ({ default: m.LinearOverviewScreen })));
 const CursorOverviewScreen = lazy(() => import('@/screens/CursorOverviewScreen.js').then((m) => ({ default: m.CursorOverviewScreen })));
 const GreptileOverviewScreen = lazy(() => import('@/screens/GreptileOverviewScreen.js').then((m) => ({ default: m.GreptileOverviewScreen })));
@@ -61,6 +63,8 @@ export const router = createBrowserRouter([
       { path: 'team', element: <TeamScreen /> },
       { path: 'team/developer/:login', element: <DeveloperProfileScreen /> },
       { path: 'github', element: <GitHubOverviewScreen /> },
+      { path: 'github/pull-request', element: <PullRequestScreen /> },
+      { path: 'github/code-review/prs', element: <CodeReviewPRsScreen /> },
       { path: 'linear', element: <LinearOverviewScreen /> },
       { path: 'cursor', element: <CursorOverviewScreen /> },
       { path: 'greptile', element: <GreptileOverviewScreen /> },

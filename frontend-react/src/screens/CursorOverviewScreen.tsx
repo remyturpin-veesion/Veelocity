@@ -13,7 +13,6 @@ import {
 import { getCursorOverview, getSettings } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import { TrendChart } from '@/components/TrendChart.js';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 
 export function CursorOverviewScreen() {
@@ -67,17 +66,22 @@ export function CursorOverviewScreen() {
     lines_deleted: d.lines_deleted,
   }));
 
+  // Composer, Chat, Agent and Tab completions are on the same scale — one chart with all four
   const requestsChartData = usageByDay.map((d) => ({
     date: d.date,
     composer: d.composer_requests,
     chat: d.chat_requests,
     agent: d.agent_requests,
+    tabs_accepted: d.tabs_accepted,
   }));
 
-  const tabsChartData = usageByDay.map((d) => ({
-    label: d.date,
-    value: d.tabs_accepted,
-  }));
+  const totalRequests =
+    usageTotals != null
+      ? usageTotals.composer_requests +
+        usageTotals.chat_requests +
+        usageTotals.agent_requests +
+        usageTotals.tabs_accepted
+      : 0;
 
   return (
     <div>
@@ -119,22 +123,10 @@ export function CursorOverviewScreen() {
               icon="📝"
             />
             <KpiCard
-              title="Composer requests"
-              value={usageTotals.composer_requests.toLocaleString()}
-              subtitle={formatDateRangeDisplay(startDate, endDate)}
+              title="Total AI requests"
+              value={totalRequests.toLocaleString()}
+              subtitle={`Composer + Chat + Agent + Tabs · ${formatDateRangeDisplay(startDate, endDate)}`}
               icon="✨"
-            />
-            <KpiCard
-              title="Chat requests"
-              value={usageTotals.chat_requests.toLocaleString()}
-              subtitle={formatDateRangeDisplay(startDate, endDate)}
-              icon="💬"
-            />
-            <KpiCard
-              title="Tabs accepted"
-              value={usageTotals.tabs_accepted.toLocaleString()}
-              subtitle={formatDateRangeDisplay(startDate, endDate)}
-              icon="↩"
             />
           </div>
         )}
@@ -161,7 +153,9 @@ export function CursorOverviewScreen() {
 
         {requestsChartData.length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
-            <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Composer, Chat & Agent requests</p>
+            <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>
+              Composer, Chat, Agent & Tab completions accepted
+            </p>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={requestsChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
@@ -175,19 +169,9 @@ export function CursorOverviewScreen() {
                 <Line type="monotone" dataKey="composer" name="Composer" stroke="var(--primary)" strokeWidth={2} dot={{ r: 3 }} />
                 <Line type="monotone" dataKey="chat" name="Chat" stroke="var(--metric-blue)" strokeWidth={2} dot={{ r: 3 }} />
                 <Line type="monotone" dataKey="agent" name="Agent" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        )}
-
-        {tabsChartData.length > 0 && (
-          <div className="card" style={{ marginBottom: 24 }}>
-            <TrendChart
-              data={tabsChartData}
-              title="Tab completions accepted"
-              color="var(--metric-blue)"
-              height={200}
-            />
           </div>
         )}
 
