@@ -129,9 +129,6 @@ export function DataCoverageScreen() {
     [dailyData]
   );
 
-  if (isLoading) return <div className="loading">Loading coverage…</div>;
-  if (error) return <div className="error">{(error as Error).message}</div>;
-
   const syncInProgress = syncStatus?.sync_in_progress ?? false;
   const currentJob = syncStatus?.current_job ?? null;
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
@@ -165,6 +162,9 @@ export function DataCoverageScreen() {
     out.greptile = greptileConnected ? 100 : 0;
     return out;
   }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected]);
+
+  if (isLoading) return <div className="loading">Loading coverage…</div>;
+  if (error) return <div className="error">{(error as Error).message}</div>;
 
   return (
     <div className="data-coverage">
@@ -459,7 +459,7 @@ export function DataCoverageScreen() {
                 <Line
                   type="monotone"
                   dataKey="cursorRequests"
-                  name="Cursor AI requests"
+                  name="Cursor (synced)"
                   stroke="var(--metric-blue)"
                   strokeWidth={2}
                   dot={{ r: 2 }}
@@ -468,7 +468,7 @@ export function DataCoverageScreen() {
                 <Line
                   type="monotone"
                   dataKey="greptileRepos"
-                  name="Greptile repos"
+                  name="Greptile (synced)"
                   stroke="var(--metric-teal)"
                   strokeWidth={2}
                   dot={{ r: 2 }}

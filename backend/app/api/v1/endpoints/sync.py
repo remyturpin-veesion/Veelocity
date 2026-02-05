@@ -974,23 +974,15 @@ async def get_daily_coverage(
         for i in range((end - start).days + 1)
     ]
 
-    # Cursor: AI requests per day from CursorDailyUsage
+    # Cursor: 1 if usage data exists for that day, 0 otherwise
     cursor_by_day = await db.execute(
-        select(
-            CursorDailyUsage.date.label("day"),
-            (
-                func.sum(CursorDailyUsage.composer_requests)
-                + func.sum(CursorDailyUsage.chat_requests)
-                + func.sum(CursorDailyUsage.agent_requests)
-            ).label("count"),
-        )
+        select(CursorDailyUsage.date.label("day"))
         .where(CursorDailyUsage.date >= start)
         .where(CursorDailyUsage.date <= end)
-        .group_by(CursorDailyUsage.date)
         .order_by(CursorDailyUsage.date)
     )
-    cursor_rows = cursor_by_day.all()
-    cursor_map = {row.day: row.count or 0 for row in cursor_rows}
+    cursor_dates = {row.day for row in cursor_by_day.all()}
+    cursor_map = {d: 1 for d in cursor_dates}
     cursor_list = [
         DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=cursor_map.get(start + timedelta(days=i), 0))
         for i in range((end - start).days + 1)

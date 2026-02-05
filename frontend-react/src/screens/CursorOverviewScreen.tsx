@@ -14,15 +14,20 @@ import { getCursorOverview, getSettings } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { TrendChart } from '@/components/TrendChart.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
+
 export function CursorOverviewScreen() {
+  const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const { startDate, endDate } = getStartEnd();
+
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: getSettings,
   });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['cursor', 'overview'],
-    queryFn: getCursorOverview,
+    queryKey: ['cursor', 'overview', startDate, endDate],
+    queryFn: () => getCursorOverview({ start_date: startDate, end_date: endDate }),
     enabled: settings?.cursor_configured === true,
   });
 
@@ -109,25 +114,25 @@ export function CursorOverviewScreen() {
             <KpiCard
               title="Lines added"
               value={usageTotals.lines_added.toLocaleString()}
-              subtitle="last 7 days"
+              subtitle={formatDateRangeDisplay(startDate, endDate)}
               icon="📝"
             />
             <KpiCard
               title="Composer requests"
               value={usageTotals.composer_requests.toLocaleString()}
-              subtitle="last 7 days"
+              subtitle={formatDateRangeDisplay(startDate, endDate)}
               icon="✨"
             />
             <KpiCard
               title="Chat requests"
               value={usageTotals.chat_requests.toLocaleString()}
-              subtitle="last 7 days"
+              subtitle={formatDateRangeDisplay(startDate, endDate)}
               icon="💬"
             />
             <KpiCard
               title="Tabs accepted"
               value={usageTotals.tabs_accepted.toLocaleString()}
-              subtitle="last 7 days"
+              subtitle={formatDateRangeDisplay(startDate, endDate)}
               icon="↩"
             />
           </div>
@@ -187,7 +192,7 @@ export function CursorOverviewScreen() {
 
         {!usageTotals && data?.usage_summary && (data.usage_summary as unknown[]).length > 0 && (
           <div className="card">
-            <h3 className="dashboard-section-title">Recent usage (last 7 days)</h3>
+            <h3 className="dashboard-section-title">Recent usage ({formatDateRangeDisplay(startDate, endDate)})</h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
               Raw usage data is available but could not be aggregated. For full breakdown, use the{' '}
               <a href="https://cursor.com/dashboard?tab=usage" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>
