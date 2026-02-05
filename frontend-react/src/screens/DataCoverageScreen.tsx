@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LineChart,
   Line,
@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { getSyncCoverage, getDailyCoverage, getSyncStatus, triggerLinearFullSync, resetLinearData } from '@/api/endpoints.js';
+import { getSyncCoverage, getDailyCoverage, getSyncStatus } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import type { DailyCoverageResponse } from '@/types/index.js';
 
@@ -40,22 +40,24 @@ function formatLastSync(iso: string | null | undefined): string {
 }
 
 /** Max chart points to avoid heavy render (backend typically returns 90). */
-const MAX_CHART_POINTS = 90;
+const MAX_CHART_POINTS = 91;
 
 /** Max list items to render (avoids huge DOM and "Aw, Snap!" on data-coverage). */
 const MAX_VISIBLE_REPOS = 50;
 const MAX_VISIBLE_LINEAR_TEAMS = 50;
 
-function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number }> {
-  const { github, github_actions, linear } = daily;
+function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number; cursorRequests: number; greptileRepos: number }> {
+  const { github, github_actions, linear, cursor, greptile } = daily;
   if (!github?.length || !Array.isArray(github_actions) || !Array.isArray(linear)) return [];
   const len = Math.min(github.length, MAX_CHART_POINTS);
-  const result: Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number }> = [];
+  const result: Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number; cursorRequests: number; greptileRepos: number }> = [];
   for (let i = 0; i < len; i++) {
     const g = github[i];
     const prs = Number(g?.count) || 0;
     const workflowRuns = Number(github_actions[i]?.count) ?? 0;
     const issues = Number(linear[i]?.count) ?? 0;
+    const cursorRequests = Number(cursor?.[i]?.count) ?? 0;
+    const greptileRepos = Number(greptile?.[i]?.count) ?? 0;
     if (typeof g?.date !== 'string') continue;
     result.push({
       date: g.date,
@@ -63,17 +65,20 @@ function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; nam
       prs: Number.isFinite(prs) ? prs : 0,
       workflowRuns: Number.isFinite(workflowRuns) ? workflowRuns : 0,
       issues: Number.isFinite(issues) ? issues : 0,
+      cursorRequests: Number.isFinite(cursorRequests) ? cursorRequests : 0,
+      greptileRepos: Number.isFinite(greptileRepos) ? greptileRepos : 0,
     });
   }
   return result;
 }
 
+/** Distinct color per connector block. */
 const CONNECTOR_ACCENT: Record<string, string> = {
-  github: 'var(--primary)',
+  github: 'var(--metric-github)',
   github_actions: 'var(--metric-green)',
   linear: 'var(--metric-orange)',
   cursor: 'var(--metric-blue)',
-  greptile: 'var(--metric-green)',
+  greptile: 'var(--metric-teal)',
 };
 
 const JOB_LABELS: Record<string, string> = {
@@ -119,28 +124,6 @@ export function DataCoverageScreen() {
     queryFn: () => getDailyCoverage(90),
   });
 
-  const linearFullSyncMutation = useMutation({
-    mutationFn: triggerLinearFullSync,
-    onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
-      queryClient.invalidateQueries({ queryKey: ['sync', 'coverage'] });
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['sync', 'status'] }),
-        queryClient.refetchQueries({ queryKey: ['sync', 'coverage'] }),
-      ]);
-    },
-  });
-
-  const resetLinearMutation = useMutation({
-    mutationFn: resetLinearData,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
-      queryClient.invalidateQueries({ queryKey: ['sync', 'coverage'] });
-      void queryClient.refetchQueries({ queryKey: ['sync', 'status'] });
-      void queryClient.refetchQueries({ queryKey: ['sync', 'coverage'] });
-    },
-  });
-
   const chartData = useMemo(
     () => (dailyData ? buildChartData(dailyData) : []),
     [dailyData]
@@ -165,6 +148,23 @@ export function DataCoverageScreen() {
   const cursorTeamMembersCount = syncStatus?.cursor_team_members_count ?? null;
   const greptileConnected = syncStatus?.greptile_connected ?? false;
   const greptileReposCount = syncStatus?.greptile_repos_count ?? null;
+
+  /** Overall progression % per connector for the accordion header (same logic as inner rows). */
+  const connectorPct = useMemo(() => {
+    const out: Record<string, number> = {};
+    // GitHub: share of PRs with details across all repos
+    const totalPrs = allRepos.reduce((s, r) => s + r.total_prs, 0);
+    const withDetails = allRepos.reduce((s, r) => s + r.with_details, 0);
+    out.github = totalPrs > 0 ? Math.round((withDetails / totalPrs) * 100) : 100;
+    // GitHub Actions: 100% if we have any workflow runs
+    out.github_actions = totalWorkflowRuns > 0 ? 100 : 0;
+    // Linear: share of teams that have issues synced
+    const teamsWithIssues = allLinearTeams.filter((t) => t.total_issues > 0).length;
+    out.linear = allLinearTeams.length > 0 ? Math.round((teamsWithIssues / allLinearTeams.length) * 100) : 100;
+    out.cursor = cursorConnected ? 100 : 0;
+    out.greptile = greptileConnected ? 100 : 0;
+    return out;
+  }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected]);
 
   return (
     <div className="data-coverage">
@@ -244,21 +244,14 @@ export function DataCoverageScreen() {
         <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor, Greptile)</h2>
         <div className="card data-coverage__connectors-card">
           {data?.connectors?.length ? (
-            <ul className="data-coverage__connector-list">
+            <div className="data-coverage__accordion">
               {data.connectors.map((c) => (
-                <li
+                <details
                   key={c.connector_name}
-                  className={
-                    (c.connector_name === 'github' && allRepos.length > 0) ||
-                    (c.connector_name === 'linear' && allLinearTeams.length > 0) ||
-                    c.connector_name === 'cursor' ||
-                    c.connector_name === 'greptile'
-                      ? 'data-coverage__connector-item data-coverage__connector-item--with-repos'
-                      : 'data-coverage__connector-item'
-                  }
+                  className="data-coverage__accordion-item"
                   style={{ '--connector-accent': CONNECTOR_ACCENT[c.connector_name] ?? 'var(--primary)' } as React.CSSProperties}
                 >
-                  <div className="data-coverage__connector-row">
+                  <summary className="data-coverage__accordion-summary">
                     <span className="data-coverage__connector-dot" />
                     <div className="data-coverage__connector-info">
                       <span className="data-coverage__connector-name">
@@ -268,7 +261,12 @@ export function DataCoverageScreen() {
                         Last sync: {formatLastSync(c.last_sync_at)}
                       </span>
                     </div>
-                  </div>
+                    <span className="data-coverage__connector-pct" aria-label={`${connectorPct[c.connector_name] ?? 0}% overall`}>
+                      {connectorPct[c.connector_name] ?? 0}%
+                    </span>
+                    <span className="data-coverage__accordion-chevron" aria-hidden />
+                  </summary>
+                  <div className="data-coverage__accordion-body">
                   {c.connector_name === 'github' && allRepos.length > 0 && (
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">GitHub repos progression update</h3>
@@ -308,48 +306,9 @@ export function DataCoverageScreen() {
                   )}
                   {c.connector_name === 'linear' && allLinearTeams.length > 0 && (
                     <div className="data-coverage__repos-inline">
-                      <div className="data-coverage__subsection-header">
-                        <h3 className="data-coverage__subsection-title">Linear teams progression</h3>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            className="data-coverage__sync-all-btn"
-                            onClick={() => linearFullSyncMutation.mutate()}
-                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
-                            title="Fetch all Linear issues now (updates counts and what remains)"
-                          >
-                            {linearFullSyncMutation.isPending ? 'Syncing…' : 'Sync all issues'}
-                          </button>
-                          <button
-                            type="button"
-                            className="data-coverage__sync-all-btn"
-                            onClick={() => resetLinearMutation.mutate()}
-                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
-                            title="Delete all Linear data (teams, issues). Next sync will do a full import."
-                          >
-                            {resetLinearMutation.isPending ? 'Resetting…' : 'Reset Linear data'}
-                          </button>
-                          <button
-                            type="button"
-                            className="data-coverage__sync-all-btn"
-                            onClick={() => {
-                              if (window.confirm('Delete all Linear data and run a full sync now? This may take several minutes.')) {
-                                resetLinearMutation.mutate(undefined, {
-                                  onSuccess: () => {
-                                    linearFullSyncMutation.mutate();
-                                  },
-                                });
-                              }
-                            }}
-                            disabled={linearFullSyncMutation.isPending || resetLinearMutation.isPending || syncInProgress}
-                            title="Delete all Linear data then run full sync (start fresh)"
-                          >
-                            Reset and sync
-                          </button>
-                        </div>
-                      </div>
+                      <h3 className="data-coverage__subsection-title">Linear teams progression</h3>
                       <p className="data-coverage__repos-desc">
-                        Issues synced per team. Click &quot;Sync all issues&quot; to re-import from Linear (includes archived teams).
+                        Issues synced per team.
                       </p>
                       <ul className="data-coverage__repo-list">
                         {linearTeams.map((t) => {
@@ -439,9 +398,10 @@ export function DataCoverageScreen() {
                       </ul>
                     </div>
                   )}
-                </li>
+                  </div>
+                </details>
               ))}
-            </ul>
+            </div>
           ) : (
             <div className="empty-state">No connector state.</div>
           )}
@@ -453,7 +413,7 @@ export function DataCoverageScreen() {
           <h2 className="data-coverage__section-title">Sync progression (last 90 days)</h2>
           <div className="card data-coverage__chart-card">
             <p className="data-coverage__chart-desc">
-              Data synced per day: PRs created, workflow runs, and Linear issues.
+              Data synced per day: PRs created, workflow runs, Linear issues, Cursor AI requests, and Greptile repos.
             </p>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -492,6 +452,24 @@ export function DataCoverageScreen() {
                   dataKey="issues"
                   name="Linear issues"
                   stroke="var(--metric-orange)"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="cursorRequests"
+                  name="Cursor AI requests"
+                  stroke="var(--metric-blue)"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="greptileRepos"
+                  name="Greptile repos"
+                  stroke="var(--metric-teal)"
                   strokeWidth={2}
                   dot={{ r: 2 }}
                   connectNulls

@@ -1264,6 +1264,15 @@ button {
   color: var(--text-muted);
 }
 
+.data-coverage__connector-pct {
+  margin-left: auto;
+  margin-right: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--connector-accent, var(--primary));
+  flex-shrink: 0;
+}
+
 .data-coverage__chart-card {
   margin-bottom: 0;
   border-radius: 10px;

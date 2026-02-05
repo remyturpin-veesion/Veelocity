@@ -288,6 +288,8 @@ export interface DailyCoverageResponse {
   github: DailyCountItem[];
   github_actions: DailyCountItem[];
   linear: DailyCountItem[];
+  cursor: DailyCountItem[];
+  greptile: DailyCountItem[];
 }
 
 export interface PRDetailRepository {

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import Date, cast, delete, func, select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,7 +17,9 @@ from app.models.github import (
     Workflow,
     WorkflowRun,
 )
-from app.models.linear import LinearIssue, LinearTeam, LinearWorkflowState
+from app.models.cursor import CursorDailyUsage
+from app.models.greptile import GreptileRepository
+from app.models.linear import LinearIssue, LinearTeam
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -249,20 +251,6 @@ async def trigger_linear_full_sync(
             await linear_conn.close()
     finally:
         set_sync_job_state(False)
-
-
-@router.post("/linear-reset")
-async def reset_linear_data(db: AsyncSession = Depends(get_db)) -> dict:
-    """
-    Delete all Linear data (issues, workflow states, teams, linear sync state).
-    Next sync will do a full import.
-    """
-    await db.execute(delete(LinearIssue))
-    await db.execute(delete(LinearWorkflowState))
-    await db.execute(delete(LinearTeam))
-    await db.execute(delete(SyncState).where(SyncState.connector_name == "linear"))
-    await db.commit()
-    return {"status": "success", "message": "Linear data cleared"}
 
 
 @router.post("/fill-details")
@@ -924,6 +912,8 @@ class DailyCoverageResponse(BaseModel):
     github: list[DailyCountItem]  # PRs created per day
     github_actions: list[DailyCountItem]  # Workflow runs per day
     linear: list[DailyCountItem]  # Issues created per day
+    cursor: list[DailyCountItem]  # AI requests per day
+    greptile: list[DailyCountItem]  # Indexed repos per day
 
 
 @router.get("/coverage/daily", response_model=DailyCoverageResponse)
@@ -984,10 +974,50 @@ async def get_daily_coverage(
         for i in range((end - start).days + 1)
     ]
 
+    # Cursor: AI requests per day from CursorDailyUsage
+    cursor_by_day = await db.execute(
+        select(
+            CursorDailyUsage.date.label("day"),
+            (
+                func.sum(CursorDailyUsage.composer_requests)
+                + func.sum(CursorDailyUsage.chat_requests)
+                + func.sum(CursorDailyUsage.agent_requests)
+            ).label("count"),
+        )
+        .where(CursorDailyUsage.date >= start)
+        .where(CursorDailyUsage.date <= end)
+        .group_by(CursorDailyUsage.date)
+        .order_by(CursorDailyUsage.date)
+    )
+    cursor_rows = cursor_by_day.all()
+    cursor_map = {row.day: row.count or 0 for row in cursor_rows}
+    cursor_list = [
+        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=cursor_map.get(start + timedelta(days=i), 0))
+        for i in range((end - start).days + 1)
+    ]
+
+    # Greptile: indexed repos per day (by synced_at date)
+    greptile_date = cast(GreptileRepository.synced_at, Date)
+    greptile_by_day = await db.execute(
+        select(greptile_date.label("day"), func.count(GreptileRepository.id).label("count"))
+        .where(greptile_date >= start)
+        .where(greptile_date <= end)
+        .group_by(greptile_date)
+        .order_by(greptile_date)
+    )
+    greptile_rows = greptile_by_day.all()
+    greptile_map = {row.day: row.count for row in greptile_rows}
+    greptile_list = [
+        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=greptile_map.get(start + timedelta(days=i), 0))
+        for i in range((end - start).days + 1)
+    ]
+
     return DailyCoverageResponse(
         github=github_list,
         github_actions=github_actions_list,
         linear=linear_list,
+        cursor=cursor_list,
+        greptile=greptile_list,
     )
 
 
