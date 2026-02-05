@@ -17,6 +17,7 @@ import { TrendChart } from '@/components/TrendChart.js';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 
 export function CursorOverviewScreen() {
+  useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const { startDate, endDate } = getStartEnd();
 
