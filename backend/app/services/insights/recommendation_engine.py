@@ -28,6 +28,7 @@ class Recommendation:
     description: str
     priority: Priority
     metric_context: str | None = None
+    link: str | None = None  # Frontend path to related metric/screen
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +37,7 @@ class Recommendation:
             "description": self.description,
             "priority": self.priority,
             "metric_context": self.metric_context,
+            "link": self.link,
         }
 
 
@@ -78,6 +80,7 @@ class RecommendationEngine:
                     description="Deployment frequency is below 1 per week. Consider automating releases and reducing batch sizes.",
                     priority="high",
                     metric_context=f"Current: {avg_per_week} deployments/week",
+                    link="/metrics/deployment-frequency",
                 )
             )
 
@@ -94,6 +97,7 @@ class RecommendationEngine:
                     description="Lead time for changes exceeds 48 hours. Smaller, more frequent PRs can reduce time to production.",
                     priority="high",
                     metric_context=f"Current average: {avg_lead_hours:.1f}h",
+                    link="/metrics/lead-time",
                 )
             )
 
@@ -111,6 +115,7 @@ class RecommendationEngine:
                     description="Time to first review is over 12 hours. Define a review SLA (e.g. first review within 4h) to unblock authors.",
                     priority="medium",
                     metric_context=f"Current average: {avg_review_hours:.1f}h",
+                    link="/metrics/pr-review-time",
                 )
             )
 
@@ -130,6 +135,7 @@ class RecommendationEngine:
                     description=f"{large_pr_count} PR(s) are large (>500 lines or low size score). Smaller PRs are reviewed faster and reduce risk.",
                     priority="medium",
                     metric_context=f"{large_pr_count} large PR(s) in period",
+                    link="/metrics/pr-health",
                 )
             )
 
@@ -149,6 +155,7 @@ class RecommendationEngine:
                     description="Some reviewers handle a large share of reviews. Spread ownership (e.g. CODEOWNERS) to avoid bottlenecks and burnout.",
                     priority="medium",
                     metric_context=f"Bottleneck(s): {names}",
+                    link="/metrics/reviewer-workload",
                 )
             )
 

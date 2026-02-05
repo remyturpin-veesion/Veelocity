@@ -363,13 +363,22 @@ export interface Recommendation {
   title: string;
   description: string;
   metric?: string;
+  metric_context?: string;
   priority?: string;
+  link?: string | null;
   [key: string]: unknown;
 }
 
 export interface RecommendationsResponse {
   recommendations: Recommendation[];
   [key: string]: unknown;
+}
+
+export interface ProposedRecommendationsResponse {
+  run_at: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  recommendations: Recommendation[];
 }
 
 export interface Correlation {
@@ -380,7 +389,11 @@ export interface Correlation {
 }
 
 export interface CorrelationsResponse {
-  correlations: Correlation[];
+  start_date?: string;
+  end_date?: string;
+  period?: string;
+  pairs?: Correlation[];
+  correlations?: Correlation[]; // legacy
   [key: string]: unknown;
 }
 

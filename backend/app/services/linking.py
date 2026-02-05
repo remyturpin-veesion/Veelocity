@@ -60,13 +60,11 @@ class LinkingService:
         issue_map = {row.identifier.upper(): row.id for row in issue_result}
 
         for pr in prs:
-            # Extract identifiers from branch name and title
+            # Extract identifiers from branch name, title, and body
             identifiers = set()
-            
-            # Check PR title
+            if getattr(pr, "head_branch", None):
+                identifiers.update(extract_issue_identifiers(pr.head_branch))
             identifiers.update(extract_issue_identifiers(pr.title))
-            
-            # Check PR body
             if pr.body:
                 identifiers.update(extract_issue_identifiers(pr.body))
 
@@ -92,6 +90,8 @@ class LinkingService:
         Returns the linked issue, or None if no match found.
         """
         identifiers = set()
+        if getattr(pr, "head_branch", None):
+            identifiers.update(extract_issue_identifiers(pr.head_branch))
         identifiers.update(extract_issue_identifiers(pr.title))
         if pr.body:
             identifiers.update(extract_issue_identifiers(pr.body))

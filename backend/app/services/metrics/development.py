@@ -156,11 +156,13 @@ class DevelopmentMetricsService:
         start_date: datetime,
         end_date: datetime,
         team_id: int | None = None,
+        include_breakdown: bool = False,
     ) -> dict:
         """
         Calculate cycle time.
-        
+
         Cycle time = time from issue started to linked PR merged.
+        If include_breakdown is True, adds an "issues" list with per-issue details.
         """
         query = (
             select(LinearIssue, PullRequest.merged_at)
@@ -185,11 +187,17 @@ class DevelopmentMetricsService:
         for issue, merged_at in rows:
             if issue.started_at and merged_at:
                 delta = (merged_at - issue.started_at).total_seconds()
+                hours = round(delta / 3600, 2)
                 cycle_times.append({
                     "issue_id": issue.id,
                     "identifier": issue.identifier,
-                    "hours": round(delta / 3600, 2),
+                    "hours": hours,
                 })
+                if include_breakdown:
+                    # Add display fields for breakdown table
+                    cycle_times[-1]["title"] = issue.title or ""
+                    cycle_times[-1]["started_at"] = issue.started_at.isoformat() if issue.started_at else None
+                    cycle_times[-1]["merged_at"] = merged_at.isoformat() if merged_at else None
 
         # Calculate statistics
         if cycle_times:
@@ -201,13 +209,16 @@ class DevelopmentMetricsService:
             avg_hours = 0
             median_hours = 0
 
-        return {
+        out = {
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "count": len(cycle_times),
             "average_hours": round(avg_hours, 2),
             "median_hours": round(median_hours, 2),
         }
+        if include_breakdown:
+            out["issues"] = cycle_times
+        return out
 
     async def get_cycle_time_by_period(
         self,

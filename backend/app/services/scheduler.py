@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 
 from app.connectors.factory import (
     create_github_actions_connector,
@@ -12,7 +12,9 @@ from app.connectors.factory import (
 from app.core.database import async_session_maker
 from app.services.credentials import CredentialsService
 from app.models.github import PullRequest, Repository
+from app.models.recommendation import RecommendationRun
 from app.services.insights.alerts import AlertsService
+from app.services.insights.recommendation_engine import RecommendationEngine
 from app.services.insights.notifications import send_alert_notifications
 from app.services.linking import LinkingService
 
@@ -58,6 +60,44 @@ async def _run_alert_notifications(db) -> None:
         )
     except Exception as e:
         logger.warning("Alert notifications failed: %s", e)
+
+
+async def run_propose_recommendations():
+    """
+    Compute recommendations for the last 30 days and store as the latest
+    proposed run. Runs every 10 minutes.
+    """
+    try:
+        end = datetime.utcnow()
+        start = end - timedelta(days=30)
+        async with async_session_maker() as db:
+            engine = RecommendationEngine(db)
+            recommendations = await engine.get_recommendations(
+                start_date=start,
+                end_date=end,
+                repo_id=None,
+                repo_ids=None,
+            )
+            # Keep only the latest run: remove older runs then insert
+            await db.execute(delete(RecommendationRun))
+            run = RecommendationRun(
+                run_at=end,
+                period_start=start,
+                period_end=end,
+                repo_ids=None,
+                recommendations=[r.to_dict() for r in recommendations],
+            )
+            db.add(run)
+            await db.commit()
+            logger.info(
+                "Proposed %s recommendations (period %s – %s)",
+                len(recommendations),
+                start.date(),
+                end.date(),
+            )
+    except Exception as e:
+        logger.warning("Propose recommendations failed: %s", e)
+
 
 scheduler = AsyncIOScheduler()
 
@@ -549,10 +589,20 @@ def start_scheduler():
         replace_existing=True,
     )
 
+    # Propose recommendations every 10 min (first run in 10 min)
+    scheduler.add_job(
+        run_propose_recommendations,
+        "interval",
+        minutes=10,
+        next_run_time=now + timedelta(minutes=10),
+        id="propose_recommendations",
+        replace_existing=True,
+    )
+
     scheduler.start()
     logger.info(
         "Scheduler started: GitHub+Actions every 5min, Linear/Cursor/Greptile every 5min "
-        "(staggered), fill details every 10min"
+        "(staggered), fill details every 10min, propose recommendations every 10min"
     )
 
 

@@ -6,7 +6,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from app.core.database import get_db
+from app.models.recommendation import RecommendationRun
 from app.services.metrics.anomalies import AnomalyDetectionService
 from app.services.metrics.benchmarks import BenchmarkService
 from app.services.metrics.comparison import ComparisonService
@@ -430,6 +433,7 @@ async def get_cycle_time(
     team_id: int | None = None,
     include_trend: bool = False,
     include_benchmark: bool = False,
+    include_breakdown: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -441,19 +445,25 @@ async def get_cycle_time(
     Query params:
     - include_trend: If true, includes period-over-period trend comparison
     - include_benchmark: If true, includes industry benchmark comparison
+    - include_breakdown: If true, includes list of issues (identifier, title, hours, started_at, merged_at)
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
+    # -1 is frontend sentinel for "all teams"; treat as no filter
+    effective_team_id = None if team_id == -1 else team_id
+
     service = DevelopmentMetricsService(db)
-    result = await service.get_cycle_time(start_date, end_date, team_id)
+    result = await service.get_cycle_time(
+        start_date, end_date, effective_team_id, include_breakdown=include_breakdown
+    )
 
     if include_trend:
         comparison_service = ComparisonService(db)
         prev_start, prev_end = comparison_service.calculate_previous_period(
             start_date, end_date
         )
-        prev_result = await service.get_cycle_time(prev_start, prev_end, team_id)
+        prev_result = await service.get_cycle_time(prev_start, prev_end, effective_team_id)
         trend = await comparison_service.calculate_trend(
             metric_name="cycle_time",
             current_period=(start_date, end_date),
@@ -486,9 +496,12 @@ async def get_cycle_time_by_period(
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
 
+    # -1 is frontend sentinel for "all teams"; treat as no filter
+    effective_team_id = None if team_id == -1 else team_id
+
     service = DevelopmentMetricsService(db)
     return await service.get_cycle_time_by_period(
-        start_date, end_date, period, team_id
+        start_date, end_date, period, effective_team_id
     )
 
 
@@ -762,6 +775,33 @@ async def get_reviewer_workload(
         "end_date": end_date.isoformat(),
         "workloads": [w.to_dict() for w in workloads],
         "summary": summary.to_dict(),
+    }
+
+
+@router.get("/recommendations/proposed")
+async def get_proposed_recommendations(db: AsyncSession = Depends(get_db)):
+    """
+    Return the latest proposed recommendations from the scheduler (run every 10 min).
+    Includes run_at, period, and full recommendation list with link and details.
+    """
+    result = await db.execute(
+        select(RecommendationRun)
+        .order_by(RecommendationRun.run_at.desc())
+        .limit(1)
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        return {
+            "run_at": None,
+            "period_start": None,
+            "period_end": None,
+            "recommendations": [],
+        }
+    return {
+        "run_at": run.run_at.isoformat(),
+        "period_start": run.period_start.isoformat(),
+        "period_end": run.period_end.isoformat(),
+        "recommendations": run.recommendations,
     }
 
 

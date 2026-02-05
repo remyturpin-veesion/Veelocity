@@ -16,6 +16,7 @@ from app.models.github import (
 )
 from app.models.greptile import GreptileRepository
 from app.models.linear import LinearIssue, LinearTeam
+from app.models.recommendation import RecommendationRun
 from app.models.sync import SyncState
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "WorkflowRun",
     "LinearTeam",
     "LinearIssue",
+    "RecommendationRun",
     "SyncState",
     "CursorTeamMember",
     "CursorSpendSnapshot",

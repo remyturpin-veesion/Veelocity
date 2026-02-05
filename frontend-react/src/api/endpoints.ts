@@ -19,6 +19,7 @@ import type {
   LinearOverview,
   PaginatedResponse,
   PRDetail,
+  ProposedRecommendationsResponse,
   RecommendationsResponse,
   Repository,
   SettingsResponse,
@@ -305,6 +306,7 @@ export async function getCycleTime(params?: {
   team_id?: number;
   include_trend?: boolean;
   include_benchmark?: boolean;
+  include_breakdown?: boolean;
 }): Promise<unknown> {
   return apiGet(`${prefix}/metrics/development/cycle-time`, params as Record<string, string | number | boolean>);
 }
@@ -387,6 +389,10 @@ export async function getRecommendations(params?: {
   repo_ids?: number[];
 }): Promise<RecommendationsResponse> {
   return apiGet(`${prefix}/metrics/recommendations`, params as Record<string, string | number | number[]>);
+}
+
+export async function getProposedRecommendations(): Promise<ProposedRecommendationsResponse> {
+  return apiGet(`${prefix}/metrics/recommendations/proposed`);
 }
 
 export async function getCorrelations(params?: {

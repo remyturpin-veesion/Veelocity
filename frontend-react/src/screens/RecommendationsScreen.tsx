@@ -1,45 +1,101 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFiltersStore } from '@/stores/filters.js';
-import { getRecommendations } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
+import { Link } from 'react-router-dom';
+import { getProposedRecommendations } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
+import type { Recommendation } from '@/types/index.js';
+
+function formatRunDate(iso: string | null): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatPeriod(start: string | null, end: string | null): string {
+  if (!start || !end) return '';
+  try {
+    const s = new Date(start).toLocaleDateString(undefined, { dateStyle: 'short' });
+    const e = new Date(end).toLocaleDateString(undefined, { dateStyle: 'short' });
+    return `${s} – ${e}`;
+  } catch {
+    return `${start} – ${end}`;
+  }
+}
+
+function RecCard({ r, periodLabel }: { r: Recommendation; periodLabel: string }) {
+  return (
+    <li
+      style={{
+        padding: 16,
+        marginBottom: 12,
+        background: 'var(--accent)',
+        borderRadius: 8,
+        borderLeft: '4px solid var(--primary)',
+        listStyle: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <strong style={{ fontSize: '1rem' }}>{r.title}</strong>
+        {r.priority && (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: 'var(--primary)',
+              textTransform: 'uppercase',
+            }}
+          >
+            {r.priority}
+          </span>
+        )}
+      </div>
+      {r.description && (
+        <p style={{ margin: '8px 0 0', fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.5 }}>
+          {r.description}
+        </p>
+      )}
+      {r.metric_context && (
+        <p style={{ margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+          {r.metric_context}
+        </p>
+      )}
+      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+        {periodLabel && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Period: {periodLabel}</span>
+        )}
+        {r.link && (
+          <Link
+            to={r.link}
+            style={{
+              fontSize: '0.8125rem',
+              color: 'var(--primary)',
+              fontWeight: 500,
+            }}
+          >
+            View metric →
+          </Link>
+        )}
+      </div>
+    </li>
+  );
+}
 
 export function RecommendationsScreen() {
-  useFiltersStore((s) => s.dateRange);
-  useFiltersStore((s) => s.repoIds);
-  const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
-  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
-  const noReposSelected = hasNoReposSelected();
-  const { startDate, endDate } = getStartEnd();
-
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'recommendations', startDate, endDate, repoIds],
-    queryFn: () => getRecommendations({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
-    enabled: !noReposSelected,
+    queryKey: ['metrics', 'recommendations', 'proposed'],
+    queryFn: getProposedRecommendations,
   });
 
-  if (noReposSelected) {
-    return (
-      <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
-        <h1 className="screen-title">Recommendations</h1>
-        <EmptyState
-          title="No repositories selected"
-          message="Select at least one repository in the filter above to see recommendations."
-        />
-      </div>
-    );
-  }
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Recommendations</h1>
         <SkeletonCard />
       </div>
@@ -48,9 +104,6 @@ export function RecommendationsScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/" label="Dashboard" />
-        </p>
         <h1 className="screen-title">Recommendations</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -58,36 +111,29 @@ export function RecommendationsScreen() {
   }
 
   const recs = data?.recommendations ?? [];
+  const runAt = data?.run_at ?? null;
+  const periodStart = data?.period_start ?? null;
+  const periodEnd = data?.period_end ?? null;
+  const periodLabel = formatPeriod(periodStart, periodEnd);
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/" label="Dashboard" />
-      </p>
       <h1 className="screen-title">Recommendations</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {startDate} – {endDate}
-      </p>
+      {runAt && (
+        <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.875rem' }}>
+          Last proposed: {formatRunDate(runAt)}
+        </p>
+      )}
       <div className="card">
         {recs.length === 0 ? (
-          <div className="empty-state">No recommendations for this period.</div>
+          <div className="empty-state">
+            No recommendations yet. Recommendations are proposed every 10 minutes; run a sync and wait for the next run, or
+            check back later.
+          </div>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {recs.map((r) => (
-              <li
-                key={r.id}
-                style={{
-                  padding: 12,
-                  marginBottom: 8,
-                  background: 'var(--accent)',
-                  borderRadius: 8,
-                  borderLeft: '4px solid var(--primary)',
-                }}
-              >
-                <strong>{r.title}</strong>
-                <p style={{ margin: '4px 0 0', fontSize: '0.875rem' }}>{r.description}</p>
-                {r.priority && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{r.priority}</span>}
-              </li>
+              <RecCard key={r.id} r={r} periodLabel={periodLabel} />
             ))}
           </ul>
         )}

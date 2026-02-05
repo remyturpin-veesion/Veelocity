@@ -102,15 +102,21 @@ export function AppShell({ children }: AppShellProps) {
           <img src="/Veelocity.png" alt="Veelocity" className="app-shell__logo-img" />
         </Link>
         <nav className="app-shell__nav">
-          {TABS.map(({ path, label }) => (
-            <Link
-              key={path}
-              to={path}
-              className={isActive(path, location.pathname) ? 'active' : ''}
-            >
-              {label}
-            </Link>
-          ))}
+          {TABS.map(({ path, label }) => {
+            const active =
+              path === '/github'
+                ? showGitHubSidebar
+                : isActive(path, location.pathname);
+            return (
+              <Link
+                key={path}
+                to={path}
+                className={active ? 'active' : ''}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="app-shell__spacer" />
         <ExportButton />
