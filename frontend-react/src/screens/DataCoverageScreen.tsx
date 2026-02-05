@@ -349,29 +349,26 @@ export function DataCoverageScreen() {
                         </div>
                       </div>
                       <p className="data-coverage__repos-desc">
-                        Per team: <strong>linked to a PR</strong> (for cycle time) / <strong>synced in app</strong>. Issues are matched to PRs by identifier (e.g. [PIC-123]) in PR title or body. Click &quot;Sync all issues&quot; to re-import from Linear (includes archived teams).
+                        Issues synced per team. Click &quot;Sync all issues&quot; to re-import from Linear (includes archived teams).
                       </p>
                       <ul className="data-coverage__repo-list">
                         {linearTeams.map((t) => {
-                          const pct = t.total_issues > 0 ? Math.round((t.linked_issues / t.total_issues) * 100) : 100;
-                          const pctDisplay = t.total_issues > 0 && t.linked_issues > 0 && pct === 0 ? '<1%' : `${pct}%`;
-                          const pctStyle = t.total_issues > 0 && t.linked_issues > 0 && pct === 0 ? '1%' : `${pct}%`;
-                          const isTeamComplete = t.total_issues === 0 || t.linked_issues === t.total_issues;
+                          const synced = t.total_issues > 0;
                           return (
                             <li
                               key={t.key}
-                              className={`data-coverage__repo-row ${isTeamComplete ? 'data-coverage__repo-row--complete' : ''}`}
-                              style={{ '--repo-pct': pctStyle } as React.CSSProperties}
+                              className={`data-coverage__repo-row ${synced ? 'data-coverage__repo-row--complete' : ''}`}
+                              style={{ '--repo-pct': synced ? '100%' : '0%' } as React.CSSProperties}
                             >
                               <span className="data-coverage__repo-row-fill" aria-hidden />
                               <span className="data-coverage__repo-name" title={t.name}>
                                 {t.name}
                               </span>
-                              <span className="data-coverage__repo-counts" title="Linked to PR / Synced in app">
-                                {t.linked_issues.toLocaleString()} / {t.total_issues.toLocaleString()} issues
+                              <span className="data-coverage__repo-counts">
+                                {t.total_issues.toLocaleString()} issue{t.total_issues === 1 ? '' : 's'}
                               </span>
-                              <span className="data-coverage__repo-pct" aria-label={`${pctDisplay} linked`}>
-                                {pctDisplay}
+                              <span className="data-coverage__repo-pct" aria-label={synced ? '100% synced' : '0%'}>
+                                {synced ? '100%' : '0%'}
                               </span>
                             </li>
                           );

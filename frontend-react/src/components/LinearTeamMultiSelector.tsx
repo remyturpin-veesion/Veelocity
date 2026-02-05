@@ -83,6 +83,7 @@ export function LinearTeamMultiSelector() {
         aria-haspopup="listbox"
       >
         <span>{label}</span>
+        {allSelected && <span className="filter-dropdown-trigger__all-check" aria-hidden>✓</span>}
         <ChevronDown />
       </button>
       {open && (
@@ -164,7 +165,7 @@ export function LinearTeamMultiSelector() {
           })}
         </div>
       )}
-      {!allSelected && selectedTeams.length > 0 && (
+      {!allSelected && selectedTeams.length > 0 ? (
         <div className="filter-tags">
           {selectedTeams.map((t) => {
             const teamLabel = `${t.name} (${t.key})`;
@@ -183,7 +184,7 @@ export function LinearTeamMultiSelector() {
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

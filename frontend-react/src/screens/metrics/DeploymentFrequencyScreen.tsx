@@ -11,12 +11,12 @@ export function DeploymentFrequencyScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
-  const daysInRange = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
-  const period = daysInRange > 30 ? 'day' : 'week';
+  const period = getChartPeriod();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, period],

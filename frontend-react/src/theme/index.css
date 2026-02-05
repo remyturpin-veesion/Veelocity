@@ -16,6 +16,9 @@
   --metric-orange: hsl(28, 87%, 48%);
   --metric-purple: hsl(262, 52%, 52%);
   --metric-blue: hsl(217, 91%, 60%);
+  --metric-github: hsl(212, 72%, 42%);
+  --metric-cursor: hsl(262, 52%, 52%);
+  --metric-teal: hsl(172, 52%, 42%);
 }
 
 [data-theme='dark'] {
@@ -34,6 +37,9 @@
   --metric-orange: hsl(28, 87%, 55%);
   --metric-purple: hsl(262, 52%, 58%);
   --metric-blue: hsl(217, 91%, 65%);
+  --metric-github: hsl(212, 72%, 52%);
+  --metric-cursor: hsl(262, 52%, 58%);
+  --metric-teal: hsl(172, 52%, 48%);
 }
 
 * {
@@ -423,6 +429,13 @@ button {
   height: 12px;
   color: var(--text-muted);
   opacity: 0.9;
+}
+
+.filter-dropdown-trigger__all-check {
+  flex-shrink: 0;
+  margin-left: 4px;
+  color: var(--success-fg, var(--text));
+  font-size: 0.875rem;
 }
 
 .filter-tags {
@@ -941,6 +954,7 @@ button {
   padding: 16px;
   height: 100%;
   min-height: 0;
+  margin-bottom: 0;
 }
 
 /* Chart + summary rows (Cursor, Greptile): cards in same row share height */
@@ -1050,6 +1064,91 @@ button {
   margin-bottom: 0;
 }
 
+.data-coverage__accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-coverage__accordion-item {
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--surface-border);
+  overflow: hidden;
+}
+
+.data-coverage__accordion-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-left: 4px solid var(--connector-accent, var(--primary));
+  background: var(--surface);
+  transition: background 0.15s ease;
+  list-style: none;
+  user-select: none;
+}
+
+.data-coverage__accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.data-coverage__accordion-summary::marker {
+  content: '';
+}
+
+.data-coverage__accordion-summary:hover {
+  background: var(--surface-hover);
+}
+
+.data-coverage__accordion-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  position: relative;
+}
+
+.data-coverage__accordion-chevron::before,
+.data-coverage__accordion-chevron::after {
+  content: '';
+  position: absolute;
+  background: var(--text-muted);
+  border-radius: 1px;
+  transition: transform 0.2s ease;
+}
+
+.data-coverage__accordion-chevron::before {
+  width: 10px;
+  height: 2px;
+  top: 8px;
+  left: 1px;
+  transform: rotate(45deg);
+}
+
+.data-coverage__accordion-chevron::after {
+  width: 10px;
+  height: 2px;
+  top: 8px;
+  left: 7px;
+  transform: rotate(-45deg);
+}
+
+.data-coverage__accordion-item[open] > .data-coverage__accordion-summary .data-coverage__accordion-chevron::before {
+  transform: rotate(-45deg);
+}
+
+.data-coverage__accordion-item[open] > .data-coverage__accordion-summary .data-coverage__accordion-chevron::after {
+  transform: rotate(45deg);
+}
+
+.data-coverage__accordion-body {
+  padding: 12px 16px 16px 20px;
+  border-left: 4px solid var(--connector-accent, var(--primary));
+  border-top: 1px solid var(--surface-border);
+}
+
 .data-coverage__connector-list {
   list-style: none;
   padding: 0;
@@ -1057,11 +1156,15 @@ button {
 }
 
 .data-coverage__connector-item {
-  margin-bottom: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .data-coverage__connector-item:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .data-coverage__connector-row {
@@ -1131,7 +1234,8 @@ button {
   margin-top: 10px;
 }
 
-.data-coverage__connector-row:hover {
+.data-coverage__connector-row:hover,
+.data-coverage__accordion-summary:hover {
   background: var(--surface-hover);
 }
 
@@ -1236,15 +1340,18 @@ button {
 }
 
 /* Progression rows use connector accent (GitHub = primary, Linear = orange, etc.) */
-.data-coverage__repos-inline .data-coverage__repo-row {
+.data-coverage__repos-inline .data-coverage__repo-row,
+.data-coverage__accordion-body .data-coverage__repo-row {
   border-left-color: var(--connector-accent, var(--primary));
 }
 
-.data-coverage__repos-inline .data-coverage__repo-row--complete {
+.data-coverage__repos-inline .data-coverage__repo-row--complete,
+.data-coverage__accordion-body .data-coverage__repo-row--complete {
   border-left-color: var(--connector-accent, var(--primary));
 }
 
-.data-coverage__repos-inline .data-coverage__repo-row--complete .data-coverage__repo-pct {
+.data-coverage__repos-inline .data-coverage__repo-row--complete .data-coverage__repo-pct,
+.data-coverage__accordion-body .data-coverage__repo-row--complete .data-coverage__repo-pct {
   color: var(--connector-accent, var(--primary));
 }
 
@@ -1460,6 +1567,76 @@ button {
 
 .linear-overview__cards .kpi-card {
   min-height: 120px;
+}
+
+.linear-overview__linking {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.linear-overview__linking-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.linear-overview__linking-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.linear-overview__linking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linear-overview__linking-row {
+  display: grid;
+  grid-template-columns: 160px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+
+.linear-overview__linking-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.linear-overview__linking-bar-bg {
+  height: 6px;
+  background: var(--surface-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.linear-overview__linking-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--metric-orange);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.linear-overview__linking-stats {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.linear-overview__linking-pct {
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
 }
 
 /* GitHub overview */

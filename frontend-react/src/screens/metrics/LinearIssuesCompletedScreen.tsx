@@ -10,17 +10,20 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 export function LinearIssuesCompletedScreen() {
   useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
   const teamIdsParam = getTeamIdsForApi();
   const { startDate, endDate } = getStartEnd();
+  const period = getChartPeriod();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam],
+    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam, period],
     queryFn: () =>
       getLinearIssuesCompleted({
         start_date: startDate,
         end_date: endDate,
+        period,
         team_ids:
           teamIdsParam && teamIdsParam.length > 0 && !(teamIdsParam.length === 1 && teamIdsParam[0] === TEAM_ID_NONE)
             ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)

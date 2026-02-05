@@ -83,6 +83,8 @@ interface FiltersState {
   /** Empty set = no filter (0 values). Non-empty = those team ids. */
   getTeamIdsForApi: () => number[] | undefined;
   getStartEnd: () => { startDate: string; endDate: string };
+  /** For charts: 'day' if date range < 2 months, else 'week'. */
+  getChartPeriod: () => 'day' | 'week';
 }
 
 const persistKey = 'veelocity-filters';
@@ -172,6 +174,14 @@ export const useFiltersStore = create<FiltersState>()(
 
       getStartEnd() {
         return toStartEnd(get().dateRange);
+      },
+
+      getChartPeriod() {
+        const { startDate, endDate } = toStartEnd(get().dateRange);
+        const days = Math.ceil(
+          (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        return days < 60 ? 'day' : 'week';
       },
     }),
     {

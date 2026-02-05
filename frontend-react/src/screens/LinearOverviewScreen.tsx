@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay, TEAM_ID_NONE } from '@/stores/filters.js';
-import { getLinearOverview, getSyncCoverage, triggerLinearFullSync } from '@/api/endpoints.js';
+import { getLinearOverview, getSyncCoverage, getSyncStatus, triggerLinearFullSync } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 
 function formatTimeAgo(iso: string | null | undefined): string {
@@ -42,6 +42,11 @@ export function LinearOverviewScreen() {
   const { data: coverage } = useQuery({
     queryKey: ['sync', 'coverage'],
     queryFn: getSyncCoverage,
+  });
+
+  const { data: syncStatus } = useQuery({
+    queryKey: ['sync', 'status'],
+    queryFn: getSyncStatus,
   });
 
   const fullSyncMutation = useMutation({
@@ -128,6 +133,36 @@ export function LinearOverviewScreen() {
           icon={<span aria-hidden>◷</span>}
         />
       </div>
+
+      {syncStatus?.linear_teams && syncStatus.linear_teams.length > 0 && (
+        <div className="linear-overview__linking">
+          <h2 className="linear-overview__linking-title">PR linking per team</h2>
+          <p className="linear-overview__linking-desc">
+            Issues matched to a PR by identifier (e.g. [PIC-123]) in PR title or body. Used for cycle time calculation.
+          </p>
+          <ul className="linear-overview__linking-list">
+            {syncStatus.linear_teams.map((t: { name: string; key: string; total_issues: number; linked_issues: number }) => {
+              const pct = t.total_issues > 0 ? Math.round((t.linked_issues / t.total_issues) * 100) : 0;
+              const pctDisplay = t.total_issues > 0 && t.linked_issues > 0 && pct === 0 ? '<1%' : `${pct}%`;
+              return (
+                <li key={t.key} className="linear-overview__linking-row">
+                  <span className="linear-overview__linking-name">{t.name}</span>
+                  <span className="linear-overview__linking-bar-bg">
+                    <span
+                      className="linear-overview__linking-bar-fill"
+                      style={{ width: `${Math.max(pct, t.linked_issues > 0 ? 1 : 0)}%` }}
+                    />
+                  </span>
+                  <span className="linear-overview__linking-stats">
+                    {t.linked_issues.toLocaleString()} / {t.total_issues.toLocaleString()}
+                  </span>
+                  <span className="linear-overview__linking-pct">{pctDisplay}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

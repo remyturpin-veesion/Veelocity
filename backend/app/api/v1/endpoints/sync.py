@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import Date, cast, func, select
+from sqlalchemy import Date, cast, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -252,26 +252,17 @@ async def trigger_linear_full_sync(
 
 
 @router.post("/linear-reset")
-async def reset_linear_data(
-    db: AsyncSession = Depends(get_db),
-) -> dict:
+async def reset_linear_data(db: AsyncSession = Depends(get_db)) -> dict:
     """
-    Delete all Linear data (issues, workflow states, teams) and the linear sync state.
-
-    Use this to start fresh: after reset, the next incremental sync will run a full sync.
+    Delete all Linear data (issues, workflow states, teams, linear sync state).
+    Next sync will do a full import.
     """
-    from sqlalchemy import delete
-
-    try:
-        await db.execute(delete(LinearIssue))
-        await db.execute(delete(LinearWorkflowState))
-        await db.execute(delete(LinearTeam))
-        await db.execute(delete(SyncState).where(SyncState.connector_name == "linear"))
-        await db.commit()
-        return {"status": "success", "message": "Linear data reset completed"}
-    except Exception as e:
-        await db.rollback()
-        return {"status": "error", "message": str(e)}
+    await db.execute(delete(LinearIssue))
+    await db.execute(delete(LinearWorkflowState))
+    await db.execute(delete(LinearTeam))
+    await db.execute(delete(SyncState).where(SyncState.connector_name == "linear"))
+    await db.commit()
+    return {"status": "success", "message": "Linear data cleared"}
 
 
 @router.post("/fill-details")

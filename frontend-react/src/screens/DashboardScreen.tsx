@@ -48,20 +48,22 @@ export function DashboardScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const repoIds = getRepoIdsForApi();
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
+  const chartPeriod = getChartPeriod();
 
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
-        period: 'day',
+        period: chartPeriod,
         include_trend: true,
       }),
     enabled: !noReposSelected,
@@ -100,34 +102,34 @@ export function DashboardScreen() {
   });
 
   const deploymentFreqChart = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, 'day'],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
-        period: 'day',
+        period: chartPeriod,
       }),
     enabled: !noReposSelected,
   });
   const leadTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getLeadTimeByPeriod({
         start_date: startDate,
         end_date: endDate,
-        period: 'day',
+        period: chartPeriod,
         repo_ids: repoIds ?? undefined,
       }),
     enabled: !noReposSelected,
   });
   const cycleTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'cycle-time-by-period', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'cycle-time-by-period', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getCycleTimeByPeriod({
         start_date: startDate,
         end_date: endDate,
-        period: 'day',
+        period: chartPeriod,
       }),
     enabled: !noReposSelected,
   });
@@ -507,7 +509,7 @@ export function DashboardScreen() {
 
         {/* Cursor: same layout as Greptile row — big chart left, little block right; show box + spinner while loading */}
         {settings.data?.cursor_configured && (
-          <div style={{ marginTop: 20, display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 400px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div className="card dashboard__row-card" style={{ flex: 1, minHeight: 292 }}>
                 {cursorOverview.isLoading ? (
@@ -564,7 +566,7 @@ export function DashboardScreen() {
 
         {/* Greptile: chart on the left, summary block on the right; link below the block, left-aligned */}
         {settings.data?.greptile_configured && greptile != null && (
-          <div style={{ marginTop: 24, display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 400px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div className="card dashboard__row-card" style={{ flex: 1, padding: '20px 20px 16px', minHeight: 280 }}>
                 <h3 className="dashboard-section-title" style={{ marginBottom: 4 }}>

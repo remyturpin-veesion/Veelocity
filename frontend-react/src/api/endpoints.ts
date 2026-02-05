@@ -55,10 +55,7 @@ export async function triggerLinearFullSync(): Promise<{ status: string; message
 }
 
 export async function resetLinearData(): Promise<{ status: string; message?: string }> {
-  return apiPost(`${prefix}/sync/linear-reset`) as Promise<{
-    status: string;
-    message?: string;
-  }>;
+  return apiPost(`${prefix}/sync/linear-reset`) as Promise<{ status: string; message?: string }>;
 }
 
 export async function getGitHubOAuthStatus(): Promise<{ enabled: boolean }> {
