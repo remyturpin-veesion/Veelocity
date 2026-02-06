@@ -25,6 +25,7 @@ import type {
 
 const INDEX_STATUS_LABEL: Record<string, string> = {
   indexed: 'Indexed',
+  active: 'Active',
   not_indexed: 'Not indexed',
   stale: 'Stale',
   error: 'Error',
@@ -32,6 +33,7 @@ const INDEX_STATUS_LABEL: Record<string, string> = {
 
 const INDEX_STATUS_COLOR: Record<string, string> = {
   indexed: 'var(--metric-green)',
+  active: 'var(--metric-blue)',
   not_indexed: 'var(--text-muted)',
   stale: 'var(--metric-orange)',
   error: 'var(--metric-orange)',
@@ -129,7 +131,7 @@ export function GreptileOverviewScreen() {
   const sortedRepos = useMemo(() => {
     if (!data?.per_repo) return [];
     const rows = [...data.per_repo];
-    const statusPriority: Record<string, number> = { error: 0, not_indexed: 1, stale: 2, indexed: 3 };
+    const statusPriority: Record<string, number> = { error: 0, not_indexed: 1, active: 2, stale: 3, indexed: 4 };
     rows.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'repo_name') {

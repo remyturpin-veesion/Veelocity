@@ -163,7 +163,7 @@ export interface GreptileOverviewResponse {
 
 export interface GreptileRepoMetric {
   repo_name: string;
-  index_status: 'indexed' | 'not_indexed' | 'stale' | 'error';
+  index_status: 'indexed' | 'active' | 'not_indexed' | 'stale' | 'error';
   file_coverage_pct: number | null;
   review_coverage_pct: number | null;
   avg_response_time_minutes: number | null;

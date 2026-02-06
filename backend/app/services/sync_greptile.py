@@ -2,6 +2,7 @@
 
 import logging
 
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +57,34 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
     now = datetime.utcnow()
     items = 0
 
+    # Clean up any duplicate repositories (same name, different greptile_repo_id)
+    # Keep the most recently synced entry for each repository name.
+    dupes_q = (
+        select(
+            func.lower(GreptileRepository.repository).label("repo_lower"),
+            func.count(GreptileRepository.id).label("cnt"),
+        )
+        .group_by(func.lower(GreptileRepository.repository))
+        .having(func.count(GreptileRepository.id) > 1)
+    )
+    dupes_result = await db.execute(dupes_q)
+    for row in dupes_result.all():
+        # For each duplicate group, keep only the latest entry
+        all_q = (
+            select(GreptileRepository.id)
+            .where(func.lower(GreptileRepository.repository) == row.repo_lower)
+            .order_by(GreptileRepository.synced_at.desc())
+        )
+        all_result = await db.execute(all_q)
+        all_ids = [r[0] for r in all_result.all()]
+        if len(all_ids) > 1:
+            ids_to_delete = all_ids[1:]  # keep first (most recent), delete rest
+            await db.execute(
+                delete(GreptileRepository).where(GreptileRepository.id.in_(ids_to_delete))
+            )
+            logger.info("Greptile: removed %d duplicate entries for %s", len(ids_to_delete), row.repo_lower)
+    await db.flush()
+
     # Resolve GitHub token (needed by Greptile API for private repos)
     creds = await CredentialsService(db).get_credentials()
     github_token = creds.github_token
@@ -90,22 +119,41 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
                 continue
             if part.lower() in found_repos:
                 continue  # already in list
-            # Try common default branches
+            # Try common default branches, and both original + lowercase name
+            # (Greptile API is case-sensitive on the repo name)
+            name_variants = [part]
+            if part != part.lower():
+                name_variants.append(part.lower())
             info_raw = None
-            used_branch = None
-            for branch in ("main", "master"):
-                repo_id = f"github:{branch}:{part}"
-                info_raw = await get_repository(api_key, repo_id, github_token=github_token)
+            used_id = None
+            for name in name_variants:
+                for branch in ("main", "master"):
+                    repo_id = f"github:{branch}:{name}"
+                    info_raw = await get_repository(api_key, repo_id, github_token=github_token)
+                    if info_raw:
+                        used_id = repo_id
+                        break
                 if info_raw:
-                    used_branch = branch
                     break
             if info_raw:
                 info = _normalize_repo(info_raw)
-                info["greptile_repo_id"] = info.get("greptile_repo_id") or f"github:{used_branch}:{part}"
+                info["greptile_repo_id"] = info.get("greptile_repo_id") or used_id
                 repos_to_upsert.append(info)
-                logger.info("Greptile: fetched %s individually on branch %s (not in list response)", part, used_branch)
+                logger.info("Greptile: fetched %s individually as %s (not in list response)", part, used_id)
+            else:
+                logger.debug("Greptile: %s not found in Greptile (tried main/master, original/lowercase)", part)
 
+    # Deduplicate by repository name (keep first occurrence)
+    seen_repos: set[str] = set()
+    unique_repos: list[dict] = []
     for info in repos_to_upsert:
+        repo_key = (info.get("repository") or "").lower()
+        if repo_key in seen_repos:
+            continue
+        seen_repos.add(repo_key)
+        unique_repos.append(info)
+
+    for info in unique_repos:
         greptile_repo_id = info.get("greptile_repo_id")
         if not greptile_repo_id:
             continue

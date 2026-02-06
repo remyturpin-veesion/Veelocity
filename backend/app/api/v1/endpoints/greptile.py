@@ -219,3 +219,44 @@ async def greptile_debug_bot_reviewers(db: AsyncSession = Depends(get_db)):
             "set GREPTILE_BOT_LOGIN in your .env to match."
         ),
     }
+
+
+@router.get("/debug/fetch-repo")
+async def greptile_debug_fetch_repo(
+    repo: str = Query(..., description="Repo name, e.g. veesion-io/furious"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Diagnostic: try to fetch a specific repo from the Greptile API
+    using different name casings and branches.
+    """
+    from app.services.greptile_client import get_repository as greptile_get
+
+    service = CredentialsService(db)
+    creds = await service.get_credentials()
+    if not creds.greptile_api_key:
+        return {"error": "No Greptile API key configured"}
+
+    github_token = creds.github_token
+    results: list[dict] = []
+    name_variants = [repo]
+    if repo != repo.lower():
+        name_variants.append(repo.lower())
+
+    for name in name_variants:
+        for branch in ("main", "master"):
+            repo_id = f"github:{branch}:{name}"
+            data = await greptile_get(creds.greptile_api_key, repo_id, github_token=github_token, return_error=True)
+            is_error = isinstance(data, dict) and "_error" in data
+            results.append({
+                "repo_id": repo_id,
+                "found": not is_error and data is not None,
+                "status": data.get("_error") if is_error else 200,
+                "data": data,
+            })
+
+    return {
+        "repo": repo,
+        "github_token_present": bool(github_token),
+        "attempts": results,
+    }

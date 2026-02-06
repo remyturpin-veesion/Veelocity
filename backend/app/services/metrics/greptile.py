@@ -465,7 +465,9 @@ class GreptileMetricsService:
 
             # Determine index status
             if greptile_repo is None:
-                index_status = "not_indexed"
+                # If the Greptile bot has reviewed PRs on this repo, it's active
+                # even if we can't find it in the Greptile index API
+                index_status = "active" if reviewed > 0 else "not_indexed"
                 file_coverage_pct = None
             else:
                 status = (greptile_repo.status or "").lower()
@@ -494,7 +496,7 @@ class GreptileMetricsService:
             })
 
         # Sort: repos with issues first (not_indexed, error), then by coverage ascending
-        status_priority = {"error": 0, "not_indexed": 1, "stale": 2, "indexed": 3}
+        status_priority = {"error": 0, "not_indexed": 1, "active": 2, "stale": 3, "indexed": 4}
         per_repo.sort(key=lambda r: (
             status_priority.get(r["index_status"], 9),
             r["review_coverage_pct"] if r["review_coverage_pct"] is not None else 999,

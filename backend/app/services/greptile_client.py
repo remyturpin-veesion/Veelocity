@@ -65,11 +65,15 @@ async def list_repositories(
 
 
 async def get_repository(
-    api_key: str, repository_id: str, github_token: str | None = None
+    api_key: str,
+    repository_id: str,
+    github_token: str | None = None,
+    return_error: bool = False,
 ) -> dict[str, Any] | None:
     """
     GET /repositories/{repositoryId}. repository_id format: remote:branch:owner/repo
     e.g. github:main:owner/repo (URL-encoded when used in path).
+    If return_error=True, returns {"_error": status_code, "_body": ...} instead of None on failure.
     """
     import urllib.parse
 
@@ -81,16 +85,22 @@ async def get_repository(
             timeout=15.0,
         ) as client:
             resp = await client.get(f"/repositories/{encoded_id}")
-            if resp.status_code == 401:
-                logger.warning("Greptile API: invalid API key")
-                return None
-            if resp.status_code in (403, 404, 429):
-                return None
-            if resp.status_code != 200:
-                return None
-            return resp.json()
+            if resp.status_code == 200:
+                return resp.json()
+            logger.warning(
+                "Greptile get_repository %s: HTTP %s — %s (github_token=%s)",
+                repository_id,
+                resp.status_code,
+                resp.text[:200],
+                "present" if github_token else "missing",
+            )
+            if return_error:
+                return {"_error": resp.status_code, "_body": resp.text[:300]}
+            return None
     except Exception as e:
         logger.debug("Greptile get repository %s failed: %s", repository_id, e)
+        if return_error:
+            return {"_error": "exception", "_body": str(e)}
         return None
 
 
