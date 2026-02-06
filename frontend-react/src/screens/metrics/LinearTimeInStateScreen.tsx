@@ -169,7 +169,12 @@ export function LinearTimeInStateScreen() {
                     <button
                       type="button"
                       className="filter-dropdown-option__name"
-                      onClick={() => toggleStage(s.id, !selected)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTimeInStateStageIds([s.id]);
+                        setStagesOpen(false);
+                      }}
                     >
                       {s.label} ({s.count})
                     </button>

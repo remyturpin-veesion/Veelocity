@@ -3,7 +3,7 @@ import { useFiltersStore, TEAM_ID_NONE, formatDateRangeDisplay } from '@/stores/
 import { getLinearBacklog, getLinearTimeInState } from '@/api/endpoints.js';
 import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
-import { MetricInfoButton } from '@/components/MetricInfoButton.js';
+
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 
 export function LinearBacklogScreen() {
@@ -46,7 +46,7 @@ export function LinearBacklogScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <div className="screen-title-row"><h1 className="screen-title">Backlog & status</h1><MetricInfoButton metricKey="linear-backlog" /></div>
+        <h1 className="screen-title">Backlog & status</h1>
         <SkeletonCard />
       </div>
     );
@@ -57,7 +57,7 @@ export function LinearBacklogScreen() {
         <p style={{ marginBottom: 16 }}>
           <Breadcrumb to="/linear" label="Linear" />
         </p>
-        <div className="screen-title-row"><h1 className="screen-title">Backlog & status</h1><MetricInfoButton metricKey="linear-backlog" /></div>
+        <h1 className="screen-title">Backlog & status</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
     );
@@ -85,10 +85,7 @@ export function LinearBacklogScreen() {
       <p style={{ marginBottom: 16 }}>
         <Breadcrumb to="/linear" label="Linear" />
       </p>
-      <div className="screen-title-row">
-        <h1 className="screen-title">Backlog & status</h1>
-        <MetricInfoButton metricKey="linear-backlog" />
-      </div>
+      <h1 className="screen-title">Backlog & status</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         Open issues (not completed or canceled) by workflow status. Median time in state for issues completed in the period.
       </p>
