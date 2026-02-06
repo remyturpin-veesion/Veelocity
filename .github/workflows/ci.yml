@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --frozen --no-install-project
+        working-directory: backend
+
+      - name: Ruff check
+        run: uv run ruff check app/
+        working-directory: backend
+
+      - name: Black check
+        run: uv run black --check app/
+        working-directory: backend
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: veelocity
+          POSTGRES_PASSWORD: veelocity
+          POSTGRES_DB: veelocity
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U veelocity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://veelocity:veelocity@localhost:5433/veelocity
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+        working-directory: backend
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+        working-directory: backend
+
+      - name: Run tests
+        run: uv run pytest -v
+        working-directory: backend
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend-react
+
+      - name: Lint
+        run: pnpm run lint
+        working-directory: frontend-react
+
+      - name: Build
+        run: pnpm run build
+        working-directory: frontend-react

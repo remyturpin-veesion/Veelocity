@@ -26,14 +26,27 @@ services:
     container_name: veelocity-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veelocity}:${POSTGRES_PASSWORD:-veelocity}@postgres:5432/${POSTGRES_DB:-veelocity}
-      DEBUG: ${DEBUG:-false}
+      DEBUG: ${DEBUG:-true}
       VEELOCITY_ENCRYPTION_KEY: ${VEELOCITY_ENCRYPTION_KEY:-}
       DEPLOYMENT_PATTERNS: ${DEPLOYMENT_PATTERNS:-deploy,release,publish}
+      RATE_LIMIT_MAX_PER_SYNC: ${RATE_LIMIT_MAX_PER_SYNC:-500}
+      RATE_LIMIT_MAX_PER_HOUR: ${RATE_LIMIT_MAX_PER_HOUR:-4000}
+      RATE_LIMIT_DELAY_MS: ${RATE_LIMIT_DELAY_MS:-100}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      OAUTH_BACKEND_BASE_URL: ${OAUTH_BACKEND_BASE_URL:-http://localhost:8000}
+      OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:5173}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       - ../../backend:/app
 

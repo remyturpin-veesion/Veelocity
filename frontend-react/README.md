@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# Veelocity Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React SPA for the Veelocity developer analytics platform.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19 with TypeScript
+- Vite for build tooling
+- Zustand for state management
+- TanStack Query for server state
+- Recharts for data visualization
+- React Router v7
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Install dependencies
+pnpm install
 
-## Expanding the ESLint configuration
+# Copy environment config
+cp .env.example .env
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start dev server (http://localhost:5173)
+pnpm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend API URL |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `pnpm run dev` | Start development server |
+| `pnpm run build` | TypeScript check + production build |
+| `pnpm run preview` | Preview production build locally |
+| `pnpm run lint` | Run ESLint |
+
+## Path Aliases
+
+`@/` maps to `./src/` — configured in `vite.config.ts` and `tsconfig.app.json`.
+
+```typescript
+import { api } from '@/api/client';
 ```
+
+## Production Build
+
+The `Dockerfile` in this directory builds a production image using nginx:
+
+```bash
+docker build --build-arg VITE_API_BASE_URL=https://your-api.example.com -t veelocity-frontend .
+docker run -p 80:80 veelocity-frontend
+```
+
+See the root [deployment guide](../docs/deployment.md) for the full production setup.

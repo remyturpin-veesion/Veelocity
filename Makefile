@@ -1,50 +1,82 @@
-# Makefile
-.PHONY: dev dev-local dev-frontend dev-db down logs shell-backend test migrate lint format db
+# Makefile — Veelocity
+.PHONY: dev dev-local dev-frontend dev-db db down logs shell-backend test migrate migrate-create lint format prod prod-down prod-logs prod-build
 
-# Development avec Docker (PostgreSQL + backend)
+# =============================================================================
+# Development
+# =============================================================================
+
+# Start PostgreSQL + backend in Docker
 dev:
-	docker-compose -f infra/docker/docker-compose.yml up -d
+	docker compose -f infra/docker/docker-compose.yml up -d
 
-# Development local backend (hot reload) - requires uv, and DB + migrations for make db workflow
-# Backend logs (including OAuth errors) appear in this terminal, not in make logs
+# Start backend locally with hot reload (requires uv + running DB)
 dev-local:
 	cd backend && uv run uvicorn app.main:app --reload --port 8000
 
-# PostgreSQL + run migrations (use with make dev-local: make dev-db && make dev-local)
+# Start PostgreSQL + run migrations (use with dev-local)
 dev-db: db
 	$(MAKE) migrate
 
-# Frontend React (Vite) - requires VITE_API_BASE_URL in frontend-react/.env (default http://localhost:8000)
+# Start frontend dev server (Vite, http://localhost:5173)
 dev-frontend:
 	cd frontend-react && pnpm run dev
 
-# Démarrer juste PostgreSQL (no migrations; use dev-db for local backend)
+# Start PostgreSQL only (no migrations)
 db:
-	docker-compose -f infra/docker/docker-compose.yml up -d postgres
+	docker compose -f infra/docker/docker-compose.yml up -d postgres
 
+# Stop all dev containers
 down:
-	docker-compose -f infra/docker/docker-compose.yml down
+	docker compose -f infra/docker/docker-compose.yml down
 
-# Logs from Docker containers only (postgres + backend if you use make dev, not make dev-local)
+# View dev container logs
 logs:
-	docker-compose -f infra/docker/docker-compose.yml logs -f
+	docker compose -f infra/docker/docker-compose.yml logs -f
 
+# Shell into backend container
 shell-backend:
-	docker-compose -f infra/docker/docker-compose.yml exec backend /bin/bash
+	docker compose -f infra/docker/docker-compose.yml exec backend /bin/bash
 
+# =============================================================================
+# Production
+# =============================================================================
+
+# Start all production services
+prod:
+	docker compose -f infra/docker/docker-compose.prod.yml up -d
+
+# Build and start production services
+prod-build:
+	docker compose -f infra/docker/docker-compose.prod.yml up -d --build
+
+# Stop all production services
+prod-down:
+	docker compose -f infra/docker/docker-compose.prod.yml down
+
+# View production logs
+prod-logs:
+	docker compose -f infra/docker/docker-compose.prod.yml logs -f
+
+# =============================================================================
 # Backend
+# =============================================================================
+
+# Run backend tests
 test:
 	cd backend && uv run pytest -v
 
+# Apply database migrations
 migrate:
 	cd backend && uv run alembic upgrade head
 
+# Create a new migration: make migrate-create name="description"
 migrate-create:
 	cd backend && uv run alembic revision --autogenerate -m "$(name)"
 
-# Linting
+# Run Ruff linter
 lint:
 	cd backend && uv run ruff check app/
 
+# Run Black formatter
 format:
 	cd backend && uv run black app/

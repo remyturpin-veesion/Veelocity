@@ -1,0 +1,89 @@
+# infra/docker/docker-compose.prod.yml
+# Production deployment — all services in one Compose file.
+# Copy .env.example to .env and fill in production values before starting.
+#
+# Usage:
+#   docker compose -f infra/docker/docker-compose.prod.yml up -d
+#   docker compose -f infra/docker/docker-compose.prod.yml logs -f
+#   docker compose -f infra/docker/docker-compose.prod.yml down
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: veelocity-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-veelocity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-veelocity}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veelocity}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: veelocity-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veelocity}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-veelocity}
+      DEBUG: "false"
+      VEELOCITY_ENCRYPTION_KEY: ${VEELOCITY_ENCRYPTION_KEY:?VEELOCITY_ENCRYPTION_KEY is required}
+      DEPLOYMENT_PATTERNS: ${DEPLOYMENT_PATTERNS:-deploy,release,publish}
+      # Rate limiting
+      RATE_LIMIT_MAX_PER_SYNC: ${RATE_LIMIT_MAX_PER_SYNC:-500}
+      RATE_LIMIT_MAX_PER_HOUR: ${RATE_LIMIT_MAX_PER_HOUR:-4000}
+      RATE_LIMIT_DELAY_MS: ${RATE_LIMIT_DELAY_MS:-100}
+      # GitHub OAuth (optional)
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      OAUTH_BACKEND_BASE_URL: ${OAUTH_BACKEND_BASE_URL:-http://localhost:8000}
+      OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:5173}
+      # Alert notifications (optional)
+      ALERT_WEBHOOK_URLS: ${ALERT_WEBHOOK_URLS:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ../../frontend-react
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: veelocity-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
