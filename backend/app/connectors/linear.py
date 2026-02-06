@@ -199,6 +199,56 @@ class LinearConnector(BaseConnector):
 
         return issues
 
+    async def fetch_issue_history(self, issue_linear_id: str) -> list[dict]:
+        """
+        Fetch state transition history for an issue (for time-in-status).
+        Returns list of { from_state, to_state, created_at } ordered by created_at.
+        Only includes history entries where workflow state changed (toStateId set).
+        """
+        query = """
+        query($id: String!) {
+            issue(id: $id) {
+                id
+                createdAt
+                history(first: 100) {
+                    nodes {
+                        createdAt
+                        fromState { name }
+                        toState { name }
+                    }
+                }
+            }
+        }
+        """
+        try:
+            response = await self._client.post(
+                self.BASE_URL,
+                json={"query": query, "variables": {"id": issue_linear_id}},
+            )
+            if response.status_code != 200:
+                return []
+            data = response.json()
+            issue = (data.get("data") or {}).get("issue")
+            if not issue:
+                return []
+            nodes = (issue.get("history") or {}).get("nodes") or []
+            out: list[dict] = []
+            for node in nodes:
+                to_state = (node.get("toState") or {}).get("name")
+                if not to_state:
+                    continue
+                from_state = (node.get("fromState") or {}).get("name")
+                created_at = node.get("createdAt")
+                if created_at:
+                    out.append({
+                        "from_state": from_state,
+                        "to_state": to_state,
+                        "created_at": created_at,
+                    })
+            return out
+        except Exception:
+            return []
+
     async def sync_all(self, db) -> SyncResult:
         """Sync all Linear data."""
         started_at = datetime.now(timezone.utc)

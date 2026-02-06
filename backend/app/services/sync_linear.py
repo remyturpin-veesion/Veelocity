@@ -3,11 +3,16 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.linear import LinearConnector
-from app.models.linear import LinearIssue, LinearTeam, LinearWorkflowState
+from app.models.linear import (
+    LinearIssue,
+    LinearIssueStateTransition,
+    LinearTeam,
+    LinearWorkflowState,
+)
 from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
@@ -48,6 +53,8 @@ class SyncLinearService:
         # Sync all issues (no cap so every team gets full count)
         issues = await self._connector.fetch_issues(max_results=None)
         count += await self._upsert_issues(issues, team_map)
+
+        count += await self._sync_state_transitions(limit=80)
 
         await self._sync_state.update_last_full_sync(self._connector.name)
         await self._db.commit()
@@ -96,6 +103,8 @@ class SyncLinearService:
             max_results=2000,
         )
         count += await self._upsert_issues(issues, team_map)
+
+        count += await self._sync_state_transitions(limit=30)
 
         await self._sync_state.update_last_sync(self._connector.name)
         await self._db.commit()
@@ -240,3 +249,51 @@ class SyncLinearService:
         result = await self._db.execute(select(LinearTeam))
         teams = result.scalars().all()
         return {team.linear_id: team.id for team in teams}
+
+    async def _sync_state_transitions(self, limit: int = 30) -> int:
+        """
+        Fetch issue history from Linear for completed issues that don't have
+        state transitions yet, and upsert transitions. Returns number of
+        transitions added (not issue count).
+        """
+        # Completed issues that have no state transitions yet
+        subq = (
+            select(LinearIssueStateTransition.linear_issue_id)
+            .distinct()
+        )
+        q = (
+            select(LinearIssue.id, LinearIssue.linear_id)
+            .where(
+                LinearIssue.completed_at.isnot(None),
+                LinearIssue.id.not_in(subq),
+            )
+            .order_by(LinearIssue.completed_at.desc())
+            .limit(limit)
+        )
+        result = await self._db.execute(q)
+        rows = result.all()
+        count = 0
+        for issue_id, linear_id in rows:
+            history = await self._connector.fetch_issue_history(linear_id)
+            if not history:
+                continue
+            await self._db.execute(
+                delete(LinearIssueStateTransition).where(
+                    LinearIssueStateTransition.linear_issue_id == issue_id
+                )
+            )
+            for h in history:
+                created_at = _parse_datetime(h.get("created_at"))
+                if not created_at:
+                    continue
+                self._db.add(
+                    LinearIssueStateTransition(
+                        linear_issue_id=issue_id,
+                        from_state=h.get("from_state"),
+                        to_state=h.get("to_state", "Unknown"),
+                        created_at=created_at,
+                    )
+                )
+                count += 1
+        await self._db.flush()
+        return count

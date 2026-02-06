@@ -2,7 +2,6 @@ import { useRef, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay, TEAM_ID_NONE } from '@/stores/filters.js';
 import { getLinearTimeInState } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import { TrendChart } from '@/components/TrendChart.js';
@@ -21,6 +20,9 @@ interface TimeInStateStage {
   label: string;
   count: number;
   average_hours: number;
+  median_hours?: number;
+  min_hours?: number;
+  max_hours?: number;
   [key: string]: unknown;
 }
 
@@ -63,9 +65,6 @@ export function LinearTimeInStateScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/linear" label="Linear" />
-        </p>
         <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
         <SkeletonCard />
       </div>
@@ -74,9 +73,6 @@ export function LinearTimeInStateScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/linear" label="Linear" />
-        </p>
         <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -118,12 +114,9 @@ export function LinearTimeInStateScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/linear" label="Linear" />
-      </p>
       <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {formatDateRangeDisplay(startDate, endDate)}
+        {formatDateRangeDisplay(startDate, endDate)} — time in each status for issues completed in the period (from Linear state history when synced).
       </p>
 
       {allStages.length > 0 && (
@@ -137,6 +130,7 @@ export function LinearTimeInStateScreen() {
             aria-haspopup="listbox"
           >
             <span>{stagesLabel}</span>
+            {allStagesSelected && <span className="filter-dropdown-trigger__all-check" aria-hidden>✓</span>}
             <ChevronDown />
           </button>
           {stagesOpen && (
@@ -196,14 +190,24 @@ export function LinearTimeInStateScreen() {
             marginBottom: 24,
           }}
         >
-          {visibleStages.map((s) => (
-            <KpiCard
-              key={s.id}
-              title={s.label}
-              value={s.average_hours != null ? `${s.average_hours.toFixed(1)} h` : '—'}
-              subtitle={s.count != null ? `${s.count} issues` : undefined}
-            />
-          ))}
+          {visibleStages.map((s) => {
+            const hasTime = s.average_hours != null && s.average_hours > 0;
+            const medianH = s.median_hours ?? 0;
+            const subtitle =
+              s.count != null
+                ? medianH > 0
+                  ? `median ${medianH < 24 ? `${medianH.toFixed(1)} h` : `${(medianH / 24).toFixed(1)} d`} · ${s.count} issues`
+                  : `${s.count} issues`
+                : undefined;
+            return (
+              <KpiCard
+                key={s.id}
+                title={s.label}
+                value={hasTime ? `${s.average_hours!.toFixed(1)} h` : '—'}
+                subtitle={subtitle}
+              />
+            );
+          })}
         </div>
       )}
       {chartData.length > 0 && (

@@ -70,6 +70,27 @@ class LinearIssue(Base):
 
     team: Mapped["LinearTeam"] = relationship(back_populates="issues")
     linked_pr: Mapped["PullRequest | None"] = relationship()  # type: ignore
+    state_transitions: Mapped[list["LinearIssueStateTransition"]] = relationship(
+        back_populates="issue", order_by="LinearIssueStateTransition.created_at"
+    )
+
+
+class LinearIssueStateTransition(Base):
+    """State transition from Linear issue history (for time-in-status)."""
+
+    __tablename__ = "linear_issue_state_transitions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    linear_issue_id: Mapped[int] = mapped_column(
+        ForeignKey("linear_issues.id", ondelete="CASCADE"), index=True
+    )
+    from_state: Mapped[str | None] = mapped_column(String(100), nullable=True)  # null = creation
+    to_state: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+    issue: Mapped["LinearIssue"] = relationship(
+        back_populates="state_transitions", foreign_keys=[linear_issue_id]
+    )
 
 
 # Import PullRequest for type hint (avoid circular import at runtime)

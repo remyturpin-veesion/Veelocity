@@ -39,6 +39,23 @@ def _make_mock_db(
         elif "count(" in stmt_str and "linear" in stmt_str:
             result.scalar = MagicMock(return_value=backlog_count)
             result.all = MagicMock(return_value=[])
+        elif "linear_issue_state_transition" in stmt_str:
+            result.scalar = MagicMock(return_value=None)
+            result.scalars = MagicMock(
+                return_value=MagicMock(all=MagicMock(return_value=[]))
+            )
+        elif (
+            "linear_issues" in stmt_str
+            and "started_at" in stmt_str
+            and "completed_at" in stmt_str
+        ):
+            # Completed issues query: (id, completed_at, started_at)
+            rows = [
+                (i + 1, completed, started)
+                for i, (started, completed) in enumerate(started_completed_rows)
+            ]
+            result.scalar = MagicMock(return_value=None)
+            result.all = MagicMock(return_value=rows)
         elif "started_at" in stmt_str and "completed_at" in stmt_str:
             result.scalar = MagicMock(return_value=None)
             result.all = MagicMock(return_value=started_completed_rows)

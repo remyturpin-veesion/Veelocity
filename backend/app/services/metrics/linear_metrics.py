@@ -12,7 +12,12 @@ from typing import Literal
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.linear import LinearIssue, LinearWorkflowState
+from app.models.linear import (
+    LinearIssue,
+    LinearIssueStateTransition,
+    LinearTeam,
+    LinearWorkflowState,
+)
 
 
 class LinearMetricsService:
@@ -119,23 +124,72 @@ class LinearMetricsService:
     ) -> dict:
         """
         Count of open issues (completed_at and canceled_at both null).
+        Returns total count and optional by_team breakdown (team_id, team_name, count).
         """
-        query = select(func.count(LinearIssue.id)).where(
-            and_(
-                LinearIssue.completed_at.is_(None),
-                LinearIssue.canceled_at.is_(None),
-            )
+        base_filter = and_(
+            LinearIssue.completed_at.is_(None),
+            LinearIssue.canceled_at.is_(None),
         )
         ids = self._team_filter(team_id, team_ids)
+        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+
+        # Total count
+        query = select(func.count(LinearIssue.id)).where(base_filter)
         if ids is not None:
             query = query.where(LinearIssue.team_id.in_(ids))
-        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
         query = self._assignee_filter_sync(query, matching)
-
         result = await self._db.execute(query)
         count = result.scalar() or 0
 
-        return {"backlog_count": count}
+        # By-team breakdown (same filters): team_id, team_name, count
+        by_team_q = (
+            select(
+                LinearIssue.team_id,
+                LinearTeam.name.label("team_name"),
+                func.count(LinearIssue.id).label("count"),
+            )
+            .join(LinearTeam, LinearIssue.team_id == LinearTeam.id)
+            .where(base_filter)
+        )
+        if ids is not None:
+            by_team_q = by_team_q.where(LinearIssue.team_id.in_(ids))
+        by_team_q = self._assignee_filter_sync(by_team_q, matching)
+        by_team_q = by_team_q.group_by(LinearIssue.team_id, LinearTeam.name)
+        by_team_result = await self._db.execute(by_team_q)
+        by_team = [
+            {"team_id": row[0], "team_name": row[1], "count": row[2]}
+            for row in by_team_result.all()
+        ]
+
+        # By-state breakdown (open issues per workflow state, same filters, ordered)
+        ordered_states = await self._get_ordered_workflow_states(ids)
+        state_count_q = (
+            select(LinearIssue.state, func.count(LinearIssue.id).label("count"))
+            .where(base_filter)
+        )
+        if ids is not None:
+            state_count_q = state_count_q.where(LinearIssue.team_id.in_(ids))
+        state_count_q = self._assignee_filter_sync(state_count_q, matching)
+        state_count_q = state_count_q.group_by(LinearIssue.state)
+        state_count_result = await self._db.execute(state_count_q)
+        counts_by_state = {row[0]: row[1] for row in state_count_result.all()}
+        by_state = [
+            {"state_name": name, "count": counts_by_state.get(name, 0)}
+            for name, _position, _typ in ordered_states
+        ]
+        # If no workflow states synced, fall back to distinct issue states (unordered)
+        if not by_state and counts_by_state:
+            by_state = [
+                {"state_name": s, "count": c}
+                for s, c in sorted(counts_by_state.items())
+            ]
+
+        return {
+            "backlog_count": count,
+            "total": count,
+            "by_team": by_team,
+            "by_state": by_state,
+        }
 
     async def _get_ordered_workflow_states(
         self, team_ids: list[int] | None
@@ -170,16 +224,16 @@ class LinearMetricsService:
         """
         Return one card per workflow state (Todo, In Progress, etc.) in order.
         Each card has: count, median, min, max, average (time in that status).
-        Time stats use issues with completed_at in the date range. The "started" state
-        (e.g. In Progress) is filled from started_at→completed_at; other states need
-        Linear issue history to be non-zero.
+        Time stats use issues with completed_at in the date range. When we have
+        synced state transitions (from Linear issue history), we compute time
+        per state from transitions; otherwise we fall back to started_at→completed_at
+        for the "In Progress" state only.
         """
         ids = self._team_filter(team_id, team_ids)
-
         ordered_states = await self._get_ordered_workflow_states(ids)
-
-        # Issue counts per state (current state, filtered by team)
         matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+
+        # Issue counts per state (current state)
         count_q = select(LinearIssue.state, func.count(LinearIssue.id))
         if ids is not None:
             count_q = count_q.where(LinearIssue.team_id.in_(ids))
@@ -187,29 +241,6 @@ class LinearMetricsService:
         count_q = count_q.group_by(LinearIssue.state)
         count_result = await self._db.execute(count_q)
         counts_by_state = {row[0]: row[1] for row in count_result.all()}
-
-        # Hours in "started" state for issues completed in the date range
-        started_q = (
-            select(LinearIssue.started_at, LinearIssue.completed_at)
-            .where(
-                and_(
-                    LinearIssue.started_at.isnot(None),
-                    LinearIssue.completed_at.isnot(None),
-                    LinearIssue.completed_at >= start_date,
-                    LinearIssue.completed_at <= end_date,
-                )
-            )
-        )
-        if ids is not None:
-            started_q = started_q.where(LinearIssue.team_id.in_(ids))
-        started_q = self._assignee_filter_sync(started_q, matching)
-        started_result = await self._db.execute(started_q)
-        started_hours: list[float] = []
-        for started_at, completed_at in started_result.all():
-            if started_at and completed_at:
-                started_hours.append(
-                    round((completed_at - started_at).total_seconds() / 3600, 2)
-                )
 
         def slug(s: str) -> str:
             return s.lower().replace(" ", "_").replace("-", "_")
@@ -233,30 +264,100 @@ class LinearMetricsService:
                 "average_hours": round(sum(hours) / n, 2),
             }
 
-        started_stats = stats(started_hours)
+        # Issues completed in the date range (for time-in-state)
+        completed_q = (
+            select(LinearIssue.id, LinearIssue.completed_at, LinearIssue.started_at)
+            .where(
+                and_(
+                    LinearIssue.completed_at.isnot(None),
+                    LinearIssue.completed_at >= start_date,
+                    LinearIssue.completed_at <= end_date,
+                )
+            )
+        )
+        if ids is not None:
+            completed_q = completed_q.where(LinearIssue.team_id.in_(ids))
+        completed_q = self._assignee_filter_sync(completed_q, matching)
+        completed_result = await self._db.execute(completed_q)
+        completed_issues = list(completed_result.all())
+        completed_ids = [r[0] for r in completed_issues]
+        completed_at_by_id = {r[0]: r[1] for r in completed_issues}
+        started_at_by_id = {r[0]: r[2] for r in completed_issues}
 
-        # Only the "In Progress" / "Started" state gets time stats: we measure started_at →
-        # completed_at. Linear's type "started" can apply to many states (In Review, Merged, etc.),
-        # so we key off state name only and assign global started_stats to at most one stage.
+        # Load all state transitions for these issues in one query
+        hours_by_state: dict[str, list[float]] = {}
+        if completed_ids:
+            trans_q = (
+                select(LinearIssueStateTransition)
+                .where(
+                    LinearIssueStateTransition.linear_issue_id.in_(completed_ids)
+                )
+                .order_by(
+                    LinearIssueStateTransition.linear_issue_id,
+                    LinearIssueStateTransition.created_at,
+                )
+            )
+            trans_result = await self._db.execute(trans_q)
+            transitions = list(trans_result.scalars().all())
+            by_issue: dict[int, list] = {}
+            for t in transitions:
+                by_issue.setdefault(t.linear_issue_id, []).append(t)
+            for issue_id in completed_ids:
+                completed_at = completed_at_by_id.get(issue_id)
+                if not completed_at:
+                    continue
+                issue_trans = by_issue.get(issue_id, [])
+                for i, t in enumerate(issue_trans):
+                    state_name = t.to_state
+                    start_ts = t.created_at
+                    end_ts = (
+                        issue_trans[i + 1].created_at
+                        if i + 1 < len(issue_trans)
+                        else completed_at
+                    )
+                    if start_ts and end_ts and end_ts > start_ts:
+                        hours = (end_ts - start_ts).total_seconds() / 3600
+                        hours_by_state.setdefault(state_name, []).append(
+                            round(hours, 2)
+                        )
+
+        # Fallback: "In Progress" from started_at→completed_at when no transitions
         _STARTED_STATE_NAMES = frozenset({"in progress", "started"})
+        started_hours: list[float] = []
+        for issue_id in completed_ids:
+            started_at = started_at_by_id.get(issue_id)
+            completed_at = completed_at_by_id.get(issue_id)
+            if started_at and completed_at and completed_at > started_at:
+                started_hours.append(
+                    round((completed_at - started_at).total_seconds() / 3600, 2)
+                )
+        # Use started_at→completed_at for "In Progress" only when we have no transition data for it
+        for name, position, _ in ordered_states:
+            if name.strip().lower() in _STARTED_STATE_NAMES:
+                if name not in hours_by_state and started_hours:
+                    hours_by_state[name] = started_hours
+                break
+
+        # Build stage stats per ordered state
+        stage_stats: dict[str, dict] = {}
+        for name, position, _ in ordered_states:
+            hours = hours_by_state.get(name, [])
+            st = stats(hours)
+            stage_stats[name] = st
+
+        # Overall aggregate (for backward compat: count / median / average)
+        all_hours: list[float] = []
+        for h in hours_by_state.values():
+            all_hours.extend(h)
+        overall = stats(all_hours)
+        if not all_hours and started_hours:
+            overall = stats(started_hours)
 
         stages = []
-        started_stats_assigned = False
-        for name, position, state_type in ordered_states:
-            is_in_progress_by_name = name.strip().lower() in _STARTED_STATE_NAMES
-            if is_in_progress_by_name and not started_stats_assigned:
-                st = started_stats
-                count = st["count"]
-                started_stats_assigned = True
-            else:
-                count = counts_by_state.get(name, 0)
-                st = {
-                    "count": 0,
-                    "min_hours": 0.0,
-                    "max_hours": 0.0,
-                    "median_hours": 0.0,
-                    "average_hours": 0.0,
-                }
+        for name, position, _ in ordered_states:
+            st = stage_stats.get(name, stats([]))
+            # When we have time stats, show number of issues that had time in this state; else current state count
+            count = st["count"] if st["count"] > 0 else counts_by_state.get(name, 0)
             stages.append({
                 "id": slug(name),
                 "label": name,
@@ -268,28 +369,28 @@ class LinearMetricsService:
                 "average_hours": st["average_hours"],
             })
 
-        # If no workflow states synced yet, fall back to distinct issue states (unordered)
         if not stages:
             for state_name in sorted(counts_by_state.keys()):
+                st = stage_stats.get(state_name, stats([]))
                 stages.append({
                     "id": slug(state_name),
                     "label": state_name,
                     "position": 0.0,
                     "count": counts_by_state[state_name],
-                    "min_hours": 0.0,
-                    "max_hours": 0.0,
-                    "median_hours": 0.0,
-                    "average_hours": 0.0,
+                    "min_hours": st["min_hours"],
+                    "max_hours": st["max_hours"],
+                    "median_hours": st["median_hours"],
+                    "average_hours": st["average_hours"],
                 })
 
         return {
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
-            "count": started_stats["count"],
-            "average_hours": started_stats["average_hours"],
-            "median_hours": started_stats["median_hours"],
-            "min_hours": started_stats["min_hours"],
-            "max_hours": started_stats["max_hours"],
+            "count": overall["count"],
+            "average_hours": overall["average_hours"],
+            "median_hours": overall["median_hours"],
+            "min_hours": overall["min_hours"],
+            "max_hours": overall["max_hours"],
             "stages": stages,
         }
 
