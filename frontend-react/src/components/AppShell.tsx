@@ -106,7 +106,9 @@ export function AppShell({ children }: AppShellProps) {
             const active =
               path === '/github'
                 ? showGitHubSidebar
-                : isActive(path, location.pathname);
+                : path === '/linear'
+                  ? showLinearSidebar
+                  : isActive(path, location.pathname);
             return (
               <Link
                 key={path}
