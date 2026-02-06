@@ -146,6 +146,7 @@ class LinearConnector(BaseConnector):
                         team {
                             id
                         }
+                        url
                         createdAt
                         startedAt
                         completedAt
@@ -183,6 +184,7 @@ class LinearConnector(BaseConnector):
                     "state": issue.get("state", {}).get("name", "Unknown"),
                     "assignee_name": issue.get("assignee", {}).get("name") if issue.get("assignee") else None,
                     "team_linear_id": issue.get("team", {}).get("id"),
+                    "url": issue.get("url"),
                     "created_at": issue.get("createdAt"),
                     "started_at": issue.get("startedAt"),
                     "completed_at": issue.get("completedAt"),

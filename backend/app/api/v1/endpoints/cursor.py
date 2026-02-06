@@ -77,6 +77,7 @@ async def cursor_overview(
         "dau_period": None,
         "spend_cents": None,
         "spend_members": None,
+        "spend_synced_at": None,
         "usage_summary": None,
         "usage_by_day": None,
         "usage_totals": None,
@@ -96,6 +97,7 @@ async def cursor_overview(
     if spend_row:
         overview["spend_cents"] = spend_row.total_cents
         overview["spend_members"] = spend_row.total_members
+        overview["spend_synced_at"] = spend_row.synced_at.isoformat() + "Z"
 
     # Date range (default last 7 days)
     end_dt = datetime.now(timezone.utc).date()

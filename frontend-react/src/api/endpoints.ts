@@ -2,10 +2,8 @@ import {
   apiGet,
   apiPost,
   apiPut,
-  getExportReportUrl as buildExportUrl,
 } from './client.js';
 import type {
-  AlertsResponse,
   CorrelationsResponse,
   CursorOverviewResponse,
   CursorStatusResponse,
@@ -14,6 +12,7 @@ import type {
   DeveloperStats,
   GitHubOrgsResponse,
   GitHubReposSearchResponse,
+  GreptileMetricsResponse,
   GreptileOverviewResponse,
   GreptileStatusResponse,
   LinearOverview,
@@ -87,6 +86,18 @@ export async function getGreptileOverview(params?: {
   return apiGet(prefix + '/greptile/overview', {
     repo_ids: params.repo_ids,
   } as Record<string, number[]>);
+}
+
+export async function getGreptileMetrics(params?: {
+  start_date?: string;
+  end_date?: string;
+  repo_ids?: number[] | null;
+}): Promise<GreptileMetricsResponse> {
+  const q: Record<string, string | number[]> = {};
+  if (params?.start_date) q.start_date = params.start_date;
+  if (params?.end_date) q.end_date = params.end_date;
+  if (params?.repo_ids?.length) q.repo_ids = params.repo_ids;
+  return apiGet(prefix + '/greptile/metrics', Object.keys(q).length ? q : undefined);
 }
 
 export async function getGitHubOrgs(): Promise<GitHubOrgsResponse> {
@@ -200,15 +211,6 @@ export async function getPRDetail(prId: number, includeHealth = true): Promise<P
     throw new Error((data as { error: string }).error);
   }
   return data as PRDetail;
-}
-
-export function getExportReportUrl(params: {
-  startDate: string;
-  endDate: string;
-  repoId?: number;
-  format: 'json' | 'csv';
-}): string {
-  return buildExportUrl(params);
 }
 
 // Metrics
@@ -406,19 +408,6 @@ export async function getCorrelations(params?: {
     ...params,
     period: params?.period ?? 'week',
   } as Record<string, string | number | number[]>);
-}
-
-export async function getAlerts(params?: {
-  start_date?: string;
-  end_date?: string;
-  repo_id?: number;
-  repo_ids?: number[];
-}): Promise<AlertsResponse> {
-  return apiGet(`${prefix}/alerts`, params as Record<string, string | number | number[]>);
-}
-
-export async function notifyAlerts(): Promise<unknown> {
-  return apiPost(`${prefix}/alerts/notify`);
 }
 
 export async function getLinearOverview(params?: {

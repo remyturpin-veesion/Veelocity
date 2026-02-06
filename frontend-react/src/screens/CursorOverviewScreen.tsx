@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -59,6 +61,16 @@ export function CursorOverviewScreen() {
   const spendDollars = (spendCents / 100).toFixed(2);
   const usageByDay = data?.usage_by_day ?? [];
   const usageTotals = data?.usage_totals;
+  const dauData = data?.dau ?? [];
+
+  // Build spend subtitle: member count + last synced time
+  const spendSubtitleParts: string[] = [];
+  if (data?.spend_members != null) spendSubtitleParts.push(`${data.spend_members} members`);
+  if (data?.spend_synced_at) {
+    const syncedDate = new Date(data.spend_synced_at);
+    spendSubtitleParts.push(`updated ${syncedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`);
+  }
+  const spendSubtitle = spendSubtitleParts.length > 0 ? spendSubtitleParts.join(' · ') : undefined;
 
   const linesChartData = usageByDay.map((d) => ({
     date: d.date,
@@ -75,6 +87,13 @@ export function CursorOverviewScreen() {
     tabs_accepted: d.tabs_accepted,
   }));
 
+  // Tab acceptance rate chart data
+  const tabsChartData = usageByDay.map((d) => ({
+    date: d.date,
+    shown: d.tabs_shown,
+    accepted: d.tabs_accepted,
+  }));
+
   const totalRequests =
     usageTotals != null
       ? usageTotals.composer_requests +
@@ -82,6 +101,28 @@ export function CursorOverviewScreen() {
         usageTotals.agent_requests +
         usageTotals.tabs_accepted
       : 0;
+
+  // Tab acceptance rate percentage
+  const tabAcceptRate =
+    usageTotals != null && usageTotals.tabs_shown > 0
+      ? ((usageTotals.tabs_accepted / usageTotals.tabs_shown) * 100).toFixed(1)
+      : null;
+
+  // AI suggestion acceptance: applies, accepts, rejects
+  const totalInteractions =
+    usageTotals != null
+      ? usageTotals.applies + usageTotals.accepts + usageTotals.rejects
+      : 0;
+  const acceptanceRate =
+    totalInteractions > 0 && usageTotals != null
+      ? (((usageTotals.applies + usageTotals.accepts) / totalInteractions) * 100).toFixed(1)
+      : null;
+
+  // Average DAU
+  const avgDau =
+    dauData.length > 0
+      ? Math.round(dauData.reduce((sum, d) => sum + (d.dau ?? 0), 0) / dauData.length)
+      : null;
 
   return (
     <div>
@@ -94,8 +135,8 @@ export function CursorOverviewScreen() {
         Usage tab.
       </p>
 
-      {/* Top-level KPIs: team, spend (Team plan) */}
-      <div className="dashboard__kpi-row" style={{ marginBottom: 24 }}>
+      {/* Top-level KPIs: team, spend, DAU */}
+      <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', maxWidth: 860 }}>
         <KpiCard
           title="Team members"
           value={String(teamCount)}
@@ -105,9 +146,17 @@ export function CursorOverviewScreen() {
         <KpiCard
           title="Current cycle spend"
           value={data?.spend_cents != null ? `$${spendDollars}` : '—'}
-          subtitle={data?.spend_members != null ? `${data.spend_members} members` : undefined}
+          subtitle={spendSubtitle}
           icon="💰"
         />
+        {avgDau != null && (
+          <KpiCard
+            title="Avg. daily active users"
+            value={String(avgDau)}
+            subtitle={formatDateRangeDisplay(startDate, endDate)}
+            icon="📊"
+          />
+        )}
       </div>
 
       {/* Usage: KPIs + charts (lines, composer/chat, tabs) */}
@@ -115,7 +164,7 @@ export function CursorOverviewScreen() {
         <h2 className="dashboard-section-title" style={{ marginBottom: 16 }}>Usage</h2>
 
         {usageTotals && (
-          <div className="dashboard__kpi-row" style={{ marginBottom: 24 }}>
+          <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', maxWidth: 1120 }}>
             <KpiCard
               title="Lines added"
               value={usageTotals.lines_added.toLocaleString()}
@@ -128,6 +177,24 @@ export function CursorOverviewScreen() {
               subtitle={`Composer + Chat + Agent + Tabs · ${formatDateRangeDisplay(startDate, endDate)}`}
               icon="✨"
             />
+            {tabAcceptRate != null && (
+              <KpiCard
+                title="Tab accept rate"
+                value={`${tabAcceptRate}%`}
+                subtitle={`${usageTotals.tabs_accepted.toLocaleString()} / ${usageTotals.tabs_shown.toLocaleString()} shown`}
+                icon="⇥"
+                accent="green"
+              />
+            )}
+            {acceptanceRate != null && (
+              <KpiCard
+                title="AI accept rate"
+                value={`${acceptanceRate}%`}
+                subtitle={`${(usageTotals.applies + usageTotals.accepts).toLocaleString()} accepted · ${usageTotals.rejects.toLocaleString()} rejected`}
+                icon="✓"
+                accent="green"
+              />
+            )}
           </div>
         )}
 
@@ -171,6 +238,44 @@ export function CursorOverviewScreen() {
                 <Line type="monotone" dataKey="agent" name="Agent" stroke="var(--text-muted)" strokeWidth={2} dot={{ r: 3 }} />
                 <Line type="monotone" dataKey="tabs_accepted" name="Tabs accepted" stroke="var(--metric-green)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {tabsChartData.length > 0 && tabsChartData.some((d) => d.shown > 0) && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Tab completions: shown vs accepted</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={tabsChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                <YAxis tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                <Tooltip
+                  contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                  labelStyle={{ color: 'var(--text)' }}
+                />
+                <Legend />
+                <Bar dataKey="shown" name="Shown" fill="var(--surface-border)" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="accepted" name="Accepted" fill="var(--metric-green)" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {dauData.length > 0 && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <p style={{ fontWeight: 600, marginBottom: 12, marginTop: 0 }}>Daily active users</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dauData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="var(--text-muted)" />
+                <YAxis tick={{ fontSize: 12 }} stroke="var(--text-muted)" allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                  labelStyle={{ color: 'var(--text)' }}
+                />
+                <Bar dataKey="dau" name="Active users" fill="var(--primary)" radius={[2, 2, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}

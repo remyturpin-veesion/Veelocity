@@ -21,17 +21,18 @@ import {
   getDeploymentReliability,
   getLeadTimeByPeriod,
   getCycleTimeByPeriod,
-  getAlerts,
+  getRecommendations,
   getReviewerWorkload,
   getSettings,
   getCursorOverview,
   getGreptileOverview,
+  getGreptileMetrics,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import type { TrendData } from '@/types/index.js';
+import type { TrendData, Recommendation } from '@/types/index.js';
 
 function formatLeadOrCycleHours(hours: number): string {
   if (hours >= 24) {
@@ -134,9 +135,9 @@ export function DashboardScreen() {
     enabled: !noReposSelected,
   });
 
-  const alerts = useQuery({
-    queryKey: ['alerts', startDate, endDate, repoIds],
-    queryFn: () => getAlerts({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
+  const recommendations = useQuery({
+    queryKey: ['recommendations', startDate, endDate, repoIds],
+    queryFn: () => getRecommendations({ start_date: startDate, end_date: endDate, repo_ids: repoIds ?? undefined }),
     enabled: !noReposSelected,
   });
   const reviewerWorkload = useQuery({
@@ -160,6 +161,18 @@ export function DashboardScreen() {
     queryKey: ['greptile', 'overview', repoIds],
     queryFn: () => getGreptileOverview({ repo_ids: repoIds ?? undefined }),
     enabled: settings.data?.greptile_configured === true && !noReposSelected,
+  });
+  const greptileMetrics = useQuery({
+    queryKey: ['greptile', 'metrics', startDate, endDate, repoIds],
+    queryFn: () =>
+      getGreptileMetrics({
+        start_date: startDate,
+        end_date: endDate,
+        repo_ids: repoIds ?? undefined,
+      }),
+    enabled:
+      (settings.data?.greptile_configured === true || settings.data?.github_configured === true) &&
+      !noReposSelected,
   });
 
   const isLoading =
@@ -699,20 +712,57 @@ export function DashboardScreen() {
           </div>
 
           <div className="card">
-            <h3 className="dashboard-section-title">Alerts</h3>
-            <ul className="dashboard-alerts__list">
-              {(alerts.data?.alerts ?? []).length === 0 ? (
-                <li className="dashboard-alerts__item" style={{ color: 'var(--text-muted)' }}>
-                  No alerts in this period.
+            <h3 className="dashboard-section-title">
+              <Link to="/insights/recommendations" style={{ color: 'var(--text)', textDecoration: 'none' }}>Recommendations</Link>
+            </h3>
+            <ul className="dashboard-alerts__list" style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {(recommendations.data?.recommendations ?? []).map((r: Recommendation) => (
+                <li key={r.id} className="dashboard-alerts__item">
+                  <div className="dashboard-alerts__title">{r.title}</div>
+                  <div className="dashboard-alerts__meta">{r.description}</div>
                 </li>
-              ) : (
-                (alerts.data?.alerts ?? []).map((a: { rule_id: string; title: string; message?: string; severity?: string }) => (
-                  <li key={a.rule_id} className="dashboard-alerts__item">
-                    <div className="dashboard-alerts__title">{a.title}</div>
-                    <div className="dashboard-alerts__meta">{a.message ?? a.severity}</div>
+              ))}
+              {(greptileMetrics.data?.recommendations ?? [])
+                .filter((r) => r.type !== 'all_good')
+                .map((r, i) => (
+                  <li key={`greptile-${i}`} className="dashboard-alerts__item">
+                    <div className="dashboard-alerts__title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {(r.tags ?? ['greptile']).map((tag) => (
+                        <span
+                          key={tag}
+                          style={{
+                            display: 'inline-block',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            fontSize: '0.625rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            background: tag === 'github'
+                              ? 'rgba(110, 84, 148, 0.15)'
+                              : r.severity === 'error' || r.severity === 'warning'
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(59, 130, 246, 0.12)',
+                            color: tag === 'github'
+                              ? '#8b6db5'
+                              : r.severity === 'error' || r.severity === 'warning'
+                                ? 'var(--metric-orange)'
+                                : 'var(--metric-blue)',
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {r.message}
+                    </div>
+                    <div className="dashboard-alerts__meta">{r.detail}</div>
                   </li>
-                ))
-              )}
+                ))}
+              {(recommendations.data?.recommendations ?? []).length === 0 &&
+                (greptileMetrics.data?.recommendations ?? []).filter((r) => r.type !== 'all_good').length === 0 && (
+                  <li className="dashboard-alerts__item" style={{ color: 'var(--text-muted)' }}>
+                    No recommendations in this period.
+                  </li>
+                )}
             </ul>
           </div>
         </div>

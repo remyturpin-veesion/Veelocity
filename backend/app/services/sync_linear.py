@@ -227,6 +227,7 @@ class SyncLinearService:
                 "state": data["state"],
                 "priority": data.get("priority", 0),
                 "assignee_name": data.get("assignee_name"),
+                "url": data.get("url"),
                 "created_at": _parse_datetime(data.get("created_at")),
                 "started_at": _parse_datetime(data.get("started_at")),
                 "completed_at": _parse_datetime(data.get("completed_at")),

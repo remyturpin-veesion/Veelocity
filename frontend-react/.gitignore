@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+e2e/
+demo/
+test-results/
+playwright-report/
+playwright.config.ts

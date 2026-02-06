@@ -110,18 +110,6 @@ Enables the "Connect with GitHub" button in Settings (alternative to manually en
 
 See [docs/guides/github-oauth-setup.md](guides/github-oauth-setup.md) for setup instructions.
 
-### Alert Notifications (Optional)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ALERT_WEBHOOK_URLS` | — | Comma-separated webhook URLs for alert POST requests |
-| `ALERT_EMAIL_TO` | — | Email address for alert summaries |
-| `SMTP_HOST` | — | SMTP server hostname |
-| `SMTP_PORT` | `587` | SMTP server port |
-| `SMTP_USER` | — | SMTP username |
-| `SMTP_PASSWORD` | — | SMTP password |
-| `SMTP_FROM` | — | From address for alert emails |
-
 ## Health Checks
 
 Both the backend and frontend have built-in health checks:

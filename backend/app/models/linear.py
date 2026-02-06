@@ -62,6 +62,7 @@ class LinearIssue(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Link to PR for cycle time calculation
     linked_pr_id: Mapped[int | None] = mapped_column(

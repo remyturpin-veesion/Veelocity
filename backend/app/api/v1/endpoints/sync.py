@@ -375,7 +375,7 @@ async def get_sync_status(
         greptile_connected = True
         try:
             from app.services.greptile_client import list_repositories
-            repos = await list_repositories(creds.greptile_api_key)
+            repos = await list_repositories(creds.greptile_api_key, github_token=creds.github_token)
             if repos is not None:
                 greptile_repos_count = len(repos)
         except Exception:

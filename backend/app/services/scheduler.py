@@ -13,9 +13,7 @@ from app.core.database import async_session_maker
 from app.services.credentials import CredentialsService
 from app.models.github import PullRequest, Repository
 from app.models.recommendation import RecommendationRun
-from app.services.insights.alerts import AlertsService
 from app.services.insights.recommendation_engine import RecommendationEngine
-from app.services.insights.notifications import send_alert_notifications
 from app.services.linking import LinkingService
 
 logger = logging.getLogger(__name__)
@@ -35,31 +33,6 @@ def set_sync_job_state(in_progress: bool, job_name: str | None = None) -> None:
     global _sync_in_progress, _sync_job_name
     _sync_in_progress = in_progress
     _sync_job_name = job_name if in_progress else None
-
-
-async def _run_alert_notifications(db) -> None:
-    """
-    Evaluate alerts for the default period and send to webhooks/email if configured.
-    Runs after sync; errors are logged, not raised.
-    """
-    try:
-        end = datetime.utcnow()
-        start = end - timedelta(days=30)
-        service = AlertsService(db)
-        alerts = await service.get_alerts(
-            start_date=start,
-            end_date=end,
-            repo_id=None,
-        )
-        if not alerts:
-            return
-        await send_alert_notifications(
-            start_date=start.isoformat(),
-            end_date=end.isoformat(),
-            alerts=[a.to_dict() for a in alerts],
-        )
-    except Exception as e:
-        logger.warning("Alert notifications failed: %s", e)
 
 
 async def run_propose_recommendations():
@@ -210,9 +183,6 @@ async def _run_sync_impl():
         )
         if total_errors:
             logger.warning(f"Errors during sync: {total_errors}")
-
-        # Evaluate alerts and send notifications (webhooks/email) if configured
-        await _run_alert_notifications(db)
 
 
 async def run_linear_sync():

@@ -83,6 +83,7 @@ export function CycleTimeScreen() {
       issue_id: number;
       identifier: string;
       title?: string;
+      url?: string | null;
       hours: number;
       started_at?: string | null;
       merged_at?: string | null;
@@ -175,7 +176,20 @@ export function CycleTimeScreen() {
               {issues.map((row) => (
                 <tr key={row.issue_id} style={{ borderBottom: '1px solid var(--surface-border)' }}>
                   <td style={{ padding: '8px 12px 8px 0', fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>
-                    {row.identifier}
+                    {row.url ? (
+                      <a
+                        href={row.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--primary)', textDecoration: 'none' }}
+                        onMouseEnter={(e) => { (e.target as HTMLElement).style.textDecoration = 'underline'; }}
+                        onMouseLeave={(e) => { (e.target as HTMLElement).style.textDecoration = 'none'; }}
+                      >
+                        {row.identifier}
+                      </a>
+                    ) : (
+                      row.identifier
+                    )}
                   </td>
                   <td style={{ padding: '8px 12px', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.title}>
                     {row.title ?? '—'}

@@ -171,14 +171,6 @@ Standardized across all list endpoints:
 - `PaginatedResponse` generic type for consistent API responses
 - Schema in `app/schemas/pagination.py`
 
-### Alert System
-
-Automated alerting evaluated after each sync:
-- Fixed rules: deployment frequency, lead time, review time, throughput, reviewer bottleneck
-- Webhook notifications (`ALERT_WEBHOOK_URLS`)
-- Email notifications (`ALERT_EMAIL_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`)
-- Endpoints: `/api/v1/alerts`, `/api/v1/alerts/notify`
-
 ### Frontend Architecture
 
 **Path aliases:** `@/` maps to `./src/` (configured in `vite.config.ts` and `tsconfig.app.json`)
@@ -191,7 +183,7 @@ Automated alerting evaluated after each sync:
 
 **HTTP client:** Native `fetch` in `api/client.ts` (not axios). `apiPost` accepts optional `timeoutMs`.
 
-**Navigation:** React Router v6 with `createBrowserRouter`; nested routes under `ShellLayout`. Top-level tabs: Dashboard, Team, GitHub, Linear, Data coverage, Alerts.
+**Navigation:** React Router v6 with `createBrowserRouter`; nested routes under `ShellLayout`. Top-level tabs: Dashboard, Team, GitHub, Linear, Data coverage.
 
 ## Code Conventions
 

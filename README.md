@@ -25,7 +25,6 @@ Developer Analytics Platform — Measures and visualizes DORA metrics and develo
 | Greptile | Repository indexing status |
 
 ### Other Capabilities
-- Automated alerts (webhook + email notifications)
 - Per-developer performance breakdowns
 - Anomaly detection and DORA benchmarking
 - Data export (CSV/JSON)

@@ -5,18 +5,16 @@ import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
-import { ExportButton } from '@/components/ExportButton.js';
 import type { TimePeriodKey } from '@/stores/filters.js';
 
 const TABS = [
   { path: '/', label: 'Dashboard' },
-  { path: '/team', label: 'Team' },
   { path: '/github', label: 'GitHub' },
   { path: '/linear', label: 'Linear' },
   { path: '/cursor', label: 'Cursor' },
   { path: '/greptile', label: 'Greptile' },
+  { path: '/team', label: 'Team' },
   { path: '/data-coverage', label: 'Data coverage' },
-  { path: '/alerts', label: 'Alerts' },
 ] as const;
 
 /** Sidebar sublinks when on GitHub: Overview + DORA + Code Review + Dev + Insights */
@@ -80,7 +78,6 @@ export function AppShell({ children }: AppShellProps) {
   const datePickerRef = useRef<HTMLDivElement>(null);
   const showLinearSidebar = isLinearRoute(location.pathname);
   const showGitHubSidebar = isGitHubRoute(location.pathname);
-  const showSidebar = showLinearSidebar || showGitHubSidebar;
 
   useEffect(() => {
     if (!datePickerOpen) return;
@@ -94,7 +91,7 @@ export function AppShell({ children }: AppShellProps) {
   }, [datePickerOpen]);
 
   return (
-    <div className={`app-shell ${showSidebar ? 'app-shell--with-sidebar' : ''}`}>
+    <div className="app-shell">
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <div className="app-shell__sticky-header">
       <header className="app-shell__top">
@@ -121,7 +118,6 @@ export function AppShell({ children }: AppShellProps) {
           })}
         </nav>
         <div className="app-shell__spacer" />
-        <ExportButton />
         <button
           type="button"
           className="app-shell__icon-btn"
@@ -141,15 +137,13 @@ export function AppShell({ children }: AppShellProps) {
           ⚙️
         </button>
       </header>
-      {location.pathname !== '/data-coverage' && location.pathname !== '/alerts' && (
+      {location.pathname !== '/data-coverage' && (
         <div className="app-shell__filters">
           <div className="app-shell__filters-inner">
-            {showGitHubSidebar && (
-              <div className="app-shell__filter-row">
-                <span className="app-shell__filter-label">Repos</span>
-                <RepoMultiSelector />
-              </div>
-            )}
+            <div className="app-shell__filter-row">
+              <span className="app-shell__filter-label">Repos</span>
+              <RepoMultiSelector />
+            </div>
             {showLinearSidebar && (
               <div className="app-shell__filter-row">
                 <span className="app-shell__filter-label">Teams</span>

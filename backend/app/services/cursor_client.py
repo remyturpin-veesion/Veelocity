@@ -89,7 +89,15 @@ async def get_daily_usage(
 
 
 async def get_spend(api_key: str) -> dict[str, Any] | None:
-    """POST /teams/spend - current billing cycle spend. Returns None on error."""
+    """POST /teams/spend - current billing cycle spend.
+
+    Paginates through all pages to collect every member's spend.
+    Returns aggregated result with all teamMemberSpend entries, or None on error.
+    """
+    PAGE_SIZE = 50
+    all_member_spend: list[dict[str, Any]] = []
+    total_members: int | None = None
+
     try:
         async with httpx.AsyncClient(
             base_url=CURSOR_API_BASE,
@@ -100,16 +108,49 @@ async def get_spend(api_key: str) -> dict[str, Any] | None:
             },
             timeout=15.0,
         ) as client:
-            resp = await client.post(
-                "/teams/spend",
-                json={"page": 1, "pageSize": 5},
-            )
-            if resp.status_code in (401, 403, 429):
-                return None
-            if resp.status_code != 200:
-                logger.warning("Cursor API spend: %s %s", resp.status_code, resp.text[:200])
-                return None
-            return resp.json()
+            page = 1
+            while True:
+                resp = await client.post(
+                    "/teams/spend",
+                    json={"page": page, "pageSize": PAGE_SIZE},
+                )
+                if resp.status_code in (401, 403, 429):
+                    return None
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Cursor API spend page %d: %s %s",
+                        page,
+                        resp.status_code,
+                        resp.text[:200],
+                    )
+                    return None
+                data = resp.json()
+
+                if total_members is None:
+                    total_members = data.get("totalMembers")
+
+                members = data.get("teamMemberSpend") or []
+                all_member_spend.extend(members)
+
+                # Stop when we've received fewer items than page size (last page)
+                # or when we've collected all members
+                if len(members) < PAGE_SIZE:
+                    break
+                if total_members and len(all_member_spend) >= total_members:
+                    break
+                page += 1
+
+        # Forward any billing-period fields the API may include
+        result: dict[str, Any] = {
+            "teamMemberSpend": all_member_spend,
+            "totalMembers": total_members,
+        }
+        # Capture billing period from first page response if present
+        if data:
+            for key in ("billingPeriodStart", "billingPeriodEnd", "startDate", "endDate"):
+                if key in data:
+                    result[key] = data[key]
+        return result
     except Exception as e:
         logger.exception("Cursor API spend failed: %s", e)
         return None

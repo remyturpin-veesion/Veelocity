@@ -161,6 +161,56 @@ export interface GreptileOverviewResponse {
   indexing_complete_pct?: number | null;
 }
 
+export interface GreptileRepoMetric {
+  repo_name: string;
+  index_status: 'indexed' | 'not_indexed' | 'stale' | 'error';
+  file_coverage_pct: number | null;
+  review_coverage_pct: number | null;
+  avg_response_time_minutes: number | null;
+  avg_comments_per_pr: number | null;
+  total_prs: number;
+  reviewed_prs: number;
+}
+
+export interface GreptileIndexHealth {
+  indexed_repos: number;
+  total_github_repos: number;
+  error_repos: number;
+  stale_repos: number;
+  total_files_processed: number;
+  total_files: number;
+  file_coverage_pct: number | null;
+}
+
+export interface GreptileTrendWeek {
+  week: string;
+  coverage_pct: number;
+  prs_total: number;
+  prs_reviewed: number;
+}
+
+export interface GreptileRecommendation {
+  type: string;
+  severity: 'error' | 'warning' | 'info' | 'success';
+  message: string;
+  detail: string;
+  repos: string[];
+  tags?: string[];
+}
+
+export interface GreptileMetricsResponse {
+  review_coverage_pct: number;
+  avg_response_time_minutes: number | null;
+  avg_comments_per_pr: number | null;
+  total_prs: number;
+  prs_reviewed_by_greptile: number;
+  prs_without_review: number;
+  index_health: GreptileIndexHealth;
+  per_repo: GreptileRepoMetric[];
+  trend: GreptileTrendWeek[];
+  recommendations: GreptileRecommendation[];
+}
+
 export interface CursorStatusResponse {
   connected: boolean;
   valid?: boolean;
@@ -211,6 +261,7 @@ export interface CursorOverviewResponse {
   dau_period: { start: string; end: string } | null;
   spend_cents: number | null;
   spend_members: number | null;
+  spend_synced_at: string | null;
   usage_summary: unknown[] | null;
   usage_by_day: CursorUsageDay[] | null;
   usage_totals: CursorUsageTotals | null;
@@ -340,22 +391,6 @@ export interface PRDetail {
   comments: PRDetailComment[];
   commits: PRDetailCommit[];
   health?: PRDetailHealth;
-}
-
-export interface Alert {
-  rule_id: string;
-  title: string;
-  message: string;
-  severity: string;
-  metric: string;
-  current_value: unknown;
-  threshold: string;
-}
-
-export interface AlertsResponse {
-  start_date: string;
-  end_date: string;
-  alerts: Alert[];
 }
 
 export interface Recommendation {

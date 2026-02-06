@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, TEAM_ID_NONE, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getLinearBacklog, getLinearTimeInState } from '@/api/endpoints.js';
-import { Breadcrumb } from '@/components/Breadcrumb.js';
+
 import { KpiCard } from '@/components/KpiCard.js';
 
 import { SkeletonCard } from '@/components/SkeletonCard.js';
@@ -43,9 +43,6 @@ export function LinearBacklogScreen() {
   if (isLoading) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/linear" label="Linear" />
-        </p>
         <h1 className="screen-title">Backlog & status</h1>
         <SkeletonCard />
       </div>
@@ -54,9 +51,6 @@ export function LinearBacklogScreen() {
   if (error) {
     return (
       <div>
-        <p style={{ marginBottom: 16 }}>
-          <Breadcrumb to="/linear" label="Linear" />
-        </p>
         <h1 className="screen-title">Backlog & status</h1>
         <div className="error">{(error as Error).message}</div>
       </div>
@@ -82,9 +76,6 @@ export function LinearBacklogScreen() {
 
   return (
     <div>
-      <p style={{ marginBottom: 16 }}>
-        <Breadcrumb to="/linear" label="Linear" />
-      </p>
       <h1 className="screen-title">Backlog & status</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
         Open issues (not completed or canceled) by workflow status. Median time in state for issues completed in the period.

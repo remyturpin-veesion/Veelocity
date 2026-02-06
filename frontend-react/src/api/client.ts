@@ -78,19 +78,4 @@ export async function apiPut<T>(path: string, data?: Record<string, unknown>): P
   return res.json() as Promise<T>;
 }
 
-export function getExportReportUrl(params: {
-  startDate: string;
-  endDate: string;
-  repoId?: number;
-  format: 'json' | 'csv';
-}): string {
-  const q: Record<string, string> = {
-    start_date: params.startDate,
-    end_date: params.endDate,
-    format: params.format,
-  };
-  if (params.repoId != null) q.repo_id = String(params.repoId);
-  return buildUrl('/api/v1/export/report', q as Record<string, string>);
-}
-
 export { baseUrl };

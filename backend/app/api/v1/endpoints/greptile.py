@@ -1,16 +1,18 @@
-"""Greptile connection status and overview (indexed repos). Data is synced to DB."""
+"""Greptile connection status, overview (indexed repos), and usage metrics."""
 
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models.github import Repository
+from app.models.github import PRComment, PRReview, Repository
 from app.models.greptile import GreptileRepository
 from app.services.credentials import CredentialsService
 from app.services.greptile_client import list_repositories, validate_api_key
+from app.services.metrics.greptile import GreptileMetricsService
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ async def greptile_status(db: AsyncSession = Depends(get_db)):
             "valid": False,
             "message": "API key may be invalid or expired. Check Settings.",
         }
-    repos = await list_repositories(creds.greptile_api_key)
+    repos = await list_repositories(creds.greptile_api_key, github_token=creds.github_token)
     count = len(repos) if repos is not None else 0
     return {
         "connected": True,
@@ -132,3 +134,88 @@ async def greptile_overview(
         overview["indexing_complete_pct"] = round(100.0 * total_fp / total_nf, 1)
 
     return overview
+
+
+@router.get("/metrics")
+async def greptile_metrics(
+    db: AsyncSession = Depends(get_db),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
+    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+):
+    """
+    Return Greptile usage metrics: review coverage, response time, comments per PR,
+    index health, per-repo breakdown, weekly trend, and recommendations.
+
+    Cross-references GitHub PR review/comment data with Greptile index status.
+    """
+    now = datetime.utcnow()
+    if start_date:
+        start_dt = datetime.fromisoformat(start_date)
+    else:
+        start_dt = now - timedelta(days=30)
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
+    else:
+        end_dt = now
+
+    service = GreptileMetricsService(db)
+    return await service.get_metrics(start_dt, end_dt, repo_ids)
+
+
+@router.get("/debug/bot-reviewers")
+async def greptile_debug_bot_reviewers(db: AsyncSession = Depends(get_db)):
+    """
+    Diagnostic: list all distinct reviewer logins that look like bots,
+    so the user can identify the correct Greptile bot username.
+    Also shows the currently configured bot login.
+    """
+    from app.core.config import settings
+
+    # All distinct reviewer logins containing 'bot' or 'greptile' (case-insensitive)
+    reviewer_q = (
+        select(
+            PRReview.reviewer_login,
+            func.count(PRReview.id).label("review_count"),
+        )
+        .where(
+            PRReview.reviewer_login.ilike("%bot%")
+            | PRReview.reviewer_login.ilike("%greptile%")
+        )
+        .group_by(PRReview.reviewer_login)
+        .order_by(func.count(PRReview.id).desc())
+    )
+    reviewer_result = await db.execute(reviewer_q)
+    reviewers = [
+        {"login": row.reviewer_login, "reviews": row.review_count}
+        for row in reviewer_result.all()
+    ]
+
+    # Same for comment authors
+    commenter_q = (
+        select(
+            PRComment.author_login,
+            func.count(PRComment.id).label("comment_count"),
+        )
+        .where(
+            PRComment.author_login.ilike("%bot%")
+            | PRComment.author_login.ilike("%greptile%")
+        )
+        .group_by(PRComment.author_login)
+        .order_by(func.count(PRComment.id).desc())
+    )
+    commenter_result = await db.execute(commenter_q)
+    commenters = [
+        {"login": row.author_login, "comments": row.comment_count}
+        for row in commenter_result.all()
+    ]
+
+    return {
+        "configured_bot_login": settings.greptile_bot_login,
+        "bot_reviewers_found": reviewers,
+        "bot_commenters_found": commenters,
+        "hint": (
+            "If Greptile appears under a different login than the configured one, "
+            "set GREPTILE_BOT_LOGIN in your .env to match."
+        ),
+    }

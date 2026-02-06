@@ -196,6 +196,7 @@ class DevelopmentMetricsService:
                 if include_breakdown:
                     # Add display fields for breakdown table
                     cycle_times[-1]["title"] = issue.title or ""
+                    cycle_times[-1]["url"] = issue.url
                     cycle_times[-1]["started_at"] = issue.started_at.isoformat() if issue.started_at else None
                     cycle_times[-1]["merged_at"] = merged_at.isoformat() if merged_at else None
 

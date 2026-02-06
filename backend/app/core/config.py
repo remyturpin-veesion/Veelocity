@@ -53,14 +53,8 @@ class Settings(BaseSettings):
     rate_limit_max_per_hour: int = 4000  # Max API calls per hour (GitHub limit is 5000)
     rate_limit_delay_ms: int = 100  # Delay between API calls in milliseconds
 
-    # Alert notifications (optional)
-    alert_webhook_urls: str = ""  # Comma-separated URLs to POST when alerts exist
-    alert_email_to: str = ""  # Email address to send alert summary (empty = disabled)
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from: str = ""  # From address (defaults to smtp_user if set)
+    # Greptile bot login (the GitHub username used by Greptile for PR reviews)
+    greptile_bot_login: str = "greptile[bot]"
 
 
 settings = Settings()

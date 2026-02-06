@@ -46,14 +46,6 @@ services:
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
       OAUTH_BACKEND_BASE_URL: ${OAUTH_BACKEND_BASE_URL:-http://localhost:8000}
       OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:5173}
-      # Alert notifications (optional)
-      ALERT_WEBHOOK_URLS: ${ALERT_WEBHOOK_URLS:-}
-      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-}
     ports:
       - "8000:8000"
     depends_on:

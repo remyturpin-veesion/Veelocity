@@ -10,14 +10,19 @@ GREPTILE_API_BASE = "https://api.greptile.com/v2"
 logger = logging.getLogger(__name__)
 
 
-def _headers(api_key: str) -> dict[str, str]:
-    return {
+def _headers(api_key: str, github_token: str | None = None) -> dict[str, str]:
+    h: dict[str, str] = {
         "Authorization": f"Bearer {api_key.strip()}",
         "Accept": "application/json",
     }
+    if github_token:
+        h["X-GitHub-Token"] = github_token.strip()
+    return h
 
 
-async def list_repositories(api_key: str) -> list[dict[str, Any]] | None:
+async def list_repositories(
+    api_key: str, github_token: str | None = None
+) -> list[dict[str, Any]] | None:
     """
     Try to list repositories. GET /repositories may return a list (not in public docs).
     Returns None on auth/error; empty list if no repos or endpoint not available.
@@ -25,7 +30,7 @@ async def list_repositories(api_key: str) -> list[dict[str, Any]] | None:
     try:
         async with httpx.AsyncClient(
             base_url=GREPTILE_API_BASE,
-            headers={**_headers(api_key), "Content-Type": "application/json"},
+            headers={**_headers(api_key, github_token), "Content-Type": "application/json"},
             timeout=15.0,
         ) as client:
             resp = await client.get("/repositories")
@@ -60,7 +65,7 @@ async def list_repositories(api_key: str) -> list[dict[str, Any]] | None:
 
 
 async def get_repository(
-    api_key: str, repository_id: str
+    api_key: str, repository_id: str, github_token: str | None = None
 ) -> dict[str, Any] | None:
     """
     GET /repositories/{repositoryId}. repository_id format: remote:branch:owner/repo
@@ -72,7 +77,7 @@ async def get_repository(
         encoded_id = urllib.parse.quote(repository_id, safe="")
         async with httpx.AsyncClient(
             base_url=GREPTILE_API_BASE,
-            headers=_headers(api_key),
+            headers=_headers(api_key, github_token),
             timeout=15.0,
         ) as client:
             resp = await client.get(f"/repositories/{encoded_id}")
