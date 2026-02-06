@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -25,14 +25,13 @@ import {
   getReviewerWorkload,
   getSettings,
   getCursorOverview,
-  getGreptileOverview,
   getGreptileMetrics,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import type { TrendData, Recommendation } from '@/types/index.js';
+import type { TrendData, Recommendation, GreptileTrendWeek } from '@/types/index.js';
 
 function formatLeadOrCycleHours(hours: number): string {
   if (hours >= 24) {
@@ -43,6 +42,14 @@ function formatLeadOrCycleHours(hours: number): string {
   const m = Math.round((hours - h) * 60);
   if (m > 0) return `${h}h ${m}m`;
   return `${h}h`;
+}
+
+function fmtMinutes(v: number | null | undefined): string {
+  if (v == null) return '\u2014';
+  if (v < 60) return `${v}m`;
+  const h = Math.floor(v / 60);
+  const m = Math.round(v % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function DashboardScreen() {
@@ -157,11 +164,6 @@ export function DashboardScreen() {
       }),
     enabled: settings.data?.cursor_configured === true && !noReposSelected,
   });
-  const greptileOverview = useQuery({
-    queryKey: ['greptile', 'overview', repoIds],
-    queryFn: () => getGreptileOverview({ repo_ids: repoIds ?? undefined }),
-    enabled: settings.data?.greptile_configured === true && !noReposSelected,
-  });
   const greptileMetrics = useQuery({
     queryKey: ['greptile', 'metrics', startDate, endDate, repoIds],
     queryFn: () =>
@@ -269,28 +271,22 @@ export function DashboardScreen() {
   }, [cursor?.usage_by_day]);
 
   const tot = cursor?.usage_totals;
-  const greptile = greptileOverview.data;
-  /** Per-repo data for the big dashboard chart: name, files_processed, pending (for stacked bar) */
-  const greptilePerRepoChartData = useMemo(() => {
-    const repos = greptile?.repositories ?? [];
-    if (!repos.length) return [];
-    return repos
-      .map((r) => {
-        const name = r.repository?.split('/').slice(-2).join('/') || r.repository || '—';
-        const fp = r.files_processed ?? 0;
-        const nf = r.num_files ?? 0;
-        const pending = Math.max(0, nf - fp);
-        return {
-          name: name.length > 32 ? name.slice(0, 29) + '…' : name,
-          fullName: r.repository,
-          files_processed: fp,
-          num_files: nf,
-          pending,
-          status: r.status,
-        };
-      })
-      .sort((a, b) => (b.num_files || 0) - (a.num_files || 0));
-  }, [greptile?.repositories]);
+  const greptileData = greptileMetrics.data;
+  const greptileTrendChartData = useMemo(() => {
+    const trend = greptileData?.trend ?? [];
+    if (!trend.length) return [];
+    return trend.map((w: GreptileTrendWeek) => ({
+      ...w,
+      label: (() => {
+        try {
+          const d = new Date(w.week);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } catch {
+          return w.week;
+        }
+      })(),
+    }));
+  }, [greptileData?.trend]);
   const cursorSummaryBlock =
     settings.data?.cursor_configured && cursor ? (
       <div className="card dashboard__row-card">
@@ -330,42 +326,40 @@ export function DashboardScreen() {
       </div>
     ) : null;
 
-  /** Greptile summary card content; title links to overview */
-  const greptileSummaryCard =
-    settings.data?.greptile_configured && greptile ? (
-      <div className="card dashboard__row-card">
-        <h3 className="dashboard-section-title">
-          <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
-        </h3>
+  /** Greptile summary card: review coverage metrics; title links to overview */
+  const greptileSummaryCard = greptileData ? (
+    <div className="card dashboard__row-card">
+      <h3 className="dashboard-section-title">
+        <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
+      </h3>
+      <div className="dashboard-quick-overview__row">
+        <span style={{ color: 'var(--text-muted)' }}>Review coverage</span>
+        <span style={{ fontWeight: 600, color: greptileData.review_coverage_pct >= 80 ? 'var(--metric-green)' : greptileData.review_coverage_pct >= 50 ? 'var(--metric-orange)' : 'var(--metric-orange)' }}>
+          {greptileData.review_coverage_pct}%
+        </span>
+      </div>
+      <div className="dashboard-quick-overview__row">
+        <span style={{ color: 'var(--text-muted)' }}>Avg response time</span>
+        <span>{fmtMinutes(greptileData.avg_response_time_minutes)}</span>
+      </div>
+      <div className="dashboard-quick-overview__row">
+        <span style={{ color: 'var(--text-muted)' }}>PRs reviewed</span>
+        <span>{greptileData.prs_reviewed_by_greptile} / {greptileData.total_prs}</span>
+      </div>
+      <div className="dashboard-quick-overview__row">
+        <span style={{ color: 'var(--text-muted)' }}>PRs without review</span>
+        <span style={{ color: greptileData.prs_without_review === 0 ? 'var(--metric-green)' : 'var(--metric-orange)' }}>
+          {greptileData.prs_without_review}
+        </span>
+      </div>
+      {greptileData.index_health && (
         <div className="dashboard-quick-overview__row">
           <span style={{ color: 'var(--text-muted)' }}>Indexed repos</span>
-          <span>{greptile.repos_count}</span>
+          <span>{greptileData.index_health.indexed_repos} / {greptileData.index_health.total_github_repos}</span>
         </div>
-        {(greptile.total_files_processed ?? 0) > 0 && (
-          <div className="dashboard-quick-overview__row">
-            <span style={{ color: 'var(--text-muted)' }}>Files indexed</span>
-            <span>
-              {(greptile.total_files_processed ?? 0).toLocaleString()}
-              {(greptile.total_num_files ?? 0) > 0 && ` / ${(greptile.total_num_files ?? 0).toLocaleString()}`}
-            </span>
-          </div>
-        )}
-        {greptile.indexing_complete_pct != null && (
-          <div className="dashboard-quick-overview__row">
-            <span style={{ color: 'var(--text-muted)' }}>Progress</span>
-            <span>{greptile.indexing_complete_pct}%</span>
-          </div>
-        )}
-        {Object.keys(greptile.repos_by_status ?? {}).length > 0 && (
-          <div className="dashboard-quick-overview__row">
-            <span style={{ color: 'var(--text-muted)' }}>By status</span>
-            <span>
-              {Object.entries(greptile.repos_by_status ?? {}).map(([s, c]) => `${s}: ${c}`).join(', ') || '—'}
-            </span>
-          </div>
-        )}
-      </div>
-    ) : null;
+      )}
+    </div>
+  ) : null;
 
   if (noReposSelected) {
     return (
@@ -577,49 +571,53 @@ export function DashboardScreen() {
           </div>
         )}
 
-        {/* Greptile: chart on the left, summary block on the right; link below the block, left-aligned */}
-        {settings.data?.greptile_configured && greptile != null && (
+        {/* Greptile: review coverage trend on the left, key metrics on the right */}
+        {greptileData != null && (
           <div style={{ display: 'flex', gap: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 400px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div className="card dashboard__row-card" style={{ flex: 1, padding: '20px 20px 16px', minHeight: 280 }}>
                 <h3 className="dashboard-section-title" style={{ marginBottom: 4 }}>
                   <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
-                  {' — Files indexed by repository'}
+                  {' — Weekly review coverage'}
                 </h3>
-                {greptilePerRepoChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={Math.min(560, 280 + greptilePerRepoChartData.length * 32)}>
-                    <BarChart
-                      data={greptilePerRepoChartData}
-                      layout="vertical"
-                      margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
-                      <Tooltip
-                        contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
-                        content={({ active, payload }) =>
-                          active && payload?.length && payload[0].payload ? (
-                            <div style={{ padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--surface-border)', borderRadius: 8, fontSize: '0.8125rem' }}>
-                              <div style={{ fontWeight: 600, marginBottom: 6 }}>{(payload[0].payload as { fullName?: string }).fullName}</div>
-                              <div>Indexed: {((payload[0].payload as { files_processed?: number }).files_processed ?? 0).toLocaleString()}</div>
-                              <div>Total: {((payload[0].payload as { num_files?: number }).num_files ?? 0).toLocaleString()}</div>
-                              {((payload[0].payload as { status?: string }).status) && (
-                                <div style={{ color: 'var(--text-muted)' }}>Status: {(payload[0].payload as { status?: string }).status}</div>
-                              )}
-                            </div>
-                          ) : null
-                        }
+                {greptileTrendChartData.length > 1 ? (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <AreaChart data={greptileTrendChartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                      <defs>
+                        <linearGradient id="dashCoverageGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
+                      <YAxis
+                        domain={[0, 100]}
+                        tick={{ fontSize: 11 }}
+                        stroke="var(--text-muted)"
+                        tickFormatter={(v: number) => `${v}%`}
                       />
-                      <Legend />
-                      <Bar dataKey="files_processed" name="Indexed" fill="var(--metric-green)" radius={[0, 4, 4, 0]} stackId="a" />
-                      <Bar dataKey="pending" name="Pending" fill="var(--surface-border)" radius={[0, 4, 4, 0]} stackId="a" />
-                    </BarChart>
+                      <Tooltip
+                        contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', borderRadius: 8, fontSize: '0.8125rem' }}
+                        labelStyle={{ color: 'var(--text)' }}
+                        formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coverage']}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="coverage_pct"
+                        stroke="var(--primary)"
+                        fillOpacity={1}
+                        fill="url(#dashCoverageGrad)"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: 'var(--primary)' }}
+                        name="Coverage"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
-                    <p style={{ fontWeight: 600, margin: 0 }}>Files indexed by repository</p>
-                    <p style={{ fontSize: '0.875rem', margin: 0 }}>No indexed repos yet. Index repos in Greptile to see data here.</p>
+                  <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontWeight: 600, margin: 0 }}>Weekly review coverage</p>
+                    <p style={{ fontSize: '0.875rem', margin: 0 }}>Not enough data yet. At least two weeks of PRs are needed to show a trend.</p>
                   </div>
                 )}
               </div>
