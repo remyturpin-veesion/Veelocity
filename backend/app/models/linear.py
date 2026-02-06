@@ -1,6 +1,7 @@
 """Linear data models."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -93,9 +94,6 @@ class LinearIssueStateTransition(Base):
         back_populates="state_transitions", foreign_keys=[linear_issue_id]
     )
 
-
-# Import PullRequest for type hint (avoid circular import at runtime)
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.github import PullRequest

@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     connectors,
     cursor,
     developers,
+    export,
     greptile,
     github,
     linear,
@@ -29,6 +30,7 @@ api_router.include_router(settings.router)
 api_router.include_router(cursor.router)
 api_router.include_router(greptile.router)
 api_router.include_router(sync.router)
+api_router.include_router(export.router)
 
 
 @api_router.get("/health")
