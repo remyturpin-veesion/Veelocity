@@ -31,7 +31,7 @@ import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import type { TrendData, Recommendation, GreptileTrendWeek } from '@/types/index.js';
+import type { TrendData, Recommendation, GreptileTrendPoint } from '@/types/index.js';
 
 function formatLeadOrCycleHours(hours: number): string {
   if (hours >= 24) {
@@ -165,12 +165,13 @@ export function DashboardScreen() {
     enabled: settings.data?.cursor_configured === true && !noReposSelected,
   });
   const greptileMetrics = useQuery({
-    queryKey: ['greptile', 'metrics', startDate, endDate, repoIds],
+    queryKey: ['greptile', 'metrics', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getGreptileMetrics({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        granularity: chartPeriod,
       }),
     enabled:
       (settings.data?.greptile_configured === true || settings.data?.github_configured === true) &&
@@ -275,7 +276,7 @@ export function DashboardScreen() {
   const greptileTrendChartData = useMemo(() => {
     const trend = greptileData?.trend ?? [];
     if (!trend.length) return [];
-    return trend.map((w: GreptileTrendWeek) => ({
+    return trend.map((w: GreptileTrendPoint) => ({
       ...w,
       label: (() => {
         try {
@@ -578,7 +579,7 @@ export function DashboardScreen() {
               <div className="card dashboard__row-card" style={{ flex: 1, padding: '20px 20px 16px', minHeight: 280 }}>
                 <h3 className="dashboard-section-title" style={{ marginBottom: 4 }}>
                   <Link to="/greptile" style={{ color: 'var(--text)', textDecoration: 'none' }}>Greptile</Link>
-                  {' — Weekly review coverage'}
+                  {chartPeriod === 'day' ? ' — Daily review coverage' : ' — Weekly review coverage'}
                 </h3>
                 {greptileTrendChartData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={240}>
@@ -616,8 +617,8 @@ export function DashboardScreen() {
                   </ResponsiveContainer>
                 ) : (
                   <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column', gap: 8 }}>
-                    <p style={{ fontWeight: 600, margin: 0 }}>Weekly review coverage</p>
-                    <p style={{ fontSize: '0.875rem', margin: 0 }}>Not enough data yet. At least two weeks of PRs are needed to show a trend.</p>
+                    <p style={{ fontWeight: 600, margin: 0 }}>{chartPeriod === 'day' ? 'Daily' : 'Weekly'} review coverage</p>
+                    <p style={{ fontSize: '0.875rem', margin: 0 }}>Not enough data yet. At least two {chartPeriod === 'day' ? 'days' : 'weeks'} of PRs are needed to show a trend.</p>
                   </div>
                 )}
               </div>

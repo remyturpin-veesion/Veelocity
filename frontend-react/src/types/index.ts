@@ -183,12 +183,15 @@ export interface GreptileIndexHealth {
   file_coverage_pct: number | null;
 }
 
-export interface GreptileTrendWeek {
-  week: string;
+export interface GreptileTrendPoint {
+  week: string;           // date string (YYYY-MM-DD) — day or week start
   coverage_pct: number;
   prs_total: number;
   prs_reviewed: number;
 }
+
+/** @deprecated Use GreptileTrendPoint */
+export type GreptileTrendWeek = GreptileTrendPoint;
 
 export interface GreptileRecommendation {
   type: string;
@@ -208,7 +211,7 @@ export interface GreptileMetricsResponse {
   prs_without_review: number;
   index_health: GreptileIndexHealth;
   per_repo: GreptileRepoMetric[];
-  trend: GreptileTrendWeek[];
+  trend: GreptileTrendPoint[];
   recommendations: GreptileRecommendation[];
 }
 

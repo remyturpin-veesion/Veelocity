@@ -142,10 +142,11 @@ async def greptile_metrics(
     start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+    granularity: str = Query("week", description="Trend granularity: 'day' or 'week'"),
 ):
     """
     Return Greptile usage metrics: review coverage, response time, comments per PR,
-    index health, per-repo breakdown, weekly trend, and recommendations.
+    index health, per-repo breakdown, trend (daily or weekly), and recommendations.
 
     Cross-references GitHub PR review/comment data with Greptile index status.
     """
@@ -159,8 +160,11 @@ async def greptile_metrics(
     else:
         end_dt = now
 
+    if granularity not in ("day", "week"):
+        granularity = "week"
+
     service = GreptileMetricsService(db)
-    return await service.get_metrics(start_dt, end_dt, repo_ids)
+    return await service.get_metrics(start_dt, end_dt, repo_ids, granularity)
 
 
 @router.get("/debug/bot-reviewers")

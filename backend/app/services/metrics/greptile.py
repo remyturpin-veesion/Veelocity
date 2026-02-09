@@ -1,7 +1,7 @@
 """Greptile usage metrics: cross-references GitHub PR data with Greptile index status."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,6 +68,7 @@ class GreptileMetricsService:
         start_date: datetime,
         end_date: datetime,
         repo_ids: list[int] | None = None,
+        granularity: str = "week",
     ) -> dict:
         """Return full Greptile metrics response."""
         # Resolve the actual bot login (auto-detect if needed)
@@ -79,7 +80,7 @@ class GreptileMetricsService:
         comments_per_pr = await self._avg_comments_per_pr(start_date, end_date, filtered_repo_ids)
         index_health = await self._index_health(filtered_repo_ids)
         per_repo = await self._per_repo_breakdown(start_date, end_date, filtered_repo_ids)
-        trend = await self._review_trend(start_date, end_date, filtered_repo_ids)
+        trend = await self._review_trend(start_date, end_date, filtered_repo_ids, granularity)
         recommendations = self._build_recommendations(review_coverage, index_health, per_repo)
 
         return {
@@ -505,18 +506,24 @@ class GreptileMetricsService:
         return per_repo
 
     # ------------------------------------------------------------------ #
-    # Trend (weekly)
+    # Trend (daily or weekly)
     # ------------------------------------------------------------------ #
 
     async def _review_trend(
-        self, start_date: datetime, end_date: datetime, repo_ids: list[int] | None
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        repo_ids: list[int] | None,
+        granularity: str = "week",
     ) -> list[dict]:
-        """Weekly review coverage trend."""
-        # Total PRs per week
-        week_expr = func.date_trunc("week", PullRequest.created_at)
+        """Review coverage trend grouped by day or week."""
+        trunc_unit = "day" if granularity == "day" else "week"
+        period_expr = func.date_trunc(trunc_unit, PullRequest.created_at)
+
+        # Total PRs per period
         total_q = (
             select(
-                week_expr.label("week"),
+                period_expr.label("period"),
                 func.count(PullRequest.id).label("total"),
             )
             .where(
@@ -525,19 +532,19 @@ class GreptileMetricsService:
                     PullRequest.created_at <= end_date,
                 )
             )
-            .group_by(week_expr)
-            .order_by(week_expr)
+            .group_by(period_expr)
+            .order_by(period_expr)
         )
         if repo_ids:
             total_q = total_q.where(PullRequest.repo_id.in_(repo_ids))
 
         total_result = await self._db.execute(total_q)
-        total_by_week = {str(row.week.date()): row.total for row in total_result.all()}
+        total_by_period = {str(row.period.date()): row.total for row in total_result.all()}
 
-        # Reviewed PRs per week
+        # Reviewed PRs per period
         reviewed_q = (
             select(
-                week_expr.label("week"),
+                period_expr.label("period"),
                 func.count(distinct(PullRequest.id)).label("reviewed"),
             )
             .join(PRReview, PRReview.pr_id == PullRequest.id)
@@ -548,24 +555,36 @@ class GreptileMetricsService:
                     PRReview.reviewer_login == self._bot_login,
                 )
             )
-            .group_by(week_expr)
-            .order_by(week_expr)
+            .group_by(period_expr)
+            .order_by(period_expr)
         )
         if repo_ids:
             reviewed_q = reviewed_q.where(PullRequest.repo_id.in_(repo_ids))
 
         reviewed_result = await self._db.execute(reviewed_q)
-        reviewed_by_week = {str(row.week.date()): row.reviewed for row in reviewed_result.all()}
+        reviewed_by_period = {str(row.period.date()): row.reviewed for row in reviewed_result.all()}
 
-        # Merge
-        all_weeks = sorted(set(list(total_by_week.keys()) + list(reviewed_by_week.keys())))
+        # Merge — for daily granularity, fill every day in the range so the
+        # chart has a continuous x-axis (matching the Cursor chart behaviour).
+        if granularity == "day":
+            all_periods = []
+            current = start_date.date()
+            end_d = end_date.date()
+            while current <= end_d:
+                all_periods.append(str(current))
+                current += timedelta(days=1)
+        else:
+            all_periods = sorted(
+                set(list(total_by_period.keys()) + list(reviewed_by_period.keys()))
+            )
+
         trend = []
-        for week in all_weeks:
-            total = total_by_week.get(week, 0)
-            reviewed = reviewed_by_week.get(week, 0)
+        for period in all_periods:
+            total = total_by_period.get(period, 0)
+            reviewed = reviewed_by_period.get(period, 0)
             coverage = round(100.0 * reviewed / total, 1) if total > 0 else 0.0
             trend.append({
-                "week": week,
+                "week": period,
                 "coverage_pct": coverage,
                 "prs_total": total,
                 "prs_reviewed": reviewed,

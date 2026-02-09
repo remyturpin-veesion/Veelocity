@@ -16,7 +16,7 @@ import { useFiltersStore } from '@/stores/filters.js';
 import type {
   GreptileRepoMetric,
   GreptileRecommendation,
-  GreptileTrendWeek,
+  GreptileTrendPoint,
 } from '@/types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -109,17 +109,20 @@ export function GreptileOverviewScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
   const { startDate, endDate } = getStartEnd();
+  const chartPeriod = getChartPeriod();
   const repoIds = getRepoIdsForApi();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['greptile', 'metrics', startDate, endDate, repoIds],
+    queryKey: ['greptile', 'metrics', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
       getGreptileMetrics({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds,
+        granularity: chartPeriod,
       }),
     enabled: settings?.greptile_configured === true || settings?.github_configured === true,
   });
@@ -150,7 +153,7 @@ export function GreptileOverviewScreen() {
 
   const trendData = useMemo(
     () =>
-      (data?.trend ?? []).map((w: GreptileTrendWeek) => ({
+      (data?.trend ?? []).map((w: GreptileTrendPoint) => ({
         ...w,
         label: fmtWeekLabel(w.week),
       })),
@@ -264,7 +267,7 @@ export function GreptileOverviewScreen() {
       {trendData.length > 1 && (
         <div className="card" style={{ marginBottom: 28 }}>
           <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginTop: 0, marginBottom: 16, color: 'var(--text)' }}>
-            Weekly review coverage trend
+            {chartPeriod === 'day' ? 'Daily' : 'Weekly'} review coverage trend
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={trendData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>

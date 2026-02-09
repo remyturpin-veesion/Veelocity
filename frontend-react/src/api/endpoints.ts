@@ -92,11 +92,13 @@ export async function getGreptileMetrics(params?: {
   start_date?: string;
   end_date?: string;
   repo_ids?: number[] | null;
+  granularity?: 'day' | 'week';
 }): Promise<GreptileMetricsResponse> {
   const q: Record<string, string | number[]> = {};
   if (params?.start_date) q.start_date = params.start_date;
   if (params?.end_date) q.end_date = params.end_date;
   if (params?.repo_ids?.length) q.repo_ids = params.repo_ids;
+  if (params?.granularity) q.granularity = params.granularity;
   return apiGet(prefix + '/greptile/metrics', Object.keys(q).length ? q : undefined);
 }
 
