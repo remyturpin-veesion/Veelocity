@@ -49,6 +49,12 @@ const LINEAR_SIDEBAR_LINKS = [
   { path: '/metrics/linear/time-in-state', icon: '◷', title: 'Time in state' },
 ] as const;
 
+const GREPTILE_SIDEBAR_LINKS = [
+  { path: '/greptile', icon: '⊞', label: 'Overview' },
+  { path: '/greptile/indexing', icon: '🗂', label: 'Repository indexing' },
+  { path: '/greptile/recommendations', icon: '🛡', label: 'Recommendations' },
+] as const;
+
 function isActive(path: string, current: string): boolean {
   if (path === '/') return current === '/' || current === '/dashboard';
   return current === path || current.startsWith(path + '/');
@@ -60,6 +66,10 @@ function isDoraRoute(pathname: string): boolean {
 
 function isLinearRoute(pathname: string): boolean {
   return pathname === '/linear' || pathname.startsWith('/metrics/linear');
+}
+
+function isGreptileRoute(pathname: string): boolean {
+  return pathname === '/greptile' || pathname.startsWith('/greptile/');
 }
 
 function isGitHubRoute(pathname: string): boolean {
@@ -90,6 +100,7 @@ export function AppShell({ children }: AppShellProps) {
   const showDoraSidebar = isDoraRoute(location.pathname);
   const showLinearSidebar = isLinearRoute(location.pathname);
   const showGitHubSidebar = isGitHubRoute(location.pathname);
+  const showGreptileSidebar = isGreptileRoute(location.pathname);
 
   useEffect(() => {
     if (!datePickerOpen) return;
@@ -119,7 +130,9 @@ export function AppShell({ children }: AppShellProps) {
                   ? showGitHubSidebar
                   : path === '/linear'
                     ? showLinearSidebar
-                    : isActive(path, location.pathname);
+                    : path === '/greptile'
+                      ? showGreptileSidebar
+                      : isActive(path, location.pathname);
             return (
               <Link
                 key={path}
@@ -311,6 +324,28 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   <span className="app-shell__sidebar-icon">{icon}</span>
                   <span className="app-shell__sidebar-label">{title}</span>
+                </Link>
+              );
+            })}
+          </aside>
+          <main className="app-shell__main">{children}</main>
+        </div>
+      ) : showGreptileSidebar ? (
+        <div className="app-shell__body">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Greptile section">
+            {GREPTILE_SIDEBAR_LINKS.map(({ path, icon, label }) => {
+              const active = path === '/greptile'
+                ? location.pathname === '/greptile'
+                : isActive(path, location.pathname);
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={active ? 'active' : ''}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
                 </Link>
               );
             })}

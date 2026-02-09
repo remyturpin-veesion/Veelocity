@@ -130,7 +130,7 @@ class WorkflowRun(Base):
     )  # success, failure, cancelled
     run_number: Mapped[int] = mapped_column(Integer)
     head_sha: Mapped[str] = mapped_column(String(40), index=True)
-    head_branch: Mapped[str] = mapped_column(String(255))
+    head_branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

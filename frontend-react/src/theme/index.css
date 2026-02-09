@@ -2110,6 +2110,12 @@ button {
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .error {
   padding: 16px;
   background: hsl(0, 70%, 96%);

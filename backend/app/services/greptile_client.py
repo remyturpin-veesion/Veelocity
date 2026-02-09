@@ -110,6 +110,60 @@ async def get_repository(
         return None
 
 
+async def index_repository(
+    api_key: str,
+    remote: str,
+    repository: str,
+    branch: str,
+    github_token: str | None = None,
+    reload: bool = False,
+) -> dict[str, Any] | None:
+    """
+    POST /repositories — trigger indexing (or re-indexing with reload=True) of a repo.
+    Returns the API response dict on success, None on failure.
+    """
+    try:
+        async with httpx.AsyncClient(
+            base_url=GREPTILE_API_BASE,
+            headers={
+                **_headers(api_key, github_token),
+                "Content-Type": "application/json",
+            },
+            timeout=30.0,
+        ) as client:
+            body = {
+                "remote": remote,
+                "repository": repository,
+                "branch": branch,
+                "reload": reload,
+                "notify": False,
+            }
+            resp = await client.post("/repositories", json=body)
+            if resp.status_code in (200, 201, 202):
+                data = resp.json()
+                logger.info(
+                    "Greptile index_repository %s/%s (%s, reload=%s): %s",
+                    remote,
+                    repository,
+                    branch,
+                    reload,
+                    data.get("message", "ok"),
+                )
+                return data
+            logger.warning(
+                "Greptile index_repository %s/%s (%s) failed: HTTP %s — %s",
+                remote,
+                repository,
+                branch,
+                resp.status_code,
+                resp.text[:300],
+            )
+            return {"_error": resp.status_code, "_body": resp.text[:300]}
+    except Exception as e:
+        logger.exception("Greptile index_repository failed: %s", e)
+        return {"_error": "exception", "_body": str(e)}
+
+
 async def validate_api_key(api_key: str) -> bool:
     """Validate API key by calling list or a minimal request. Returns True if key seems valid."""
     result = await list_repositories(api_key)

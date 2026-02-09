@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors.github_actions import GitHubActionsConnector
@@ -95,35 +96,25 @@ class SyncActionsService:
         return count
 
     async def _upsert_workflows(self, repo_id: int, workflows: list[dict]) -> int:
-        """Insert or update workflows."""
+        """Insert or update workflows using ON CONFLICT DO UPDATE."""
         count = 0
         for data in workflows:
-            result = await self._db.execute(
-                select(Workflow).where(Workflow.github_id == data["github_id"])
-            )
-            existing = result.scalar_one_or_none()
             wf_data = {**data, "repo_id": repo_id}
-
-            if existing:
-                for key, value in wf_data.items():
-                    if key != "github_id":
-                        setattr(existing, key, value)
-            else:
-                self._db.add(Workflow(**wf_data))
+            stmt = pg_insert(Workflow).values(**wf_data)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["github_id"],
+                set_={k: v for k, v in wf_data.items() if k != "github_id"},
+            )
+            await self._db.execute(stmt)
             count += 1
 
         await self._db.flush()
         return count
 
     async def _upsert_runs(self, workflow_id: int, runs: list[dict]) -> int:
-        """Insert or update workflow runs."""
+        """Insert or update workflow runs using ON CONFLICT DO UPDATE."""
         count = 0
         for data in runs:
-            result = await self._db.execute(
-                select(WorkflowRun).where(WorkflowRun.github_id == data["github_id"])
-            )
-            existing = result.scalar_one_or_none()
-
             # Use run's actual date (from API) so daily coverage charts show when runs happened, not when we synced
             created_at = _parse_datetime(data.get("created_at"))
             if created_at is None:
@@ -138,19 +129,19 @@ class SyncActionsService:
                 "conclusion": data.get("conclusion"),
                 "run_number": data["run_number"],
                 "head_sha": data["head_sha"],
-                "head_branch": data["head_branch"],
+                "head_branch": data.get("head_branch"),
                 "created_at": created_at
                 or datetime.utcnow(),  # fallback only if API had no date
                 "started_at": _parse_datetime(data.get("started_at")),
                 "completed_at": _parse_datetime(data.get("completed_at")),
             }
 
-            if existing:
-                for key, value in run_data.items():
-                    if key != "github_id":
-                        setattr(existing, key, value)
-            else:
-                self._db.add(WorkflowRun(**run_data))
+            stmt = pg_insert(WorkflowRun).values(**run_data)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["github_id"],
+                set_={k: v for k, v in run_data.items() if k != "github_id"},
+            )
+            await self._db.execute(stmt)
             count += 1
 
         await self._db.flush()

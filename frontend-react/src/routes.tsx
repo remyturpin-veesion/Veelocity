@@ -14,6 +14,8 @@ const CodeReviewPRsScreen = lazy(() => import('@/screens/CodeReviewPRsScreen.js'
 const LinearOverviewScreen = lazy(() => import('@/screens/LinearOverviewScreen.js').then((m) => ({ default: m.LinearOverviewScreen })));
 const CursorOverviewScreen = lazy(() => import('@/screens/CursorOverviewScreen.js').then((m) => ({ default: m.CursorOverviewScreen })));
 const GreptileOverviewScreen = lazy(() => import('@/screens/GreptileOverviewScreen.js').then((m) => ({ default: m.GreptileOverviewScreen })));
+const GreptileIndexingScreen = lazy(() => import('@/screens/GreptileIndexingScreen.js').then((m) => ({ default: m.GreptileIndexingScreen })));
+const GreptileRecommendationsScreen = lazy(() => import('@/screens/GreptileRecommendationsScreen.js').then((m) => ({ default: m.GreptileRecommendationsScreen })));
 const DataCoverageScreen = lazy(() => import('@/screens/DataCoverageScreen.js').then((m) => ({ default: m.DataCoverageScreen })));
 const PRDetailScreen = lazy(() => import('@/screens/PRDetailScreen.js').then((m) => ({ default: m.PRDetailScreen })));
 const RecommendationsScreen = lazy(() => import('@/screens/RecommendationsScreen.js').then((m) => ({ default: m.RecommendationsScreen })));
@@ -46,6 +48,8 @@ export const router = createBrowserRouter([
       { path: 'linear', element: <LinearOverviewScreen /> },
       { path: 'cursor', element: <CursorOverviewScreen /> },
       { path: 'greptile', element: <GreptileOverviewScreen /> },
+      { path: 'greptile/indexing', element: <GreptileIndexingScreen /> },
+      { path: 'greptile/recommendations', element: <GreptileRecommendationsScreen /> },
       { path: 'data-coverage', element: <DataCoverageScreen /> },
       { path: 'metrics/deployment-frequency', element: <DeploymentFrequencyScreen /> },
       { path: 'metrics/lead-time', element: <LeadTimeScreen /> },

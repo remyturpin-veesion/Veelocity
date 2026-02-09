@@ -215,6 +215,65 @@ export interface GreptileMetricsResponse {
   recommendations: GreptileRecommendation[];
 }
 
+// ---------------------------------------------------------------------------
+// Greptile management types
+// ---------------------------------------------------------------------------
+
+export interface GreptileManagedRepo {
+  repository: string;
+  github_repo_id: number | null;
+  default_branch: string;
+  greptile_status: string | null;  // completed, submitted, processing, cloning, failed, null
+  greptile_branch: string | null;
+  files_processed: number | null;
+  num_files: number | null;
+  sha: string | null;
+  synced_at: string | null;
+  is_indexed: boolean;
+}
+
+export interface GreptileReposResponse {
+  repos: GreptileManagedRepo[];
+  total_github_repos: number;
+  total_greptile_repos: number;
+  greptile_configured: boolean;
+}
+
+export interface GreptileIndexResult {
+  status: 'submitted' | 'error';
+  repository: string;
+  branch: string;
+  reload?: boolean;
+  message?: string;
+  status_endpoint?: string;
+  error_code?: number | string;
+  error_detail?: string;
+}
+
+export interface GreptileIndexAllResult {
+  total: number;
+  submitted: number;
+  errors: number;
+  results: Array<{
+    repository: string;
+    branch: string;
+    status: 'submitted' | 'error';
+    message: string;
+  }>;
+}
+
+export interface GreptileRefreshResult {
+  total: number;
+  updated: number;
+  results: Array<{
+    repository: string;
+    status: string | null;
+    files_processed: number | null;
+    num_files: number | null;
+    refreshed: boolean;
+  }>;
+}
+
 export interface CursorStatusResponse {
   connected: boolean;
   valid?: boolean;

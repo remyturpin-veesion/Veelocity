@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   AreaChart,
   Area,
@@ -9,13 +10,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { getGreptileMetrics, getSettings } from '@/api/endpoints.js';
+import { getGreptileMetrics, getGreptileRepos, getSettings } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { useFiltersStore } from '@/stores/filters.js';
 import type {
   GreptileRepoMetric,
-  GreptileRecommendation,
   GreptileTrendPoint,
 } from '@/types/index.js';
 
@@ -23,7 +23,7 @@ import type {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const INDEX_STATUS_LABEL: Record<string, string> = {
+const REVIEW_STATUS_LABEL: Record<string, string> = {
   indexed: 'Indexed',
   active: 'Active',
   not_indexed: 'Not indexed',
@@ -31,7 +31,7 @@ const INDEX_STATUS_LABEL: Record<string, string> = {
   error: 'Error',
 };
 
-const INDEX_STATUS_COLOR: Record<string, string> = {
+const REVIEW_STATUS_COLOR: Record<string, string> = {
   indexed: 'var(--metric-green)',
   active: 'var(--metric-blue)',
   not_indexed: 'var(--text-muted)',
@@ -39,32 +39,6 @@ const INDEX_STATUS_COLOR: Record<string, string> = {
   error: 'var(--metric-orange)',
 };
 
-const SEVERITY_STYLE: Record<string, { bg: string; border: string; color: string; icon: string }> = {
-  error: {
-    bg: 'rgba(239, 68, 68, 0.08)',
-    border: 'rgba(239, 68, 68, 0.3)',
-    color: 'var(--metric-orange)',
-    icon: '\u26A0',
-  },
-  warning: {
-    bg: 'rgba(245, 158, 11, 0.08)',
-    border: 'rgba(245, 158, 11, 0.3)',
-    color: 'var(--metric-orange)',
-    icon: '\u26A0',
-  },
-  info: {
-    bg: 'rgba(59, 130, 246, 0.08)',
-    border: 'rgba(59, 130, 246, 0.3)',
-    color: 'var(--metric-blue)',
-    icon: '\u2139',
-  },
-  success: {
-    bg: 'rgba(34, 197, 94, 0.08)',
-    border: 'rgba(34, 197, 94, 0.3)',
-    color: 'var(--metric-green)',
-    icon: '\u2713',
-  },
-};
 
 function fmtPct(v: number | null | undefined): string {
   if (v == null) return '\u2014';
@@ -93,7 +67,7 @@ function fmtWeekLabel(iso: string): string {
   }
 }
 
-type SortKey = 'repo_name' | 'index_status' | 'review_coverage_pct' | 'avg_response_time_minutes' | 'avg_comments_per_pr' | 'total_prs';
+type MetricSortKey = 'repo_name' | 'index_status' | 'review_coverage_pct' | 'avg_response_time_minutes' | 'avg_comments_per_pr' | 'total_prs';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -105,7 +79,7 @@ export function GreptileOverviewScreen() {
     queryFn: getSettings,
   });
 
-  // Subscribe to raw state so component re-renders on filter changes
+  // Filters
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
@@ -115,6 +89,13 @@ export function GreptileOverviewScreen() {
   const chartPeriod = getChartPeriod();
   const repoIds = getRepoIdsForApi();
 
+  // Repo data (for indexing summary banner)
+  const { data: reposData } = useQuery({
+    queryKey: ['greptile', 'repos'],
+    queryFn: getGreptileRepos,
+  });
+
+  // Metrics data
   const { data, isLoading, error } = useQuery({
     queryKey: ['greptile', 'metrics', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
@@ -127,14 +108,20 @@ export function GreptileOverviewScreen() {
     enabled: settings?.greptile_configured === true || settings?.github_configured === true,
   });
 
-  // Table sorting
-  const [sortKey, setSortKey] = useState<SortKey>('index_status');
+  // Table sorting & search
+  const [sortKey, setSortKey] = useState<MetricSortKey>('index_status');
   const [sortAsc, setSortAsc] = useState(true);
+  const [repoSearch, setRepoSearch] = useState('');
 
   const sortedRepos = useMemo(() => {
     if (!data?.per_repo) return [];
-    const rows = [...data.per_repo];
-    const statusPriority: Record<string, number> = { error: 0, not_indexed: 1, active: 2, stale: 3, indexed: 4 };
+    let rows = [...data.per_repo];
+    // Filter by search
+    const q = repoSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((r) => r.repo_name.toLowerCase().includes(q));
+    }
+    const statusPriority: Record<string, number> = { stale: 0, active: 1, error: 2, not_indexed: 3, indexed: 4 };
     rows.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'repo_name') {
@@ -149,7 +136,7 @@ export function GreptileOverviewScreen() {
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [data?.per_repo, sortKey, sortAsc]);
+  }, [data?.per_repo, sortKey, sortAsc, repoSearch]);
 
   const trendData = useMemo(
     () =>
@@ -159,6 +146,17 @@ export function GreptileOverviewScreen() {
       })),
     [data?.trend]
   );
+
+  // Indexing summary
+  const indexingSummary = useMemo(() => {
+    if (!reposData?.repos) return null;
+    const repos = reposData.repos;
+    const notIndexed = repos.filter((r) => !r.greptile_status).length;
+    const failed = repos.filter((r) => r.greptile_status === 'failed').length;
+    const processing = repos.filter((r) => ['submitted', 'processing', 'cloning'].includes(r.greptile_status || '')).length;
+    if (notIndexed === 0 && failed === 0 && processing === 0) return null;
+    return { notIndexed, failed, processing };
+  }, [reposData?.repos]);
 
   // ---- Empty / not-configured states ----
 
@@ -193,17 +191,56 @@ export function GreptileOverviewScreen() {
   return (
     <div>
       <h1 className="screen-title">Greptile</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 28, fontSize: '0.9375rem' }}>
-        AI code review coverage and adoption metrics.{' '}
-        <a
-          href="https://app.greptile.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: 'var(--link)' }}
-        >
-          Open Greptile app
-        </a>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.9375rem' }}>
+        AI code review coverage and adoption metrics.
       </p>
+
+      {/* Indexing alert banner */}
+      {indexingSummary && (
+        <div
+          style={{
+            marginBottom: 20,
+            padding: '12px 18px',
+            borderRadius: 10,
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ fontSize: '0.875rem', color: 'var(--text)' }}>
+            {indexingSummary.notIndexed > 0 && (
+              <span><strong>{indexingSummary.notIndexed}</strong> repos not indexed</span>
+            )}
+            {indexingSummary.notIndexed > 0 && indexingSummary.failed > 0 && <span> &middot; </span>}
+            {indexingSummary.failed > 0 && (
+              <span><strong>{indexingSummary.failed}</strong> failed</span>
+            )}
+            {(indexingSummary.notIndexed > 0 || indexingSummary.failed > 0) && indexingSummary.processing > 0 && <span> &middot; </span>}
+            {indexingSummary.processing > 0 && (
+              <span><strong>{indexingSummary.processing}</strong> processing</span>
+            )}
+          </div>
+          <Link
+            to="/greptile/indexing"
+            style={{
+              padding: '5px 14px',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              borderRadius: 6,
+              background: 'var(--primary)',
+              color: '#fff',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Manage indexing
+          </Link>
+        </div>
+      )}
 
       {/* ====== SECTION 1: Index Health ====== */}
       <SectionHeading title="Index Health" />
@@ -213,6 +250,7 @@ export function GreptileOverviewScreen() {
           value={`${ih.indexed_repos} / ${ih.total_github_repos}`}
           subtitle={ih.total_github_repos === 0 ? 'no GitHub repos' : ih.indexed_repos === ih.total_github_repos ? 'all repos indexed' : `${ih.total_github_repos - ih.indexed_repos} not indexed`}
           accent={ih.indexed_repos === ih.total_github_repos ? 'green' : 'orange'}
+          to="/greptile/indexing"
         />
         <KpiCard
           title="File coverage"
@@ -225,12 +263,14 @@ export function GreptileOverviewScreen() {
           value={String(ih.stale_repos)}
           subtitle={ih.stale_repos === 0 ? 'all up to date' : 'repos need re-index'}
           accent={ih.stale_repos === 0 ? 'green' : 'orange'}
+          to={ih.stale_repos > 0 ? '/greptile/indexing' : undefined}
         />
         <KpiCard
           title="Index errors"
           value={String(ih.error_repos)}
           subtitle={ih.error_repos === 0 ? 'no errors' : 'repos have errors'}
           accent={ih.error_repos === 0 ? 'green' : 'orange'}
+          to={ih.error_repos > 0 ? '/greptile/indexing' : undefined}
         />
       </div>
 
@@ -309,9 +349,14 @@ export function GreptileOverviewScreen() {
       )}
 
       {/* ====== SECTION 3: Per-Repo Breakdown ====== */}
-      {sortedRepos.length > 0 && (
+      {(data.per_repo?.length ?? 0) > 0 && (
         <>
-          <SectionHeading title="Per-Repository Breakdown" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 8 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+              Per-Repository Breakdown
+            </h2>
+            <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Search repositories\u2026" />
+          </div>
           <div className="card" style={{ marginBottom: 28 }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
@@ -357,16 +402,47 @@ export function GreptileOverviewScreen() {
         </>
       )}
 
-      {/* ====== SECTION 4: Recommendations ====== */}
+      {/* ====== SECTION 4: Recommendations summary ====== */}
       {data.recommendations.length > 0 && (
-        <>
-          <SectionHeading title="Recommendations" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
-            {data.recommendations.map((rec: GreptileRecommendation, i: number) => (
-              <RecommendationCard key={i} rec={rec} />
-            ))}
+        <div
+          style={{
+            marginBottom: 28,
+            padding: '14px 18px',
+            borderRadius: 10,
+            background: 'var(--surface)',
+            border: '1px solid var(--surface-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.875rem' }}>
+            <span style={{ fontSize: '1rem' }}>{'\u{1F6E1}'}</span>
+            <span>
+              <strong>{data.recommendations.length}</strong>{' '}
+              recommendation{data.recommendations.length > 1 ? 's' : ''} available
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>
+              {'\u2014'} {data.recommendations.filter((r) => r.severity === 'error' || r.severity === 'warning').length} requiring attention
+            </span>
           </div>
-        </>
+          <Link
+            to="/greptile/recommendations"
+            style={{
+              padding: '5px 14px',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              borderRadius: 6,
+              background: 'var(--primary)',
+              color: '#fff',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            View recommendations
+          </Link>
+        </div>
       )}
 
       {data.total_prs === 0 && (
@@ -377,7 +453,7 @@ export function GreptileOverviewScreen() {
     </div>
   );
 
-  function handleSort(key: SortKey) {
+  function handleSort(key: MetricSortKey) {
     if (sortKey === key) {
       setSortAsc(!sortAsc);
     } else {
@@ -408,8 +484,8 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const label = INDEX_STATUS_LABEL[status] ?? status;
-  const color = INDEX_STATUS_COLOR[status] ?? 'var(--text-muted)';
+  const label = REVIEW_STATUS_LABEL[status] ?? status;
+  const color = REVIEW_STATUS_COLOR[status] ?? 'var(--text-muted)';
   return (
     <span
       style={{
@@ -471,10 +547,10 @@ function SortableTh({
   onSort,
 }: {
   label: string;
-  sortKey: SortKey;
-  currentSort: SortKey;
+  sortKey: MetricSortKey;
+  currentSort: MetricSortKey;
   asc: boolean;
-  onSort: (k: SortKey) => void;
+  onSort: (k: MetricSortKey) => void;
 }) {
   const active = currentSort === key;
   return (
@@ -497,79 +573,33 @@ function SortableTh({
   );
 }
 
-const TAG_STYLE: Record<string, { bg: string; color: string }> = {
-  github: {
-    bg: 'rgba(110, 84, 148, 0.15)',
-    color: '#8b6db5',
-  },
-  greptile: {
-    bg: 'rgba(59, 130, 246, 0.12)',
-    color: 'var(--metric-blue)',
-  },
-};
-
-function RecommendationCard({ rec }: { rec: GreptileRecommendation }) {
-  const style = SEVERITY_STYLE[rec.severity] ?? SEVERITY_STYLE.info;
+function SearchInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   return (
-    <div
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
       style={{
-        padding: '14px 18px',
-        borderRadius: 10,
-        background: style.bg,
-        border: `1px solid ${style.border}`,
+        padding: '5px 12px',
+        fontSize: '0.8125rem',
+        borderRadius: 6,
+        border: '1px solid var(--surface-border)',
+        background: 'var(--surface)',
+        color: 'var(--text)',
+        width: 220,
+        outline: 'none',
       }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{style.icon}</span>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: '0.875rem', color: style.color, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {(rec.tags ?? []).map((tag) => {
-              const ts = TAG_STYLE[tag] ?? TAG_STYLE.greptile;
-              return (
-                <span
-                  key={tag}
-                  style={{
-                    display: 'inline-block',
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    fontSize: '0.625rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    background: ts.bg,
-                    color: ts.color,
-                  }}
-                >
-                  {tag}
-                </span>
-              );
-            })}
-            {rec.message}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            {rec.detail}
-          </div>
-          {rec.repos.length > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {rec.repos.map((r) => (
-                <span
-                  key={r}
-                  style={{
-                    display: 'inline-block',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    fontSize: '0.75rem',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--surface-border)',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {r}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    />
   );
 }
+
+export default GreptileOverviewScreen;
