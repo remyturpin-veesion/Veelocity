@@ -7,6 +7,7 @@ class SettingsResponse(BaseModel):
     github_configured: bool
     github_has_token: bool = False  # True when token is set (e.g. after OAuth), even if repos not set
     github_repos: str
+    github_orgs: list[str] = []  # org names from org:* subscriptions
     linear_configured: bool
     linear_workspace_name: str
     cursor_configured: bool = False

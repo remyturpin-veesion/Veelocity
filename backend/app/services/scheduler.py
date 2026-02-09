@@ -134,6 +134,20 @@ async def run_sync():
         _sync_job_name = None
 
 
+async def _resolve_repos(creds) -> list[str]:
+    """Resolve org:* patterns in github_repos to a flat repo list."""
+    from app.services.github_repo_resolver import parse_repo_entries, resolve_github_repos
+
+    if not creds.github_token or not (creds.github_repos or "").strip():
+        return []
+
+    orgs, _ = parse_repo_entries(creds.github_repos)
+    if orgs:
+        return await resolve_github_repos(creds.github_token, creds.github_repos)
+    # No org subscriptions — split directly (fast path, no HTTP)
+    return [x.strip() for x in creds.github_repos.split(",") if x.strip()]
+
+
 async def _run_sync_impl():
     """Implementation of run_sync (without state flags)."""
     from app.connectors.rate_limiter import get_rate_limiter
@@ -155,8 +169,11 @@ async def _run_sync_impl():
             )
 
         creds = await CredentialsService(db).get_credentials()
+        # Resolve org:* patterns to actual repo list
+        resolved_repos = await _resolve_repos(creds)
+
         # GitHub connector (PRs, reviews, comments, commits)
-        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+        github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if github:
             # If any repo needs full sync, do fast sync (PRs only, no details)
             if repos_needing_full_sync:
@@ -170,7 +187,7 @@ async def _run_sync_impl():
 
         # GitHub Actions (Linear, Cursor, Greptile run in separate 5-min jobs)
         github_actions = create_github_actions_connector(
-            token=creds.github_token, repos=creds.github_repos
+            token=creds.github_token, repos=resolved_repos
         )
         if github_actions:
             items, errors = await _sync_connector_safe(github_actions, db, "sync_recent")
@@ -283,10 +300,11 @@ async def _run_full_sync_impl():
     """Implementation of run_full_sync (without state flags)."""
     async with async_session_maker() as db:
         creds = await CredentialsService(db).get_credentials()
+        resolved_repos = await _resolve_repos(creds)
         total_items = 0
 
         # GitHub - sync PRs first (fast)
-        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+        github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if github:
             logger.info("Full sync: fetching all PRs...")
             result = await github.sync_all(db, fetch_details=False)
@@ -296,7 +314,7 @@ async def _run_full_sync_impl():
 
         # GitHub Actions
         github_actions = create_github_actions_connector(
-            token=creds.github_token, repos=creds.github_repos
+            token=creds.github_token, repos=resolved_repos
         )
         if github_actions:
             result = await github_actions.sync_all(db)
@@ -402,7 +420,8 @@ async def _run_fill_details_impl(batch_size: int):
         )
         
         creds = await CredentialsService(db).get_credentials()
-        github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+        resolved_repos = await _resolve_repos(creds)
+        github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if not github:
             return
         

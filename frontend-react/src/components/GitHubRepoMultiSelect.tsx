@@ -4,17 +4,32 @@ import type { GitHubOrgItem, GitHubRepoSearchItem } from '@/types/index.js';
 
 const DEBOUNCE_MS = 300;
 const SOURCE_MY_ACCOUNT = '';
+const ORG_PREFIX = 'org:';
 
-function parseRepos(value: string): string[] {
-  if (!value.trim()) return [];
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+/** Parse a mixed value string into org subscriptions and individual repos. */
+function parseEntries(value: string): { orgs: string[]; repos: string[] } {
+  const orgs: string[] = [];
+  const repos: string[] = [];
+  if (!value.trim()) return { orgs, repos };
+  for (const part of value.split(',')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith(ORG_PREFIX)) {
+      const name = trimmed.slice(ORG_PREFIX.length).trim();
+      if (name) orgs.push(name);
+    } else {
+      repos.push(trimmed);
+    }
+  }
+  return { orgs, repos };
 }
 
-function serializeRepos(repos: string[]): string {
-  return repos.join(',');
+/** Serialize orgs + repos back to a comma-separated string. */
+function serializeEntries(orgs: string[], repos: string[]): string {
+  const parts: string[] = [];
+  for (const o of orgs) parts.push(`${ORG_PREFIX}${o}`);
+  for (const r of repos) parts.push(r);
+  return parts.join(',');
 }
 
 interface GitHubRepoMultiSelectProps {
@@ -30,9 +45,9 @@ export function GitHubRepoMultiSelect({
   disabled = false,
   placeholder = 'Search repositories…',
 }: GitHubRepoMultiSelectProps) {
-  const selected = parseRepos(value);
+  const { orgs: selectedOrgs, repos: selectedRepos } = parseEntries(value);
   const [source, setSource] = useState<string>(SOURCE_MY_ACCOUNT);
-  const [orgs, setOrgs] = useState<GitHubOrgItem[]>([]);
+  const [orgsList, setOrgsList] = useState<GitHubOrgItem[]>([]);
   const [, setOrgsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<GitHubRepoSearchItem[]>([]);
@@ -46,8 +61,8 @@ export function GitHubRepoMultiSelect({
     if (disabled) return;
     setOrgsLoading(true);
     getGitHubOrgs()
-      .then((res) => setOrgs(res.items ?? []))
-      .catch(() => setOrgs([]))
+      .then((res) => setOrgsList(res.items ?? []))
+      .catch(() => setOrgsList([]))
       .finally(() => setOrgsLoading(false));
   }, [disabled]);
 
@@ -90,18 +105,52 @@ export function GitHubRepoMultiSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /** Check if a repo belongs to a subscribed org. */
+  const isRepoFromSubscribedOrg = (fullName: string) => {
+    const owner = fullName.split('/')[0]?.toLowerCase() ?? '';
+    return selectedOrgs.some((o) => o.toLowerCase() === owner);
+  };
+
   const addRepo = (fullName: string) => {
-    if (selected.includes(fullName)) return;
-    onChange(serializeRepos([...selected, fullName]));
+    if (selectedRepos.includes(fullName)) return;
+    // Don't add individual repo if its org is already subscribed
+    if (isRepoFromSubscribedOrg(fullName)) return;
+    onChange(serializeEntries(selectedOrgs, [...selectedRepos, fullName]));
     setSearchQuery('');
     setOpen(false);
   };
 
   const removeRepo = (fullName: string) => {
-    onChange(serializeRepos(selected.filter((r) => r !== fullName)));
+    onChange(serializeEntries(selectedOrgs, selectedRepos.filter((r) => r !== fullName)));
   };
 
-  const filteredItems = items.filter((r) => !selected.includes(r.full_name));
+  const addOrg = (orgLogin: string) => {
+    if (selectedOrgs.some((o) => o.toLowerCase() === orgLogin.toLowerCase())) return;
+    // Remove individual repos that belong to the newly-subscribed org
+    const filteredRepos = selectedRepos.filter(
+      (r) => (r.split('/')[0] ?? '').toLowerCase() !== orgLogin.toLowerCase()
+    );
+    onChange(serializeEntries([...selectedOrgs, orgLogin], filteredRepos));
+  };
+
+  const removeOrg = (orgLogin: string) => {
+    onChange(
+      serializeEntries(
+        selectedOrgs.filter((o) => o.toLowerCase() !== orgLogin.toLowerCase()),
+        selectedRepos
+      )
+    );
+  };
+
+  /** Is the currently-selected source already subscribed as an org? */
+  const currentSourceIsSubscribedOrg =
+    source !== SOURCE_MY_ACCOUNT &&
+    selectedOrgs.some((o) => o.toLowerCase() === source.toLowerCase());
+
+  // Filter dropdown items: hide already-selected repos and repos from subscribed orgs
+  const filteredItems = items.filter(
+    (r) => !selectedRepos.includes(r.full_name) && !isRepoFromSubscribedOrg(r.full_name)
+  );
 
   return (
     <div
@@ -117,36 +166,59 @@ export function GitHubRepoMultiSelect({
       {!disabled && (
         <div style={{ marginBottom: 8 }}>
           <label style={{ display: 'block', marginBottom: 4, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            Source des dépôts
+            Repository source
           </label>
-          <select
-            value={source}
-            onChange={(e) => {
-              setSource(e.target.value);
-              setItems([]);
-              setSearchQuery('');
-              setOpen(false);
-            }}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: 6,
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              fontSize: '0.875rem',
-            }}
-          >
-            <option value={SOURCE_MY_ACCOUNT}>Mon compte</option>
-            {orgs.map((org) => (
-              <option key={org.id} value={org.login}>
-                Organisation : {org.login}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <select
+              value={source}
+              onChange={(e) => {
+                setSource(e.target.value);
+                setItems([]);
+                setSearchQuery('');
+                setOpen(false);
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--surface-border)',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                fontSize: '0.875rem',
+              }}
+            >
+              <option value={SOURCE_MY_ACCOUNT}>My account</option>
+              {orgsList.map((org) => (
+                <option key={org.id} value={org.login}>
+                  Organization: {org.login}
+                </option>
+              ))}
+            </select>
+            {source !== SOURCE_MY_ACCOUNT && !currentSourceIsSubscribedOrg && (
+              <button
+                type="button"
+                onClick={() => addOrg(source)}
+                style={{
+                  whiteSpace: 'nowrap',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--primary, #3b82f6)',
+                  background: 'var(--primary, #3b82f6)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Import all repos
+              </button>
+            )}
+          </div>
         </div>
       )}
-      {selected.length > 0 && (
+
+      {/* Org subscription chips */}
+      {selectedOrgs.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -155,7 +227,60 @@ export function GitHubRepoMultiSelect({
             marginBottom: 8,
           }}
         >
-          {selected.map((fullName) => (
+          {selectedOrgs.map((orgName) => (
+            <span
+              key={`org:${orgName}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                borderRadius: 6,
+                background: 'var(--primary-bg, rgba(59, 130, 246, 0.12))',
+                border: '1px solid var(--primary-border, rgba(59, 130, 246, 0.35))',
+                fontSize: '0.875rem',
+                color: 'var(--primary-fg, #3b82f6)',
+                fontWeight: 500,
+              }}
+            >
+              {orgName}
+              <span style={{ fontSize: '0.75rem', opacity: 0.8, marginLeft: 2 }}>(all repos)</span>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => removeOrg(orgName)}
+                  aria-label={`Remove organization ${orgName}`}
+                  style={{
+                    padding: 0,
+                    margin: 0,
+                    marginLeft: 2,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--primary-fg, #3b82f6)',
+                    fontSize: '1rem',
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Individual repo chips */}
+      {selectedRepos.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            marginBottom: 8,
+          }}
+        >
+          {selectedRepos.map((fullName) => (
             <span
               key={fullName}
               style={{
@@ -194,7 +319,9 @@ export function GitHubRepoMultiSelect({
           ))}
         </div>
       )}
-      {!disabled && (
+
+      {/* Search input + dropdown */}
+      {!disabled && !currentSourceIsSubscribedOrg && (
         <>
           <input
             type="text"
@@ -278,6 +405,13 @@ export function GitHubRepoMultiSelect({
             </div>
           )}
         </>
+      )}
+
+      {/* Hint when the current source org is fully subscribed */}
+      {!disabled && currentSourceIsSubscribedOrg && (
+        <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+          All repositories from <strong>{source}</strong> are imported. Remove the organization above to pick individual repos instead.
+        </p>
       )}
     </div>
   );

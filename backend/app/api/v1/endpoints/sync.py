@@ -25,6 +25,18 @@ from app.models.sync import SyncState
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+async def _resolve_repos_for_sync(creds) -> list[str]:
+    """Resolve org:* patterns in github_repos to a flat repo list."""
+    from app.services.github_repo_resolver import parse_repo_entries, resolve_github_repos
+
+    if not creds.github_token or not (creds.github_repos or "").strip():
+        return []
+    orgs, _ = parse_repo_entries(creds.github_repos)
+    if orgs:
+        return await resolve_github_repos(creds.github_token, creds.github_repos)
+    return [x.strip() for x in creds.github_repos.split(",") if x.strip()]
+
+
 class RepositoryCoverage(BaseModel):
     """Data coverage stats for a single repository."""
 
@@ -117,8 +129,9 @@ async def import_date_range(
         from app.services.sync import SyncService
 
         creds = await CredentialsService(db).get_credentials()
+        resolved_repos = await _resolve_repos_for_sync(creds)
         github = create_github_connector(
-            token=creds.github_token, repos=creds.github_repos
+            token=creds.github_token, repos=resolved_repos
         )
         if github:
             try:
@@ -425,6 +438,7 @@ async def fill_all_details(
     logger = logging.getLogger(__name__)
     
     creds = await CredentialsService(db).get_credentials()
+    resolved_repos = await _resolve_repos_for_sync(creds)
     total_items_synced = 0
     total_prs_processed = 0
     batches_run = 0
@@ -432,7 +446,7 @@ async def fill_all_details(
     try:
         while batches_run < max_batches:
             # Create fresh connector for each batch (resets rate limiter)
-            github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+            github = create_github_connector(token=creds.github_token, repos=resolved_repos)
             if not github:
                 return {"status": "error", "message": "GitHub connector not configured"}
             
@@ -523,7 +537,8 @@ async def _get_github_and_repo(repo_name: str, db: AsyncSession):
     from app.services.credentials import CredentialsService
 
     creds = await CredentialsService(db).get_credentials()
-    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+    resolved_repos = await _resolve_repos_for_sync(creds)
+    github = create_github_connector(token=creds.github_token, repos=resolved_repos)
     if not github:
         return None, None, {"status": "error", "message": "GitHub connector not configured"}
 
@@ -867,7 +882,8 @@ async def get_sync_diagnostic(
     from app.services.credentials import CredentialsService
 
     creds = await CredentialsService(db).get_credentials()
-    github = create_github_connector(token=creds.github_token, repos=creds.github_repos)
+    resolved_repos = await _resolve_repos_for_sync(creds)
+    github = create_github_connector(token=creds.github_token, repos=resolved_repos)
     if not github:
         return SyncDiagnosticResponse(repos=[])
 

@@ -272,7 +272,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <div className="settings-section__body">
                 {githubOAuthEnabled ? (
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                    {(githubConfigured || githubHasToken) ? (githubConfigured ? 'Use a different account or refresh access.' : 'Token is set. Add repos below and Save to start syncing.') : 'Sign in with GitHub to grant access.'}
+                    {(githubConfigured || githubHasToken) ? (githubConfigured ? 'Use a different account or refresh access.' : 'Token is set. Select repos or an entire organization below, then Save to start syncing.') : 'Sign in with GitHub to grant access.'}
                   </p>
                 ) : (
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -294,7 +294,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 />
                 {githubHasToken && !githubConfigured && (
                   <p style={{ margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                    Add at least one repo above and click Save to start syncing.
+                    Select repos or import an entire organization above, then click Save to start syncing.
                   </p>
                 )}
               </div>

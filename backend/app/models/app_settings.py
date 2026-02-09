@@ -15,7 +15,7 @@ class AppSettings(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     github_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    github_repos: Mapped[str] = mapped_column(String(2000), default="")
+    github_repos: Mapped[str] = mapped_column(Text, default="")
     linear_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     linear_workspace_name: Mapped[str] = mapped_column(String(500), default="")
     cursor_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)

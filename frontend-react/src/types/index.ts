@@ -125,6 +125,7 @@ export interface SettingsResponse {
   github_configured: boolean;
   github_has_token?: boolean;
   github_repos?: string;
+  github_orgs?: string[];
   linear_configured: boolean;
   linear_workspace_name?: string;
   cursor_configured?: boolean;

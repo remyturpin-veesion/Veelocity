@@ -16,6 +16,7 @@ from app.schemas.settings import (
     SettingsUpdate,
 )
 from app.services.credentials import CredentialsService
+from app.services.github_repo_resolver import extract_org_names
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -30,6 +31,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         github_configured=masked["github_configured"],
         github_has_token=masked.get("github_has_token", False),
         github_repos=masked["github_repos"],
+        github_orgs=extract_org_names(masked["github_repos"]),
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),
@@ -84,6 +86,7 @@ async def update_settings(
         github_configured=masked["github_configured"],
         github_has_token=masked.get("github_has_token", False),
         github_repos=masked["github_repos"],
+        github_orgs=extract_org_names(masked["github_repos"]),
         linear_configured=masked["linear_configured"],
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),

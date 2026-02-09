@@ -111,10 +111,11 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
     # The GET /repositories (list) endpoint is undocumented and often returns
     # incomplete results; the official GET /repositories/{id} is more reliable.
     found_repos = {(info.get("repository") or "").lower() for info in repos_to_upsert}
-    github_repos = (creds.github_repos or "").strip()
-    if github_repos:
-        for part in github_repos.split(","):
-            part = part.strip()
+    # Parse explicit repos (skip org:* entries — they'll be resolved elsewhere)
+    from app.services.github_repo_resolver import parse_repo_entries
+    _, explicit_repos = parse_repo_entries(creds.github_repos or "")
+    if explicit_repos:
+        for part in explicit_repos:
             if not part or "/" not in part:
                 continue
             if part.lower() in found_repos:
