@@ -87,7 +87,10 @@ async def get_repository(
             resp = await client.get(f"/repositories/{encoded_id}")
             if resp.status_code == 200:
                 return resp.json()
-            logger.warning(
+            # 404 is expected for repos not indexed in Greptile — log at DEBUG
+            log_level = logging.DEBUG if resp.status_code == 404 else logging.WARNING
+            logger.log(
+                log_level,
                 "Greptile get_repository %s: HTTP %s — %s (github_token=%s)",
                 repository_id,
                 resp.status_code,

@@ -16,7 +16,9 @@ export function RepoMultiSelector() {
   const repoIds = useFiltersStore((s) => s.repoIds);
   const setRepoIds = useFiltersStore((s) => s.setRepoIds);
   const [open, setOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({ queryKey: ['repositories'], queryFn: () => getRepositories() });
   const repos = (data?.items ?? []) as Repository[];
@@ -25,6 +27,9 @@ export function RepoMultiSelector() {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+      }
+      if (listRef.current && !listRef.current.contains(e.target as Node)) {
+        setListOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -143,21 +148,50 @@ export function RepoMultiSelector() {
           })}
         </div>
       )}
-      {selectedRepos.length > 0 && (
-        <div className="filter-tags">
-          {selectedRepos.map((r) => (
-            <span key={r.id} className="filter-tag">
-              {r.full_name}
-              <button
-                type="button"
-                className="filter-tag-remove"
-                onClick={() => removeRepo(r.id)}
-                aria-label={`Remove ${r.full_name}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+      {selectedRepos.length > 0 && !allSelected && (
+        <div ref={listRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className="filter-selected-badge"
+            onClick={() => setListOpen((o) => !o)}
+            aria-expanded={listOpen}
+            aria-haspopup="dialog"
+            title="View selected repositories"
+          >
+            {selectedRepos.length} selected
+          </button>
+          {listOpen && (
+            <div className="filter-selected-popover" role="dialog" aria-label="Selected repositories">
+              <div className="filter-selected-popover__header">
+                <span className="filter-selected-popover__title">
+                  Selected repositories ({selectedRepos.length})
+                </span>
+                <button
+                  type="button"
+                  className="filter-selected-popover__close"
+                  onClick={() => setListOpen(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="filter-selected-popover__list">
+                {selectedRepos.map((r) => (
+                  <div key={r.id} className="filter-selected-popover__item">
+                    <span className="filter-selected-popover__name">{r.full_name}</span>
+                    <button
+                      type="button"
+                      className="filter-tag-remove"
+                      onClick={() => removeRepo(r.id)}
+                      aria-label={`Remove ${r.full_name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

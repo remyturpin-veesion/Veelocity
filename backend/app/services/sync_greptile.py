@@ -142,7 +142,7 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
                 repos_to_upsert.append(info)
                 logger.info("Greptile: fetched %s individually as %s (not in list response)", part, used_id)
             else:
-                logger.debug("Greptile: %s not found in Greptile (tried main/master, original/lowercase)", part)
+                logger.info("Greptile: %s not indexed in Greptile (tried main/master, original/lowercase) — skipping", part)
 
     # Deduplicate by repository name (keep first occurrence)
     seen_repos: set[str] = set()

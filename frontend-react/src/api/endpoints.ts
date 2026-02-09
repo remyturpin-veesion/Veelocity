@@ -454,6 +454,14 @@ export async function getLinearTimeInState(params?: {
   return apiGet(`${prefix}/metrics/linear/time-in-state`, params as Record<string, string | number | boolean | number[]>);
 }
 
+export async function getExportReport(params?: {
+  start_date?: string;
+  end_date?: string;
+  repo_id?: number;
+}): Promise<unknown> {
+  return apiGet(`${prefix}/export/report`, params as Record<string, string | number>);
+}
+
 export async function getAnomalies(params: {
   metric: string;
   start_date?: string;

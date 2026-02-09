@@ -36,6 +36,12 @@ const GITHUB_SIDEBAR = {
   ],
 } as const;
 
+const DORA_SIDEBAR_LINKS = [
+  { path: '/dora', icon: '⊞', label: 'Overview' },
+  { path: '/dora/benchmarks', icon: '📊', label: 'Benchmarks' },
+  { path: '/dora/metrics', icon: '📋', label: 'Metrics report' },
+] as const;
+
 const LINEAR_SIDEBAR_LINKS = [
   { path: '/linear', icon: '⊞', title: 'Overview' },
   { path: '/metrics/linear/issues-completed', icon: '✓', title: 'Issues completed' },
@@ -46,6 +52,10 @@ const LINEAR_SIDEBAR_LINKS = [
 function isActive(path: string, current: string): boolean {
   if (path === '/') return current === '/' || current === '/dashboard';
   return current === path || current.startsWith(path + '/');
+}
+
+function isDoraRoute(pathname: string): boolean {
+  return pathname === '/dora' || pathname.startsWith('/dora/');
 }
 
 function isLinearRoute(pathname: string): boolean {
@@ -77,6 +87,7 @@ export function AppShell({ children }: AppShellProps) {
   const { startDate, endDate } = getStartEnd();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const showDoraSidebar = isDoraRoute(location.pathname);
   const showLinearSidebar = isLinearRoute(location.pathname);
   const showGitHubSidebar = isGitHubRoute(location.pathname);
 
@@ -102,11 +113,13 @@ export function AppShell({ children }: AppShellProps) {
         <nav className="app-shell__nav">
           {TABS.map(({ path, label }) => {
             const active =
-              path === '/github'
-                ? showGitHubSidebar
-                : path === '/linear'
-                  ? showLinearSidebar
-                  : isActive(path, location.pathname);
+              path === '/dora'
+                ? showDoraSidebar
+                : path === '/github'
+                  ? showGitHubSidebar
+                  : path === '/linear'
+                    ? showLinearSidebar
+                    : isActive(path, location.pathname);
             return (
               <Link
                 key={path}
@@ -168,6 +181,7 @@ export function AppShell({ children }: AppShellProps) {
                     preset={dateRange.preset}
                     onPresetChange={(p) => {
                       setDateRangePreset(p);
+                      setDatePickerOpen(false);
                     }}
                   />
                   <div className="app-shell__date-custom">
@@ -199,15 +213,6 @@ export function AppShell({ children }: AppShellProps) {
                       </label>
                     </div>
                   </div>
-                  <div className="app-shell__date-actions">
-                    <button
-                      type="button"
-                      className="app-shell__date-ok"
-                      onClick={() => setDatePickerOpen(false)}
-                    >
-                      OK
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -215,7 +220,29 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       )}
       </div>
-      {showGitHubSidebar ? (
+      {showDoraSidebar ? (
+        <div className="app-shell__body">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="DORA section">
+            {DORA_SIDEBAR_LINKS.map(({ path, icon, label }) => {
+              const active = path === '/dora'
+                ? location.pathname === '/dora'
+                : isActive(path, location.pathname);
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={active ? 'active' : ''}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+          </aside>
+          <main className="app-shell__main">{children}</main>
+        </div>
+      ) : showGitHubSidebar ? (
         <div className="app-shell__body">
           <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="GitHub section">
             <Link

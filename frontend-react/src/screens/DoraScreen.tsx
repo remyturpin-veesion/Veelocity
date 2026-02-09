@@ -26,6 +26,34 @@ function formatHours(hours: number): string {
   return `${h}h`;
 }
 
+function renderTierBadge(category?: string) {
+  if (!category) return null;
+  const key = category.toLowerCase();
+  const badgeColors: Record<string, { bg: string; fg: string; border: string }> = {
+    elite: { bg: 'rgba(34,197,94,0.16)', fg: 'var(--metric-green)', border: 'rgba(34,197,94,0.35)' },
+    high: { bg: 'rgba(59,130,246,0.16)', fg: 'var(--primary)', border: 'rgba(59,130,246,0.35)' },
+    medium: { bg: 'rgba(249,115,22,0.16)', fg: 'var(--metric-orange)', border: 'rgba(249,115,22,0.35)' },
+    low: { bg: 'rgba(244,63,94,0.16)', fg: '#f87171', border: 'rgba(244,63,94,0.35)' },
+  };
+  const badge = badgeColors[key] ?? badgeColors.medium;
+  return (
+    <span
+      style={{
+        padding: '2px 8px',
+        borderRadius: 999,
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        background: badge.bg,
+        color: badge.fg,
+        border: `1px solid ${badge.border}`,
+      }}
+    >
+      {category}
+    </span>
+  );
+}
+
 function BenchmarkRow({
   title,
   benchmark,
@@ -37,23 +65,48 @@ function BenchmarkRow({
     gap_to_elite?: string;
   } | null;
 }) {
-  if (!benchmark) {
-    return (
-      <div className="dashboard-quick-overview__row">
-        <span style={{ color: 'var(--text-muted)' }}>{title}</span>
-        <span>Benchmark not available</span>
-      </div>
-    );
-  }
+  const category = benchmark?.category?.toLowerCase() ?? 'na';
+  const badgeColors: Record<string, { bg: string; fg: string; border: string }> = {
+    elite: { bg: 'rgba(34,197,94,0.16)', fg: 'var(--metric-green)', border: 'rgba(34,197,94,0.35)' },
+    high: { bg: 'rgba(59,130,246,0.16)', fg: 'var(--primary)', border: 'rgba(59,130,246,0.35)' },
+    medium: { bg: 'rgba(249,115,22,0.16)', fg: 'var(--metric-orange)', border: 'rgba(249,115,22,0.35)' },
+    low: { bg: 'rgba(244,63,94,0.16)', fg: '#f87171', border: 'rgba(244,63,94,0.35)' },
+    na: { bg: 'rgba(148,163,184,0.16)', fg: 'var(--text-muted)', border: 'rgba(148,163,184,0.35)' },
+  };
+  const badge = badgeColors[category] ?? badgeColors.na;
+  const description = (() => {
+    const raw = benchmark?.description ?? 'No benchmark data';
+    if (!benchmark?.category) return raw;
+    const prefix = `${benchmark.category}:`;
+    return raw.toLowerCase().startsWith(prefix.toLowerCase()) ? raw.slice(prefix.length).trim() : raw;
+  })();
   return (
-    <div className="dashboard-quick-overview__row">
+    <div
+      className="dashboard-quick-overview__row"
+      style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 260px) 1fr auto', columnGap: 16 }}
+    >
       <span style={{ color: 'var(--text-muted)' }}>{title}</span>
-      <span>
-        {benchmark.category ? benchmark.category.toUpperCase() + ' · ' : ''}
-        {benchmark.description ?? '—'}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span
+          style={{
+            padding: '2px 8px',
+            borderRadius: 999,
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            background: badge.bg,
+            color: badge.fg,
+            border: `1px solid ${badge.border}`,
+          }}
+        >
+          {benchmark?.category ?? 'N/A'}
+        </span>
+        <span style={{ color: 'var(--text)' }}>{description}</span>
       </span>
-      {benchmark.gap_to_elite && (
-        <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>{benchmark.gap_to_elite}</span>
+      {benchmark?.gap_to_elite ? (
+        <span style={{ color: 'var(--text-muted)', justifySelf: 'end' }}>{benchmark.gap_to_elite}</span>
+      ) : (
+        <span />
       )}
     </div>
   );
@@ -112,6 +165,22 @@ export function DoraScreen() {
   const { startDate, endDate } = getStartEnd();
   const chartPeriod = getChartPeriod();
 
+  // Week-based query for the KPI card (matches DORA benchmark definitions)
+  const deploymentFreqWeekly = useQuery({
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, 'week'],
+    queryFn: () =>
+      getDeploymentFrequency({
+        start_date: startDate,
+        end_date: endDate,
+        repo_ids: repoIds ?? undefined,
+        period: 'week',
+        include_trend: true,
+        include_benchmark: true,
+      }),
+    enabled: !noReposSelected,
+  });
+
+  // Chart-period query for the trend chart
   const deploymentFreq = useQuery({
     queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
     queryFn: () =>
@@ -123,7 +192,7 @@ export function DoraScreen() {
         include_trend: true,
         include_benchmark: true,
       }),
-    enabled: !noReposSelected,
+    enabled: !noReposSelected && chartPeriod !== 'week', // skip if already fetched by weekly query
   });
 
   const leadTime = useQuery({
@@ -171,10 +240,20 @@ export function DoraScreen() {
 
   const isLoading =
     !noReposSelected &&
-    (deploymentFreq.isLoading || leadTime.isLoading || deploymentReliability.isLoading);
-  const hasError = deploymentFreq.error || leadTime.error || deploymentReliability.error;
+    (deploymentFreqWeekly.isLoading || leadTime.isLoading || deploymentReliability.isLoading);
+  const hasError = deploymentFreqWeekly.error || leadTime.error || deploymentReliability.error;
 
-  const depFreqData = deploymentFreq.data as {
+  // Weekly data for KPI card (consistent with /dora/benchmarks)
+  const depFreqWeeklyData = deploymentFreqWeekly.data as {
+    data?: { period: string; count: number }[];
+    average?: number;
+    total?: number;
+    trend?: TrendData;
+    benchmark?: { category?: string; description?: string; gap_to_elite?: string };
+  } | undefined;
+
+  // Chart-period data for the trend chart (falls back to weekly when chartPeriod is 'week')
+  const depFreqChartData = (chartPeriod === 'week' ? deploymentFreqWeekly.data : deploymentFreq.data) as {
     data?: { period: string; count: number }[];
     average?: number;
     total?: number;
@@ -195,9 +274,9 @@ export function DoraScreen() {
   } | undefined;
 
   const deploymentChartData = useMemo(() => {
-    const data = depFreqData?.data ?? [];
+    const data = depFreqChartData?.data ?? [];
     return data.map((d) => ({ label: d.period, value: d.count }));
-  }, [depFreqData?.data]);
+  }, [depFreqChartData?.data]);
 
   const leadTimeChartData = useMemo(() => {
     const rows = leadTimeByPeriod.data ?? [];
@@ -219,7 +298,7 @@ export function DoraScreen() {
     );
   }
 
-  if (isLoading && !depFreqData) {
+  if (isLoading && !depFreqWeeklyData) {
     return (
       <div>
         <h1 className="screen-title">DORA</h1>
@@ -245,6 +324,7 @@ export function DoraScreen() {
           message="Make sure the backend is running and try again."
           actionLabel="Retry"
           onAction={() => {
+            deploymentFreqWeekly.refetch();
             deploymentFreq.refetch();
             leadTime.refetch();
             deploymentReliability.refetch();
@@ -271,14 +351,19 @@ export function DoraScreen() {
         <div className="dashboard__kpi-row">
         <KpiCard
           title="Deployment frequency"
-          value={depFreqData?.average != null ? `${depFreqData.average.toFixed(1)} /day` : '—'}
-          subtitle={depFreqData?.total != null ? `${depFreqData.total} deployments` : undefined}
+          value={depFreqWeeklyData?.average != null ? `${depFreqWeeklyData.average.toFixed(1)} /week` : '—'}
+          subtitle={depFreqWeeklyData?.total != null ? `${depFreqWeeklyData.total} deployments` : undefined}
           to="/metrics/deployment-frequency"
           icon="🚀"
-          info={<MetricInfoButton metricKey="deployment-frequency" />}
+          info={(
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {renderTierBadge(depFreqWeeklyData?.benchmark?.category)}
+              <MetricInfoButton metricKey="deployment-frequency" />
+            </span>
+          )}
           trend={
-            depFreqData?.trend
-              ? { change_percent: depFreqData.trend.change_percent, is_improving: depFreqData.trend.is_improving }
+            depFreqWeeklyData?.trend
+              ? { change_percent: depFreqWeeklyData.trend.change_percent, is_improving: depFreqWeeklyData.trend.is_improving }
               : undefined
           }
         />
@@ -288,7 +373,12 @@ export function DoraScreen() {
           subtitle={leadTimeData?.count != null ? `${leadTimeData.count} changes` : undefined}
           to="/metrics/lead-time"
           icon="⏱"
-          info={<MetricInfoButton metricKey="lead-time" />}
+          info={(
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {renderTierBadge(leadTimeData?.benchmark?.category)}
+              <MetricInfoButton metricKey="lead-time" />
+            </span>
+          )}
           trend={
             leadTimeData?.trend
               ? { change_percent: leadTimeData.trend.change_percent, is_improving: leadTimeData.trend.is_improving }
@@ -325,22 +415,24 @@ export function DoraScreen() {
           <h2 className="dashboard-section-title" style={{ margin: 0 }}>Benchmarks</h2>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Industry comparisons (where available)</span>
         </div>
-        <div className="dashboard__middle" style={{ marginTop: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card">
-            <BenchmarkRow title="Deployment frequency" benchmark={depFreqData?.benchmark} />
+            <BenchmarkRow title="Deployment frequency" benchmark={depFreqWeeklyData?.benchmark} />
             <BenchmarkRow title="Lead time for changes" benchmark={leadTimeData?.benchmark} />
             <BenchmarkRow title="Change failure rate" benchmark={null} />
             <BenchmarkRow title="MTTR" benchmark={null} />
           </div>
           <div className="card">
             <h3 className="dashboard-section-title">Notes</h3>
-            <div className="dashboard-quick-overview__row">
-              <span style={{ color: 'var(--text-muted)' }}>Change failure rate</span>
-              <span>Proxy based on failed deployment workflow runs</span>
-            </div>
-            <div className="dashboard-quick-overview__row">
-              <span style={{ color: 'var(--text-muted)' }}>MTTR</span>
-              <span>Proxy based on time to next successful run</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ color: 'var(--text-muted)', marginBottom: 6 }}>Change failure rate</div>
+                <div>Proxy based on failed deployment workflow runs</div>
+              </div>
+              <div>
+                <div style={{ color: 'var(--text-muted)', marginBottom: 6 }}>MTTR</div>
+                <div>Proxy based on time to next successful run</div>
+              </div>
             </div>
           </div>
         </div>

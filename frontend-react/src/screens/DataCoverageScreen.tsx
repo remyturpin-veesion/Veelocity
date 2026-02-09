@@ -133,7 +133,11 @@ export function DataCoverageScreen() {
   const currentJob = syncStatus?.current_job ?? null;
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
   const isFullySynced = (syncStatus?.is_complete ?? false) && !syncInProgress;
-  const allRepos = syncStatus?.repositories ?? [];
+  const allRepos = (syncStatus?.repositories ?? []).slice().sort((a, b) => {
+    const pctA = a.total_prs > 0 ? (a.with_details / a.total_prs) : 0;
+    const pctB = b.total_prs > 0 ? (b.with_details / b.total_prs) : 0;
+    return pctB - pctA;
+  });
   const allLinearTeams = syncStatus?.linear_teams ?? [];
   const repos = allRepos.slice(0, MAX_VISIBLE_REPOS);
   const reposOmitted = allRepos.length - repos.length;
@@ -149,15 +153,15 @@ export function DataCoverageScreen() {
   /** Overall progression % per connector for the accordion header (same logic as inner rows). */
   const connectorPct = useMemo(() => {
     const out: Record<string, number> = {};
-    // GitHub: share of PRs with details across all repos
+    // GitHub: share of PRs with details across all repos (0% when no PRs yet)
     const totalPrs = allRepos.reduce((s, r) => s + r.total_prs, 0);
     const withDetails = allRepos.reduce((s, r) => s + r.with_details, 0);
-    out.github = totalPrs > 0 ? Math.round((withDetails / totalPrs) * 100) : 100;
+    out.github = totalPrs > 0 ? Math.round((withDetails / totalPrs) * 100) : 0;
     // GitHub Actions: 100% if we have any workflow runs
     out.github_actions = totalWorkflowRuns > 0 ? 100 : 0;
     // Linear: share of teams that have issues synced
     const teamsWithIssues = allLinearTeams.filter((t) => t.total_issues > 0).length;
-    out.linear = allLinearTeams.length > 0 ? Math.round((teamsWithIssues / allLinearTeams.length) * 100) : 100;
+    out.linear = allLinearTeams.length > 0 ? Math.round((teamsWithIssues / allLinearTeams.length) * 100) : 0;
     out.cursor = cursorConnected ? 100 : 0;
     out.greptile = greptileConnected ? 100 : 0;
     return out;
@@ -275,8 +279,8 @@ export function DataCoverageScreen() {
                       </p>
                       <ul className="data-coverage__repo-list">
                         {repos.map((r) => {
-                          const pct = r.total_prs > 0 ? Math.round((r.with_details / r.total_prs) * 100) : 100;
-                          const isRepoComplete = r.without_details === 0;
+                          const pct = r.total_prs > 0 ? Math.round((r.with_details / r.total_prs) * 100) : 0;
+                          const isRepoComplete = r.total_prs > 0 && r.without_details === 0;
                           return (
                             <li
                               key={r.name}
