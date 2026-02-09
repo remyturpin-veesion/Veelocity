@@ -334,10 +334,42 @@ export function DoraMetricsScreen() {
 
   return (
     <div>
-      <h1 className="screen-title">DORA Metrics Report 2025</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        {formatDateRangeDisplay(startDate, endDate)} &middot; 2025 industry report summary with DORA comparisons
-      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+        <div>
+          <h1 className="screen-title">DORA Metrics Report 2025</h1>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
+            {formatDateRangeDisplay(startDate, endDate)} &middot; 2025 industry report summary with DORA comparisons
+          </p>
+        </div>
+        <div
+          className="card"
+          style={{
+            padding: '12px 14px',
+            minWidth: 220,
+            marginBottom: 24,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Source report
+          </div>
+          <div style={{ marginTop: 6, fontWeight: 600 }}>DORA 2025 PDF</div>
+          <a
+            href="/dora/DORA_2025_state_of_ai_assisted_software_development.pdf"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              marginTop: 8,
+              color: 'var(--primary)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            }}
+          >
+            Open report
+          </a>
+        </div>
+      </div>
 
       <section style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>

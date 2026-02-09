@@ -215,6 +215,14 @@ export async function getPRDetail(prId: number, includeHealth = true): Promise<P
   return data as PRDetail;
 }
 
+export async function getQuickOverview(params?: {
+  start_date?: string;
+  end_date?: string;
+  repo_ids?: number[];
+}): Promise<{ prs_in_queue: number; median_ci_duration_seconds: number | null }> {
+  return apiGet(prefix + '/metrics/quick-overview', params as Record<string, string | number[]>);
+}
+
 // Metrics
 export async function getDORAMetrics(params?: {
   start_date?: string;

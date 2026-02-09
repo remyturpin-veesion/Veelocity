@@ -1,14 +1,15 @@
 """DORA and development metrics API endpoints."""
 
+import statistics
 from datetime import datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import select
-
 from app.core.database import get_db
+from app.models.github import PullRequest, Workflow, WorkflowRun
 from app.models.recommendation import RecommendationRun
 from app.services.metrics.anomalies import AnomalyDetectionService
 from app.services.metrics.benchmarks import BenchmarkService
@@ -29,6 +30,66 @@ def get_default_date_range() -> tuple[datetime, datetime]:
     end = datetime.utcnow()
     start = end - timedelta(days=30)
     return start, end
+
+
+@router.get("/quick-overview")
+async def get_quick_overview(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    repo_ids: list[int] | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Quick overview stats for the dashboard sidebar.
+
+    Returns:
+    - prs_in_queue: count of currently open, non-draft PRs
+    - median_ci_duration_seconds: median CI pipeline duration (completed runs in period)
+    """
+    if not start_date or not end_date:
+        start_date, end_date = get_default_date_range()
+
+    # --- PRs in queue (open, non-draft) ---
+    pr_query = select(func.count(PullRequest.id)).where(
+        PullRequest.state == "open",
+        PullRequest.draft == False,  # noqa: E712
+    )
+    if repo_ids:
+        pr_query = pr_query.where(PullRequest.repo_id.in_(repo_ids))
+    pr_result = await db.execute(pr_query)
+    prs_in_queue = pr_result.scalar() or 0
+
+    # --- Median CI pipeline duration (all completed workflow runs in period) ---
+    run_query = select(
+        WorkflowRun.started_at, WorkflowRun.completed_at
+    ).where(
+        and_(
+            WorkflowRun.status == "completed",
+            WorkflowRun.started_at.isnot(None),
+            WorkflowRun.completed_at.isnot(None),
+            WorkflowRun.completed_at >= start_date,
+            WorkflowRun.completed_at <= end_date,
+        )
+    )
+    if repo_ids:
+        run_query = run_query.join(Workflow).where(Workflow.repo_id.in_(repo_ids))
+    run_result = await db.execute(run_query)
+    rows = run_result.all()
+
+    median_ci_duration_seconds: float | None = None
+    if rows:
+        durations = [
+            (row.completed_at - row.started_at).total_seconds()
+            for row in rows
+            if row.started_at and row.completed_at
+        ]
+        if durations:
+            median_ci_duration_seconds = round(statistics.median(durations), 1)
+
+    return {
+        "prs_in_queue": prs_in_queue,
+        "median_ci_duration_seconds": median_ci_duration_seconds,
+    }
 
 
 @router.get("/dora")

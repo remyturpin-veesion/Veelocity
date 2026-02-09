@@ -26,6 +26,7 @@ import {
   getSettings,
   getCursorOverview,
   getGreptileMetrics,
+  getQuickOverview,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
@@ -176,6 +177,17 @@ export function DashboardScreen() {
     enabled:
       (settings.data?.greptile_configured === true || settings.data?.github_configured === true) &&
       !noReposSelected,
+  });
+
+  const quickOverview = useQuery({
+    queryKey: ['metrics', 'quick-overview', startDate, endDate, repoIds],
+    queryFn: () =>
+      getQuickOverview({
+        start_date: startDate,
+        end_date: endDate,
+        repo_ids: repoIds ?? undefined,
+      }),
+    enabled: !noReposSelected,
   });
 
   const isLoading =
@@ -506,11 +518,19 @@ export function DashboardScreen() {
             <h3 className="dashboard-section-title">Quick overview</h3>
             <div className="dashboard-quick-overview__row">
               <span style={{ color: 'var(--text-muted)' }}>PRs in queue</span>
-              <span>—</span>
+              <span>{quickOverview.data?.prs_in_queue ?? '—'}</span>
             </div>
             <div className="dashboard-quick-overview__row">
               <span style={{ color: 'var(--text-muted)' }}>Median CI pipeline duration</span>
-              <span>—</span>
+              <span>
+                {quickOverview.data?.median_ci_duration_seconds != null
+                  ? quickOverview.data.median_ci_duration_seconds < 60
+                    ? `${Math.round(quickOverview.data.median_ci_duration_seconds)}s`
+                    : quickOverview.data.median_ci_duration_seconds < 3600
+                      ? `${Math.round(quickOverview.data.median_ci_duration_seconds / 60)}m`
+                      : `${(quickOverview.data.median_ci_duration_seconds / 3600).toFixed(1)}h`
+                  : '—'}
+              </span>
             </div>
           </div>
         </div>
