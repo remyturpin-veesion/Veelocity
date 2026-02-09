@@ -63,7 +63,7 @@ def get_pagination_params(
 ) -> PaginationParams:
     """
     FastAPI dependency for pagination parameters.
-    
+
     Enforces:
     - page >= 1
     - 1 <= limit <= MAX_LIMIT (guard rail)

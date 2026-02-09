@@ -60,7 +60,7 @@ async def trigger_sync(
 ):
     """
     Trigger sync of all connectors.
-    
+
     By default, performs incremental sync (only new/updated data).
     Use ?full=true for a complete resync of all data.
     """
@@ -126,8 +126,12 @@ async def get_sync_state(db: AsyncSession = Depends(get_db)):
     return [
         {
             "connector": state.connector_name,
-            "last_sync_at": state.last_sync_at.isoformat() if state.last_sync_at else None,
-            "last_full_sync_at": state.last_full_sync_at.isoformat() if state.last_full_sync_at else None,
+            "last_sync_at": (
+                state.last_sync_at.isoformat() if state.last_sync_at else None
+            ),
+            "last_full_sync_at": (
+                state.last_full_sync_at.isoformat() if state.last_full_sync_at else None
+            ),
         }
         for state in states
     ]

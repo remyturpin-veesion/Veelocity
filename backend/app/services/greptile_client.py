@@ -30,7 +30,10 @@ async def list_repositories(
     try:
         async with httpx.AsyncClient(
             base_url=GREPTILE_API_BASE,
-            headers={**_headers(api_key, github_token), "Content-Type": "application/json"},
+            headers={
+                **_headers(api_key, github_token),
+                "Content-Type": "application/json",
+            },
             timeout=15.0,
         ) as client:
             resp = await client.get("/repositories")

@@ -15,7 +15,6 @@ from app.services.metrics.dora import DORAMetricsService
 from app.services.metrics.pr_health import PRHealthService
 from app.services.metrics.reviewer_workload import ReviewerWorkloadService
 
-
 Priority = str  # "high" | "medium" | "low"
 
 

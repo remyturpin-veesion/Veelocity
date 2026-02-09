@@ -35,6 +35,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state when dialog opens
     setError(null);
     setLoading(true);
     Promise.all([getSettings(), getGitHubOAuthStatus()])
@@ -62,6 +63,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     if (connected === '1' || oauthError) {
       const newUrl = window.location.pathname + window.location.hash;
       window.history.replaceState(null, '', newUrl);
+      /* eslint-disable react-hooks/set-state-in-effect -- Intentional: handle OAuth redirect params on dialog open */
       if (oauthError === 'not_configured') {
         setError('GitHub OAuth is not configured on the server (missing client ID/secret).');
       } else if (oauthError === 'encryption_required') {
@@ -70,6 +72,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         setError('GitHub connection failed or was denied.');
       } else if (connected === '1') {
         setError(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
         getSettings().then((data) => {
           setGithubConfigured(data.github_configured ?? false);
           setGithubHasToken(data.github_has_token ?? false);

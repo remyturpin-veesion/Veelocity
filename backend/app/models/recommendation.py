@@ -21,5 +21,9 @@ class RecommendationRun(Base):
     run_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    repo_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # list of int or None for all
-    recommendations: Mapped[list] = mapped_column(JSONB, nullable=False)  # list of recommendation dicts
+    repo_ids: Mapped[list | None] = mapped_column(
+        JSONB, nullable=True
+    )  # list of int or None for all
+    recommendations: Mapped[list] = mapped_column(
+        JSONB, nullable=False
+    )  # list of recommendation dicts

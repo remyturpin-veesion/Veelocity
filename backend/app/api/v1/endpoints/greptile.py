@@ -57,7 +57,9 @@ async def greptile_status(db: AsyncSession = Depends(get_db)):
             "valid": False,
             "message": "API key may be invalid or expired. Check Settings.",
         }
-    repos = await list_repositories(creds.greptile_api_key, github_token=creds.github_token)
+    repos = await list_repositories(
+        creds.greptile_api_key, github_token=creds.github_token
+    )
     count = len(repos) if repos is not None else 0
     return {
         "connected": True,
@@ -109,7 +111,10 @@ async def greptile_overview(
 
     for r in rows:
         info = _repo_to_info(r)
-        if allowed_full_names is not None and (info.get("repository") or "").strip() not in allowed_full_names:
+        if (
+            allowed_full_names is not None
+            and (info.get("repository") or "").strip() not in allowed_full_names
+        ):
             continue
         overview["repositories"].append(info)
         status = (info.get("status") or "unknown") or "unknown"
@@ -141,7 +146,9 @@ async def greptile_metrics(
     db: AsyncSession = Depends(get_db),
     start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
-    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+    repo_ids: list[int] | None = Query(
+        None, description="Filter to these repository IDs"
+    ),
     granularity: str = Query("week", description="Trend granularity: 'day' or 'week'"),
 ):
     """
@@ -250,14 +257,21 @@ async def greptile_debug_fetch_repo(
     for name in name_variants:
         for branch in ("main", "master"):
             repo_id = f"github:{branch}:{name}"
-            data = await greptile_get(creds.greptile_api_key, repo_id, github_token=github_token, return_error=True)
+            data = await greptile_get(
+                creds.greptile_api_key,
+                repo_id,
+                github_token=github_token,
+                return_error=True,
+            )
             is_error = isinstance(data, dict) and "_error" in data
-            results.append({
-                "repo_id": repo_id,
-                "found": not is_error and data is not None,
-                "status": data.get("_error") if is_error else 200,
-                "data": data,
-            })
+            results.append(
+                {
+                    "repo_id": repo_id,
+                    "found": not is_error and data is not None,
+                    "status": data.get("_error") if is_error else 200,
+                    "data": data,
+                }
+            )
 
     return {
         "repo": repo,

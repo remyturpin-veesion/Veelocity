@@ -27,7 +27,10 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 async def _resolve_repos_for_sync(creds) -> list[str]:
     """Resolve org:* patterns in github_repos to a flat repo list."""
-    from app.services.github_repo_resolver import parse_repo_entries, resolve_github_repos
+    from app.services.github_repo_resolver import (
+        parse_repo_entries,
+        resolve_github_repos,
+    )
 
     if not creds.github_token or not (creds.github_repos or "").strip():
         return []
@@ -57,7 +60,7 @@ class RepositoryCoverage(BaseModel):
     newest_commit_date: datetime | None
     oldest_workflow_run_date: datetime | None
     newest_workflow_run_date: datetime | None
-    
+
     @property
     def is_complete(self) -> bool:
         """True if all PRs have their details fetched."""
@@ -88,7 +91,9 @@ class ImportRangeRequest(BaseModel):
     """Request body for force-importing data for a date or date range."""
 
     start_date: str  # YYYY-MM-DD
-    end_date: str | None = None  # YYYY-MM-DD; if omitted, same as start_date (single day)
+    end_date: str | None = (
+        None  # YYYY-MM-DD; if omitted, same as start_date (single day)
+    )
     connector: str = "all"  # "github" | "linear" | "all"
 
 
@@ -112,7 +117,10 @@ async def import_date_range(
         if end < start:
             return {"status": "error", "message": "end_date must be >= start_date"}
     except ValueError as e:
-        return {"status": "error", "message": f"Invalid date format (use YYYY-MM-DD): {e}"}
+        return {
+            "status": "error",
+            "message": f"Invalid date format (use YYYY-MM-DD): {e}",
+        }
 
     # Use start-of-day and end-of-day (naive UTC) for the range
     since = start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -130,9 +138,7 @@ async def import_date_range(
 
         creds = await CredentialsService(db).get_credentials()
         resolved_repos = await _resolve_repos_for_sync(creds)
-        github = create_github_connector(
-            token=creds.github_token, repos=resolved_repos
-        )
+        github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if github:
             try:
                 sync_service = SyncService(db, github)
@@ -273,10 +279,10 @@ async def trigger_fill_details(
 ) -> dict:
     """
     Trigger a batch of PR details sync (reviews, comments, commits).
-    
+
     Args:
         batch_size: Number of PRs to process (default 100)
-    
+
     Call this repeatedly to gradually fill all PR details.
     """
     from app.services.scheduler import run_fill_details
@@ -306,8 +312,9 @@ async def get_sync_status(
     total_prs = total_prs_result.scalar() or 0
 
     prs_with_details_result = await db.execute(
-        select(func.count(PullRequest.id))
-        .where(PullRequest.details_synced_at.isnot(None))
+        select(func.count(PullRequest.id)).where(
+            PullRequest.details_synced_at.isnot(None)
+        )
     )
     prs_with_details = prs_with_details_result.scalar() or 0
 
@@ -332,12 +339,14 @@ async def get_sync_status(
         )
         repo_with_details = repo_with_details_result.scalar() or 0
 
-        repos_status.append({
-            "name": repo.full_name,
-            "total_prs": repo_total,
-            "with_details": repo_with_details,
-            "without_details": repo_total - repo_with_details,
-        })
+        repos_status.append(
+            {
+                "name": repo.full_name,
+                "total_prs": repo_total,
+                "with_details": repo_with_details,
+                "without_details": repo_total - repo_with_details,
+            }
+        )
 
     # Linear teams progression: per-team counts from DB only (not from Linear API).
     # total_issues = issues synced in app for this team; linked_issues = those with a linked PR (for cycle time).
@@ -356,12 +365,14 @@ async def get_sync_status(
             .where(LinearIssue.linked_pr_id.isnot(None))
         )
         linked_issues = linked_result.scalar() or 0
-        linear_teams_status.append({
-            "name": team.name,
-            "key": team.key,
-            "total_issues": total_issues,
-            "linked_issues": linked_issues,
-        })
+        linear_teams_status.append(
+            {
+                "name": team.name,
+                "key": team.key,
+                "total_issues": total_issues,
+                "linked_issues": linked_issues,
+            }
+        )
 
     from app.services.scheduler import get_sync_job_state
     from app.services.credentials import CredentialsService
@@ -379,6 +390,7 @@ async def get_sync_status(
         cursor_connected = True
         try:
             from app.services.cursor_client import get_team_members
+
             members = await get_team_members(creds.cursor_api_key)
             if members and members.get("teamMembers"):
                 cursor_team_members_count = len(members["teamMembers"])
@@ -388,7 +400,10 @@ async def get_sync_status(
         greptile_connected = True
         try:
             from app.services.greptile_client import list_repositories
-            repos = await list_repositories(creds.greptile_api_key, github_token=creds.github_token)
+
+            repos = await list_repositories(
+                creds.greptile_api_key, github_token=creds.github_token
+            )
             if repos is not None:
                 greptile_repos_count = len(repos)
         except Exception:
@@ -419,11 +434,11 @@ async def fill_all_details(
 ) -> dict:
     """
     Fill details for ALL PRs that need them, processing in batches.
-    
+
     Args:
         batch_size: PRs to process per batch (default 100, = ~300 API calls)
         max_batches: Maximum batches to run (default 200 = 6000 PRs max)
-    
+
     This runs until all PRs have details or max_batches is reached.
     Rate limiter is reset between batches to avoid hitting limits.
     """
@@ -434,26 +449,28 @@ async def fill_all_details(
     from app.models.github import PullRequest, Repository
     from app.services.credentials import CredentialsService
     from app.services.sync import SyncService
-    
+
     logger = logging.getLogger(__name__)
-    
+
     creds = await CredentialsService(db).get_credentials()
     resolved_repos = await _resolve_repos_for_sync(creds)
     total_items_synced = 0
     total_prs_processed = 0
     batches_run = 0
-    
+
     try:
         while batches_run < max_batches:
             # Create fresh connector for each batch (resets rate limiter)
-            github = create_github_connector(token=creds.github_token, repos=resolved_repos)
+            github = create_github_connector(
+                token=creds.github_token, repos=resolved_repos
+            )
             if not github:
                 return {"status": "error", "message": "GitHub connector not configured"}
-            
+
             # Reset rate limiter for this batch
             rate_limiter = get_rate_limiter()
             rate_limiter.reset()
-            
+
             # Find PRs without details_synced_at (not yet processed)
             prs_without_details = await db.execute(
                 select(PullRequest, Repository)
@@ -463,64 +480,78 @@ async def fill_all_details(
                 .limit(batch_size)
             )
             prs_to_process = prs_without_details.all()
-            
+
             if not prs_to_process:
                 await github.close()
                 logger.info("All PRs have details - sync complete!")
                 break
-            
+
             # Count remaining
             remaining_result = await db.execute(
-                select(func.count(PullRequest.id))
-                .where(PullRequest.details_synced_at.is_(None))
+                select(func.count(PullRequest.id)).where(
+                    PullRequest.details_synced_at.is_(None)
+                )
             )
             remaining = remaining_result.scalar() or 0
-            
-            logger.info(f"Batch {batches_run + 1}: processing {len(prs_to_process)} PRs ({remaining} remaining)")
-            
+
+            logger.info(
+                f"Batch {batches_run + 1}: processing {len(prs_to_process)} PRs ({remaining} remaining)"
+            )
+
             sync_service = SyncService(db, github)
             batch_prs = 0
-            
+
             for pr, repo in prs_to_process:
                 try:
                     reviews = await github.fetch_reviews(repo.full_name, pr.number)
-                    total_items_synced += await sync_service._upsert_reviews(pr.id, reviews)
-                    
+                    total_items_synced += await sync_service._upsert_reviews(
+                        pr.id, reviews
+                    )
+
                     comments = await github.fetch_comments(repo.full_name, pr.number)
-                    total_items_synced += await sync_service._upsert_comments(pr.id, comments)
-                    
+                    total_items_synced += await sync_service._upsert_comments(
+                        pr.id, comments
+                    )
+
                     commits = await github.fetch_pr_commits(repo.full_name, pr.number)
-                    total_items_synced += await sync_service._upsert_commits(repo.id, pr.id, commits)
-                    
+                    total_items_synced += await sync_service._upsert_commits(
+                        repo.id, pr.id, commits
+                    )
+
                     # Mark PR as processed
                     pr.details_synced_at = datetime.utcnow()
-                    
+
                     total_prs_processed += 1
                     batch_prs += 1
                 except Exception as e:
                     logger.warning(f"Failed PR #{pr.number}: {e}")
                     continue
-            
+
             await db.commit()
             await github.close()
             batches_run += 1
-            
+
             stats = rate_limiter.get_stats()
             logger.info(
                 f"Batch {batches_run} complete: {batch_prs} PRs, "
                 f"{stats['calls_made']} API calls"
             )
-        
+
         # Get final status
         remaining_result = await db.execute(
-            select(func.count(PullRequest.id))
-            .where(PullRequest.details_synced_at.is_(None))
+            select(func.count(PullRequest.id)).where(
+                PullRequest.details_synced_at.is_(None)
+            )
         )
         still_remaining = remaining_result.scalar() or 0
-        
+
         return {
             "status": "success",
-            "message": "Fill complete" if still_remaining == 0 else f"Processed {max_batches} batches, {still_remaining} PRs remaining",
+            "message": (
+                "Fill complete"
+                if still_remaining == 0
+                else f"Processed {max_batches} batches, {still_remaining} PRs remaining"
+            ),
             "batches_run": batches_run,
             "prs_processed": total_prs_processed,
             "items_synced": total_items_synced,
@@ -540,21 +571,36 @@ async def _get_github_and_repo(repo_name: str, db: AsyncSession):
     resolved_repos = await _resolve_repos_for_sync(creds)
     github = create_github_connector(token=creds.github_token, repos=resolved_repos)
     if not github:
-        return None, None, {"status": "error", "message": "GitHub connector not configured"}
+        return (
+            None,
+            None,
+            {"status": "error", "message": "GitHub connector not configured"},
+        )
 
     if repo_name not in github._repos:
         await github.close()
-        return None, None, {
-            "status": "error",
-            "message": f"Repo '{repo_name}' not in configured repos: {github._repos}",
-        }
+        return (
+            None,
+            None,
+            {
+                "status": "error",
+                "message": f"Repo '{repo_name}' not in configured repos: {github._repos}",
+            },
+        )
 
     repos = await github.fetch_repos()
     repo_data = next((r for r in repos if r["full_name"] == repo_name), None)
-    
+
     if not repo_data:
         await github.close()
-        return None, None, {"status": "error", "message": f"Could not fetch repo '{repo_name}' from GitHub"}
+        return (
+            None,
+            None,
+            {
+                "status": "error",
+                "message": f"Could not fetch repo '{repo_name}' from GitHub",
+            },
+        )
 
     return github, repo_data, None
 
@@ -566,7 +612,7 @@ async def sync_repo_pull_requests(
 ) -> dict:
     """
     Sync pull requests only for a repository (fast).
-    
+
     Example: POST /api/v1/sync/repos/veesion-io/Furious/pull-requests
     """
     from app.services.sync import SyncService
@@ -578,10 +624,16 @@ async def sync_repo_pull_requests(
     try:
         sync_service = SyncService(db, github)
         await sync_service._upsert_repos([repo_data])
-        count = await sync_service._sync_single_repo(repo_data, since=None, fetch_details=False)
+        count = await sync_service._sync_single_repo(
+            repo_data, since=None, fetch_details=False
+        )
         await db.commit()
         await github.close()
-        return {"status": "success", "message": f"Synced PRs for {repo_name}", "items_synced": count}
+        return {
+            "status": "success",
+            "message": f"Synced PRs for {repo_name}",
+            "items_synced": count,
+        }
     except Exception as e:
         try:
             await github.close()
@@ -599,11 +651,11 @@ async def sync_repo_commits(
 ) -> dict:
     """
     Sync commits for a batch of PRs in a repository.
-    
+
     Args:
         offset: Start from this PR index (for pagination)
         limit: Number of PRs to process (default 50)
-    
+
     Example: POST /api/v1/sync/repos/veesion-io/Furious/commits?offset=0&limit=50
     """
     from sqlalchemy import select, func
@@ -647,10 +699,10 @@ async def sync_repo_commits(
 
         await db.commit()
         await github.close()
-        
+
         next_offset = offset + len(prs)
         has_more = next_offset < total_prs
-        
+
         return {
             "status": "success",
             "message": f"Synced commits for {repo_name}",
@@ -678,11 +730,11 @@ async def sync_repo_reviews(
 ) -> dict:
     """
     Sync reviews for a batch of PRs in a repository.
-    
+
     Args:
         offset: Start from this PR index (for pagination)
         limit: Number of PRs to process (default 50)
-    
+
     Example: POST /api/v1/sync/repos/veesion-io/Furious/reviews?offset=0&limit=50
     """
     from sqlalchemy import select, func
@@ -724,10 +776,10 @@ async def sync_repo_reviews(
 
         await db.commit()
         await github.close()
-        
+
         next_offset = offset + len(prs)
         has_more = next_offset < total_prs
-        
+
         return {
             "status": "success",
             "message": f"Synced reviews for {repo_name}",
@@ -755,11 +807,11 @@ async def sync_repo_comments(
 ) -> dict:
     """
     Sync comments for a batch of PRs in a repository.
-    
+
     Args:
         offset: Start from this PR index (for pagination)
         limit: Number of PRs to process (default 50)
-    
+
     Example: POST /api/v1/sync/repos/veesion-io/Furious/comments?offset=0&limit=50
     """
     from sqlalchemy import select, func
@@ -801,10 +853,10 @@ async def sync_repo_comments(
 
         await db.commit()
         await github.close()
-        
+
         next_offset = offset + len(prs)
         has_more = next_offset < total_prs
-        
+
         return {
             "status": "success",
             "message": f"Synced comments for {repo_name}",
@@ -830,7 +882,7 @@ async def sync_repo_all(
 ) -> dict:
     """
     Full sync for a repository (PRs + details).
-    
+
     Example: POST /api/v1/sync/repos/veesion-io/Furious/all
     """
     from app.services.sync import SyncService
@@ -842,10 +894,16 @@ async def sync_repo_all(
     try:
         sync_service = SyncService(db, github)
         await sync_service._upsert_repos([repo_data])
-        count = await sync_service._sync_single_repo(repo_data, since=None, fetch_details=True)
+        count = await sync_service._sync_single_repo(
+            repo_data, since=None, fetch_details=True
+        )
         await db.commit()
         await github.close()
-        return {"status": "success", "message": f"Full sync for {repo_name}", "items_synced": count}
+        return {
+            "status": "success",
+            "message": f"Full sync for {repo_name}",
+            "items_synced": count,
+        }
     except Exception as e:
         try:
             await github.close()
@@ -875,7 +933,7 @@ async def get_sync_diagnostic(
 ) -> SyncDiagnosticResponse:
     """
     Test GitHub API connectivity for each configured repo.
-    
+
     This helps diagnose why a repo might have no data.
     """
     from app.connectors.factory import create_github_connector
@@ -954,7 +1012,10 @@ async def get_daily_coverage(
     # Build full date range so frontend has a point for every day
     github_map = {row.day: row.count for row in pr_rows}
     github_list = [
-        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=github_map.get(start + timedelta(days=i), 0))
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=github_map.get(start + timedelta(days=i), 0),
+        )
         for i in range((end - start).days + 1)
     ]
 
@@ -970,7 +1031,10 @@ async def get_daily_coverage(
     runs_rows = runs_by_day.all()
     runs_map = {row.day: row.count for row in runs_rows}
     github_actions_list = [
-        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=runs_map.get(start + timedelta(days=i), 0))
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=runs_map.get(start + timedelta(days=i), 0),
+        )
         for i in range((end - start).days + 1)
     ]
 
@@ -986,7 +1050,10 @@ async def get_daily_coverage(
     issues_rows = issues_by_day.all()
     issues_map = {row.day: row.count for row in issues_rows}
     linear_list = [
-        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=issues_map.get(start + timedelta(days=i), 0))
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=issues_map.get(start + timedelta(days=i), 0),
+        )
         for i in range((end - start).days + 1)
     ]
 
@@ -1000,14 +1067,19 @@ async def get_daily_coverage(
     cursor_dates = {row.day for row in cursor_by_day.all()}
     cursor_map = {d: 1 for d in cursor_dates}
     cursor_list = [
-        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=cursor_map.get(start + timedelta(days=i), 0))
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=cursor_map.get(start + timedelta(days=i), 0),
+        )
         for i in range((end - start).days + 1)
     ]
 
     # Greptile: indexed repos per day (by synced_at date)
     greptile_date = cast(GreptileRepository.synced_at, Date)
     greptile_by_day = await db.execute(
-        select(greptile_date.label("day"), func.count(GreptileRepository.id).label("count"))
+        select(
+            greptile_date.label("day"), func.count(GreptileRepository.id).label("count")
+        )
         .where(greptile_date >= start)
         .where(greptile_date <= end)
         .group_by(greptile_date)
@@ -1016,7 +1088,10 @@ async def get_daily_coverage(
     greptile_rows = greptile_by_day.all()
     greptile_map = {row.day: row.count for row in greptile_rows}
     greptile_list = [
-        DailyCountItem(date=(start + timedelta(days=i)).isoformat(), count=greptile_map.get(start + timedelta(days=i), 0))
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=greptile_map.get(start + timedelta(days=i), 0),
+        )
         for i in range((end - start).days + 1)
     ]
 
@@ -1063,7 +1138,9 @@ async def get_sync_coverage(
                 connector_name="cursor",
                 display_name="Cursor",
                 last_sync_at=cursor_state.last_sync_at if cursor_state else None,
-                last_full_sync_at=cursor_state.last_full_sync_at if cursor_state else None,
+                last_full_sync_at=(
+                    cursor_state.last_full_sync_at if cursor_state else None
+                ),
             )
         )
     # Add Greptile when configured (may not have a SyncState row yet)
@@ -1076,7 +1153,9 @@ async def get_sync_coverage(
                 connector_name="greptile",
                 display_name="Greptile",
                 last_sync_at=greptile_state.last_sync_at if greptile_state else None,
-                last_full_sync_at=greptile_state.last_full_sync_at if greptile_state else None,
+                last_full_sync_at=(
+                    greptile_state.last_full_sync_at if greptile_state else None
+                ),
             )
         )
 
@@ -1088,7 +1167,7 @@ async def get_sync_coverage(
     total_prs = 0
     total_commits = 0
     total_runs = 0
-    
+
     for repo in repos:
         # Count PRs and get date range
         pr_stats = await db.execute(
@@ -1099,7 +1178,7 @@ async def get_sync_coverage(
             ).where(PullRequest.repo_id == repo.id)
         )
         pr_count, oldest_pr, newest_pr = pr_stats.one()
-        
+
         # Count PRs with details (have details_synced_at)
         prs_with_details_result = await db.execute(
             select(func.count(PullRequest.id))
@@ -1184,14 +1263,16 @@ async def get_sync_coverage(
 
     # Count unique developers (based on PR authors and commit authors)
     unique_developers = set()
-    
+
     # Get unique PR authors
     pr_authors_result = await db.execute(
-        select(PullRequest.author_login).distinct().where(PullRequest.author_login.isnot(None))
+        select(PullRequest.author_login)
+        .distinct()
+        .where(PullRequest.author_login.isnot(None))
     )
     pr_authors = pr_authors_result.scalars().all()
     unique_developers.update(pr_authors)
-    
+
     # Get unique commit authors
     commit_authors_result = await db.execute(
         select(Commit.author_login).distinct().where(Commit.author_login.isnot(None))

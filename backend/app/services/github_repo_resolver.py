@@ -114,9 +114,7 @@ async def resolve_github_repos(token: str, repos_raw: str) -> list[str]:
         for org in orgs:
             try:
                 org_repos = await _fetch_org_repos(client, org)
-                logger.info(
-                    "Resolved org:%s → %d repositories", org, len(org_repos)
-                )
+                logger.info("Resolved org:%s → %d repositories", org, len(org_repos))
                 for repo in org_repos:
                     key = repo.lower()
                     if key not in seen:

@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import { AppShell } from '@/components/AppShell.js';
+import { lazy } from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { ShellLayout } from '@/components/ShellLayout.js';
 
 // Lazy-load screens to reduce initial bundle and memory (helps avoid "Aw, Snap!" / Error code: 5)
 const DashboardScreen = lazy(() => import('@/screens/DashboardScreen.js').then((m) => ({ default: m.DashboardScreen })));
@@ -29,31 +29,6 @@ const ReviewerWorkloadScreen = lazy(() => import('@/screens/metrics/ReviewerWork
 const LinearIssuesCompletedScreen = lazy(() => import('@/screens/metrics/LinearIssuesCompletedScreen.js').then((m) => ({ default: m.LinearIssuesCompletedScreen })));
 const LinearBacklogScreen = lazy(() => import('@/screens/metrics/LinearBacklogScreen.js').then((m) => ({ default: m.LinearBacklogScreen })));
 const LinearTimeInStateScreen = lazy(() => import('@/screens/metrics/LinearTimeInStateScreen.js').then((m) => ({ default: m.LinearTimeInStateScreen })));
-
-function ShellLayout() {
-  return (
-    <AppShell>
-      <Suspense
-        fallback={
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 200,
-              color: 'var(--color-text-muted, #94a3b8)',
-            }}
-          >
-            Loading…
-          </div>
-        }
-      >
-        <Outlet />
-      </Suspense>
-    </AppShell>
-  );
-}
 
 export const router = createBrowserRouter([
   {

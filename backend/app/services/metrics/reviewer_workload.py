@@ -45,7 +45,9 @@ class WorkloadSummary:
     avg_reviews_per_reviewer: float
     max_reviews: int
     min_reviews: int
-    gini_coefficient: float  # Measure of inequality (0 = perfect equality, 1 = total inequality)
+    gini_coefficient: (
+        float  # Measure of inequality (0 = perfect equality, 1 = total inequality)
+    )
     has_bottleneck: bool
     bottleneck_reviewers: list[str]
 
@@ -93,13 +95,17 @@ class ReviewerWorkloadService:
             .group_by(PRReview.reviewer_login)
         )
 
-        ids = repo_ids if repo_ids is not None else ([repo_id] if repo_id is not None else None)
+        ids = (
+            repo_ids
+            if repo_ids is not None
+            else ([repo_id] if repo_id is not None else None)
+        )
         if ids is not None:
             from app.models.github import PullRequest
 
-            query = query.join(
-                PullRequest, PRReview.pr_id == PullRequest.id
-            ).where(PullRequest.repo_id.in_(ids))
+            query = query.join(PullRequest, PRReview.pr_id == PullRequest.id).where(
+                PullRequest.repo_id.in_(ids)
+            )
 
         result = await self.db.execute(query)
         rows = result.all()

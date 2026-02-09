@@ -32,10 +32,10 @@ class GitHubConnector(BaseConnector):
         """Make a rate-limited GET request."""
         await self._rate_limiter.acquire()
         response = await self._client.get(path, **kwargs)
-        
+
         # Update rate limiter with GitHub's actual rate limit info
         self._update_rate_limit_from_response(response)
-        
+
         return response
 
     def _update_rate_limit_from_response(self, response: httpx.Response) -> None:
@@ -43,13 +43,13 @@ class GitHubConnector(BaseConnector):
         remaining_str = response.headers.get("x-ratelimit-remaining")
         reset_str = response.headers.get("x-ratelimit-reset")
         limit_str = response.headers.get("x-ratelimit-limit")
-        
+
         remaining = int(remaining_str) if remaining_str else None
         reset_timestamp = int(reset_str) if reset_str else None
         limit = int(limit_str) if limit_str else None
-        
+
         self._rate_limiter.update_from_github_headers(remaining, reset_timestamp, limit)
-        
+
         # Log when approaching limit (for visibility)
         if remaining is not None and remaining < 100:
             logger.warning(f"GitHub API rate limit low: {remaining} remaining")
@@ -71,12 +71,14 @@ class GitHubConnector(BaseConnector):
             response = await self._get(f"/repos/{repo_full_name}")
             if response.status_code == 200:
                 data = response.json()
-                repos.append({
-                    "github_id": data["id"],
-                    "name": data["name"],
-                    "full_name": data["full_name"],
-                    "default_branch": data.get("default_branch", "main"),
-                })
+                repos.append(
+                    {
+                        "github_id": data["id"],
+                        "name": data["name"],
+                        "full_name": data["full_name"],
+                        "default_branch": data.get("default_branch", "main"),
+                    }
+                )
         return repos
 
     async def fetch_pull_requests(
@@ -101,7 +103,13 @@ class GitHubConnector(BaseConnector):
         page = 1
 
         while True:
-            params = {"state": state, "per_page": per_page, "page": page, "sort": "updated", "direction": "desc"}
+            params = {
+                "state": state,
+                "per_page": per_page,
+                "page": page,
+                "sort": "updated",
+                "direction": "desc",
+            }
 
             try:
                 response = await self._get(
@@ -128,45 +136,51 @@ class GitHubConnector(BaseConnector):
 
                 # If we have a since filter, check if this PR is older
                 if since:
-                    since_aware = since if since.tzinfo else since.replace(tzinfo=updated.tzinfo)
+                    since_aware = (
+                        since if since.tzinfo else since.replace(tzinfo=updated.tzinfo)
+                    )
                     if updated < since_aware:
                         found_old_pr = True
                         continue  # Skip PRs not updated since last sync
 
                 # If we have an until filter, skip PRs updated after that time
                 if until:
-                    until_aware = until if until.tzinfo else until.replace(tzinfo=updated.tzinfo)
+                    until_aware = (
+                        until if until.tzinfo else until.replace(tzinfo=updated.tzinfo)
+                    )
                     if updated > until_aware:
                         continue
 
-                prs.append({
-                    "github_id": pr["id"],
-                    "number": pr["number"],
-                    "title": pr["title"],
-                    "body": pr.get("body"),
-                    "state": pr["state"],
-                    "draft": pr.get("draft", False),
-                    "author_login": pr["user"]["login"],
-                    "author_avatar": pr["user"].get("avatar_url"),
-                    "created_at": pr["created_at"],
-                    "updated_at": pr["updated_at"],
-                    "merged_at": pr.get("merged_at"),
-                    "closed_at": pr.get("closed_at"),
-                    "additions": pr.get("additions", 0),
-                    "deletions": pr.get("deletions", 0),
-                    "commits_count": pr.get("commits", 0),
-                })
-            
+                prs.append(
+                    {
+                        "github_id": pr["id"],
+                        "number": pr["number"],
+                        "title": pr["title"],
+                        "body": pr.get("body"),
+                        "state": pr["state"],
+                        "draft": pr.get("draft", False),
+                        "author_login": pr["user"]["login"],
+                        "author_avatar": pr["user"].get("avatar_url"),
+                        "created_at": pr["created_at"],
+                        "updated_at": pr["updated_at"],
+                        "merged_at": pr.get("merged_at"),
+                        "closed_at": pr.get("closed_at"),
+                        "additions": pr.get("additions", 0),
+                        "deletions": pr.get("deletions", 0),
+                        "commits_count": pr.get("commits", 0),
+                    }
+                )
+
             # If we found an old PR and have since filter, stop paginating
             if found_old_pr and since:
                 break
-            
+
             page += 1
-            
+
             # Safety limit to avoid infinite loops
             if page > 50:
                 break
-                
+
         return prs
 
     async def fetch_pull_request_details(
@@ -269,9 +283,8 @@ class GitHubConnector(BaseConnector):
         return [
             {
                 "sha": commit["sha"],
-                "author_login": (
-                    commit.get("author") or {}
-                ).get("login") or commit["commit"]["author"].get("name", "unknown"),
+                "author_login": (commit.get("author") or {}).get("login")
+                or commit["commit"]["author"].get("name", "unknown"),
                 "message": commit["commit"]["message"],
                 "committed_at": commit["commit"]["author"]["date"],
             }
@@ -281,7 +294,7 @@ class GitHubConnector(BaseConnector):
     async def sync_all(self, db, fetch_details: bool = True) -> SyncResult:
         """
         Full sync of all repositories.
-        
+
         Args:
             db: Database session
             fetch_details: If True, fetch reviews/comments/commits (slow).
@@ -290,11 +303,12 @@ class GitHubConnector(BaseConnector):
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []
-        
+
         # Reset rate limiter for new sync session
         self._rate_limiter.reset()
-        
+
         from app.services.sync import SyncService
+
         sync_service = SyncService(db, self)
         try:
             items_synced = await sync_service.sync_all(fetch_details=fetch_details)
@@ -303,11 +317,13 @@ class GitHubConnector(BaseConnector):
             logger.error(f"Sync stopped due to rate limit: {e}")
         except Exception as e:
             errors.append(str(e))
-        
+
         # Log rate limiter stats
         stats = self._rate_limiter.get_stats()
-        logger.info(f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}")
-        
+        logger.info(
+            f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}"
+        )
+
         return SyncResult(
             connector_name=self.name,
             started_at=started_at,
@@ -319,17 +335,18 @@ class GitHubConnector(BaseConnector):
     async def sync_recent(self, db, since: datetime | None = None) -> SyncResult:
         """
         Incremental sync using last_sync_at from database.
-        
+
         If since is provided, uses that. Otherwise uses stored last_sync_at.
         """
         started_at = datetime.now(timezone.utc)
         items_synced = 0
         errors = []
-        
+
         # Reset rate limiter for new sync session
         self._rate_limiter.reset()
-        
+
         from app.services.sync import SyncService
+
         sync_service = SyncService(db, self)
         try:
             items_synced = await sync_service.sync_recent(since)
@@ -338,11 +355,13 @@ class GitHubConnector(BaseConnector):
             logger.error(f"Sync stopped due to rate limit: {e}")
         except Exception as e:
             errors.append(str(e))
-        
+
         # Log rate limiter stats
         stats = self._rate_limiter.get_stats()
-        logger.info(f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}")
-        
+        logger.info(
+            f"Sync complete. API calls: {stats['calls_made']}/{stats['max_per_sync']}"
+        )
+
         return SyncResult(
             connector_name=self.name,
             started_at=started_at,

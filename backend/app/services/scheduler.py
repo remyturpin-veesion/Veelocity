@@ -80,7 +80,7 @@ async def _get_repos_without_data(db) -> list[str]:
     # Get all repos
     repos_result = await db.execute(select(Repository))
     repos = repos_result.scalars().all()
-    
+
     repos_without_data = []
     for repo in repos:
         # Check if repo has any PRs
@@ -88,10 +88,10 @@ async def _get_repos_without_data(db) -> list[str]:
             select(func.count(PullRequest.id)).where(PullRequest.repo_id == repo.id)
         )
         pr_count = pr_count_result.scalar() or 0
-        
+
         if pr_count == 0:
             repos_without_data.append(repo.full_name)
-    
+
     return repos_without_data
 
 
@@ -99,7 +99,7 @@ async def _sync_connector_safe(connector, db, method: str = "sync_recent"):
     """Sync a connector with error handling - doesn't fail if one connector errors."""
     if not connector:
         return 0, []
-    
+
     try:
         if method == "sync_all":
             result = await connector.sync_all(db, fetch_details=True)
@@ -107,7 +107,7 @@ async def _sync_connector_safe(connector, db, method: str = "sync_recent"):
             result = await connector.sync_all(db, fetch_details=False)
         else:
             result = await connector.sync_recent(db)
-        
+
         await connector.close()
         return result.items_synced, result.errors
     except Exception as e:
@@ -136,7 +136,10 @@ async def run_sync():
 
 async def _resolve_repos(creds) -> list[str]:
     """Resolve org:* patterns in github_repos to a flat repo list."""
-    from app.services.github_repo_resolver import parse_repo_entries, resolve_github_repos
+    from app.services.github_repo_resolver import (
+        parse_repo_entries,
+        resolve_github_repos,
+    )
 
     if not creds.github_token or not (creds.github_repos or "").strip():
         logger.debug("No GitHub token or repos configured — nothing to resolve")
@@ -222,7 +225,9 @@ async def _run_sync_impl():
             token=creds.github_token, repos=resolved_repos
         )
         if github_actions:
-            items, errors = await _sync_connector_safe(github_actions, db, "sync_recent")
+            items, errors = await _sync_connector_safe(
+                github_actions, db, "sync_recent"
+            )
             total_items += items
             total_errors.extend(errors)
             logger.info(f"GitHub Actions sync: {items} items")
@@ -279,6 +284,7 @@ async def run_cursor_sync():
                 return
             try:
                 from app.services.sync_cursor import sync_cursor
+
                 items = await sync_cursor(db, creds.cursor_api_key)
                 await db.commit()
                 logger.info("Cursor sync: %s items", items)
@@ -301,6 +307,7 @@ async def run_greptile_sync():
                 return
             try:
                 from app.services.sync_greptile import sync_greptile
+
                 items = await sync_greptile(db, creds.greptile_api_key)
                 await db.commit()
                 logger.info("Greptile sync: %s repos", items)
@@ -314,7 +321,7 @@ async def run_greptile_sync():
 async def run_full_sync():
     """
     Run full sync for all connectors with pagination.
-    
+
     Use this for initial sync or to recover from issues.
     Processes PRs in batches to avoid timeouts.
     """
@@ -370,6 +377,7 @@ async def _run_full_sync_impl():
         if creds.cursor_api_key:
             try:
                 from app.services.sync_cursor import sync_cursor
+
                 cursor_items = await sync_cursor(db, creds.cursor_api_key)
                 total_items += cursor_items
                 await db.commit()
@@ -379,6 +387,7 @@ async def _run_full_sync_impl():
         if creds.greptile_api_key:
             try:
                 from app.services.sync_greptile import sync_greptile
+
                 greptile_items = await sync_greptile(db, creds.greptile_api_key)
                 total_items += greptile_items
                 await db.commit()
@@ -386,7 +395,9 @@ async def _run_full_sync_impl():
             except Exception as e:
                 logger.error("Greptile sync failed: %s", e)
 
-        logger.info(f"Full sync complete: {total_items} items (details will be filled gradually)")
+        logger.info(
+            f"Full sync complete: {total_items} items (details will be filled gradually)"
+        )
 
 
 async def run_fill_details(batch_size: int = 100):
@@ -434,56 +445,60 @@ async def _run_fill_details_impl(batch_size: int):
             }
             for row in prs_without_details.all()
         ]
-        
+
         if not prs_to_process:
             logger.debug("No PRs need details filled")
             return
-        
+
         # Count total remaining
         total_remaining_result = await db.execute(
-            select(func.count(PullRequest.id))
-            .where(PullRequest.details_synced_at.is_(None))
+            select(func.count(PullRequest.id)).where(
+                PullRequest.details_synced_at.is_(None)
+            )
         )
         total_remaining = total_remaining_result.scalar() or 0
-        
+
         logger.info(
             f"Filling details for {len(prs_to_process)} PRs "
             f"({total_remaining} total remaining)"
         )
-        
+
         creds = await CredentialsService(db).get_credentials()
         resolved_repos = await _resolve_repos(creds)
         github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if not github:
             return
-        
+
         # Reset rate limiter for this batch
         rate_limiter = get_rate_limiter()
         rate_limiter.reset()
-        
+
         from app.services.sync import SyncService
+
         sync_service = SyncService(db, github)
-        
+
         items_synced = 0
         prs_processed = 0
-        
+
         for pr_data in prs_to_process:
             pr_id = pr_data["pr_id"]
             pr_number = pr_data["pr_number"]
             repo_id = pr_data["repo_id"]
             repo_full_name = pr_data["repo_full_name"]
-            
+
             try:
                 # Fetch all details for this PR
                 reviews = await github.fetch_reviews(repo_full_name, pr_number)
                 items_synced += await sync_service._upsert_reviews(pr_id, reviews)
-                
+
                 comments = await github.fetch_comments(repo_full_name, pr_number)
                 items_synced += await sync_service._upsert_comments(pr_id, comments)
-                
+
                 commits = await github.fetch_pr_commits(repo_full_name, pr_number)
-                items_synced += await sync_service._upsert_commits(repo_id, pr_id, commits)
-                
+                items_synced += await sync_service._upsert_commits(
+                    repo_id, pr_id, commits
+                )
+
                 # List-pulls does not return additions/deletions; fetch single PR
                 details = await github.fetch_pull_request_details(
                     repo_full_name, pr_number
@@ -493,20 +508,20 @@ async def _run_fill_details_impl(batch_size: int):
                     update_values["additions"] = details.get("additions", 0)
                     update_values["deletions"] = details.get("deletions", 0)
                     update_values["commits_count"] = details.get("commits_count", 0)
-                
+
                 await db.execute(
                     update(PullRequest)
                     .where(PullRequest.id == pr_id)
                     .values(**update_values)
                 )
-                
+
                 prs_processed += 1
                 await db.commit()
             except Exception as e:
                 logger.warning(f"Failed to fill details for PR #{pr_number}: {e}")
                 await db.rollback()
                 continue
-        
+
         # Backfill additions/deletions for PRs that were detail-synced before we stored them
         backfill_result = await db.execute(
             select(
@@ -529,7 +544,9 @@ async def _run_fill_details_impl(batch_size: int):
                 details = await github.fetch_pull_request_details(
                     pr_data["repo_full_name"], pr_data["pr_number"]
                 )
-                if details and (details.get("additions", 0) or details.get("deletions", 0)):
+                if details and (
+                    details.get("additions", 0) or details.get("deletions", 0)
+                ):
                     await db.execute(
                         update(PullRequest)
                         .where(PullRequest.id == pr_data["pr_id"])

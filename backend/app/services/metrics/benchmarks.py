@@ -8,7 +8,6 @@ based on 2026 research data (LinearB, DORA State of DevOps, etc.).
 from dataclasses import dataclass
 from typing import Literal
 
-
 BenchmarkCategory = Literal["elite", "high", "medium", "low"]
 
 

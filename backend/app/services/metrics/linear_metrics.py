@@ -96,7 +96,11 @@ class LinearMetricsService:
         ids = self._team_filter(team_id, team_ids)
         if ids is not None:
             query = query.where(LinearIssue.team_id.in_(ids))
-        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+        matching = (
+            await self._get_matching_assignee_names(assignee_name)
+            if assignee_name
+            else None
+        )
         query = self._assignee_filter_sync(query, matching)
 
         result = await self._db.execute(query)
@@ -131,7 +135,11 @@ class LinearMetricsService:
             LinearIssue.canceled_at.is_(None),
         )
         ids = self._team_filter(team_id, team_ids)
-        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+        matching = (
+            await self._get_matching_assignee_names(assignee_name)
+            if assignee_name
+            else None
+        )
 
         # Total count
         query = select(func.count(LinearIssue.id)).where(base_filter)
@@ -163,10 +171,9 @@ class LinearMetricsService:
 
         # By-state breakdown (open issues per workflow state, same filters, ordered)
         ordered_states = await self._get_ordered_workflow_states(ids)
-        state_count_q = (
-            select(LinearIssue.state, func.count(LinearIssue.id).label("count"))
-            .where(base_filter)
-        )
+        state_count_q = select(
+            LinearIssue.state, func.count(LinearIssue.id).label("count")
+        ).where(base_filter)
         if ids is not None:
             state_count_q = state_count_q.where(LinearIssue.team_id.in_(ids))
         state_count_q = self._assignee_filter_sync(state_count_q, matching)
@@ -231,7 +238,11 @@ class LinearMetricsService:
         """
         ids = self._team_filter(team_id, team_ids)
         ordered_states = await self._get_ordered_workflow_states(ids)
-        matching = await self._get_matching_assignee_names(assignee_name) if assignee_name else None
+        matching = (
+            await self._get_matching_assignee_names(assignee_name)
+            if assignee_name
+            else None
+        )
 
         # Issue counts per state (current state)
         count_q = select(LinearIssue.state, func.count(LinearIssue.id))
@@ -265,14 +276,13 @@ class LinearMetricsService:
             }
 
         # Issues completed in the date range (for time-in-state)
-        completed_q = (
-            select(LinearIssue.id, LinearIssue.completed_at, LinearIssue.started_at)
-            .where(
-                and_(
-                    LinearIssue.completed_at.isnot(None),
-                    LinearIssue.completed_at >= start_date,
-                    LinearIssue.completed_at <= end_date,
-                )
+        completed_q = select(
+            LinearIssue.id, LinearIssue.completed_at, LinearIssue.started_at
+        ).where(
+            and_(
+                LinearIssue.completed_at.isnot(None),
+                LinearIssue.completed_at >= start_date,
+                LinearIssue.completed_at <= end_date,
             )
         )
         if ids is not None:
@@ -289,9 +299,7 @@ class LinearMetricsService:
         if completed_ids:
             trans_q = (
                 select(LinearIssueStateTransition)
-                .where(
-                    LinearIssueStateTransition.linear_issue_id.in_(completed_ids)
-                )
+                .where(LinearIssueStateTransition.linear_issue_id.in_(completed_ids))
                 .order_by(
                     LinearIssueStateTransition.linear_issue_id,
                     LinearIssueStateTransition.created_at,
@@ -358,30 +366,34 @@ class LinearMetricsService:
             st = stage_stats.get(name, stats([]))
             # When we have time stats, show number of issues that had time in this state; else current state count
             count = st["count"] if st["count"] > 0 else counts_by_state.get(name, 0)
-            stages.append({
-                "id": slug(name),
-                "label": name,
-                "position": position,
-                "count": count,
-                "min_hours": st["min_hours"],
-                "max_hours": st["max_hours"],
-                "median_hours": st["median_hours"],
-                "average_hours": st["average_hours"],
-            })
-
-        if not stages:
-            for state_name in sorted(counts_by_state.keys()):
-                st = stage_stats.get(state_name, stats([]))
-                stages.append({
-                    "id": slug(state_name),
-                    "label": state_name,
-                    "position": 0.0,
-                    "count": counts_by_state[state_name],
+            stages.append(
+                {
+                    "id": slug(name),
+                    "label": name,
+                    "position": position,
+                    "count": count,
                     "min_hours": st["min_hours"],
                     "max_hours": st["max_hours"],
                     "median_hours": st["median_hours"],
                     "average_hours": st["average_hours"],
-                })
+                }
+            )
+
+        if not stages:
+            for state_name in sorted(counts_by_state.keys()):
+                st = stage_stats.get(state_name, stats([]))
+                stages.append(
+                    {
+                        "id": slug(state_name),
+                        "label": state_name,
+                        "position": 0.0,
+                        "count": counts_by_state[state_name],
+                        "min_hours": st["min_hours"],
+                        "max_hours": st["max_hours"],
+                        "median_hours": st["median_hours"],
+                        "average_hours": st["average_hours"],
+                    }
+                )
 
         return {
             "start_date": start_date.isoformat(),

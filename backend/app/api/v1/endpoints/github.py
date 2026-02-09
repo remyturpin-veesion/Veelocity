@@ -120,9 +120,15 @@ async def get_pr_detail(
     if not pr:
         return {"error": "PR not found"}
 
-    reviews = sorted(pr.reviews, key=lambda r: r.submitted_at or "", reverse=True)[:max_reviews]
-    comments = sorted(pr.comments, key=lambda c: c.created_at or "", reverse=True)[:max_comments]
-    commits = sorted(pr.commits_rel, key=lambda c: c.committed_at or "", reverse=True)[:max_commits]
+    reviews = sorted(pr.reviews, key=lambda r: r.submitted_at or "", reverse=True)[
+        :max_reviews
+    ]
+    comments = sorted(pr.comments, key=lambda c: c.created_at or "", reverse=True)[
+        :max_comments
+    ]
+    commits = sorted(pr.commits_rel, key=lambda c: c.committed_at or "", reverse=True)[
+        :max_commits
+    ]
 
     payload = {
         "id": pr.id,
@@ -142,7 +148,11 @@ async def get_pr_detail(
             else None
         ),
         "reviews": [
-            {"reviewer_login": r.reviewer_login, "state": r.state, "submitted_at": r.submitted_at}
+            {
+                "reviewer_login": r.reviewer_login,
+                "state": r.state,
+                "submitted_at": r.submitted_at,
+            }
             for r in reviews
         ],
         "comments": [
@@ -150,7 +160,12 @@ async def get_pr_detail(
             for c in comments
         ],
         "commits": [
-            {"sha": c.sha, "author_login": c.author_login, "message": c.message, "committed_at": c.committed_at}
+            {
+                "sha": c.sha,
+                "author_login": c.author_login,
+                "message": c.message,
+                "committed_at": c.committed_at,
+            }
             for c in commits
         ],
         "_limits": {

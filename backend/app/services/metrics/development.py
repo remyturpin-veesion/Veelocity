@@ -36,7 +36,7 @@ class DevelopmentMetricsService:
     ) -> dict:
         """
         Calculate PR review time.
-        
+
         Review time = time from PR opened to first review.
         """
         # Get PRs with their first review
@@ -70,10 +70,12 @@ class DevelopmentMetricsService:
         for row in rows:
             if row.first_review and row.pr_created:
                 delta = (row.first_review - row.pr_created).total_seconds()
-                review_times.append({
-                    "pr_id": row.id,
-                    "hours": round(delta / 3600, 2),
-                })
+                review_times.append(
+                    {
+                        "pr_id": row.id,
+                        "hours": round(delta / 3600, 2),
+                    }
+                )
 
         # Calculate statistics
         if review_times:
@@ -103,7 +105,7 @@ class DevelopmentMetricsService:
     ) -> dict:
         """
         Calculate PR merge time.
-        
+
         Merge time = time from PR opened to merged.
         """
         query = select(PullRequest).where(
@@ -128,10 +130,12 @@ class DevelopmentMetricsService:
         for pr in prs:
             if pr.merged_at and pr.created_at:
                 delta = (pr.merged_at - pr.created_at).total_seconds()
-                merge_times.append({
-                    "pr_id": pr.id,
-                    "hours": round(delta / 3600, 2),
-                })
+                merge_times.append(
+                    {
+                        "pr_id": pr.id,
+                        "hours": round(delta / 3600, 2),
+                    }
+                )
 
         # Calculate statistics
         if merge_times:
@@ -188,17 +192,23 @@ class DevelopmentMetricsService:
             if issue.started_at and merged_at:
                 delta = (merged_at - issue.started_at).total_seconds()
                 hours = round(delta / 3600, 2)
-                cycle_times.append({
-                    "issue_id": issue.id,
-                    "identifier": issue.identifier,
-                    "hours": hours,
-                })
+                cycle_times.append(
+                    {
+                        "issue_id": issue.id,
+                        "identifier": issue.identifier,
+                        "hours": hours,
+                    }
+                )
                 if include_breakdown:
                     # Add display fields for breakdown table
                     cycle_times[-1]["title"] = issue.title or ""
                     cycle_times[-1]["url"] = issue.url
-                    cycle_times[-1]["started_at"] = issue.started_at.isoformat() if issue.started_at else None
-                    cycle_times[-1]["merged_at"] = merged_at.isoformat() if merged_at else None
+                    cycle_times[-1]["started_at"] = (
+                        issue.started_at.isoformat() if issue.started_at else None
+                    )
+                    cycle_times[-1]["merged_at"] = (
+                        merged_at.isoformat() if merged_at else None
+                    )
 
         # Calculate statistics
         if cycle_times:
@@ -288,7 +298,7 @@ class DevelopmentMetricsService:
     ) -> dict:
         """
         Calculate throughput.
-        
+
         Throughput = count of PRs merged per period.
         """
         query = select(PullRequest.merged_at).where(

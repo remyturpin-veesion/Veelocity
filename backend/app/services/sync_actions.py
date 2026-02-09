@@ -64,7 +64,7 @@ class SyncActionsService:
     async def sync_recent(self) -> int:
         """
         Incremental sync - fetch only recent runs.
-        
+
         For Actions, we limit the number of pages fetched since runs
         are sorted by date. This effectively gives us recent runs only.
         """
@@ -127,7 +127,9 @@ class SyncActionsService:
             # Use run's actual date (from API) so daily coverage charts show when runs happened, not when we synced
             created_at = _parse_datetime(data.get("created_at"))
             if created_at is None:
-                created_at = _parse_datetime(data.get("started_at")) or _parse_datetime(data.get("completed_at"))
+                created_at = _parse_datetime(data.get("started_at")) or _parse_datetime(
+                    data.get("completed_at")
+                )
 
             run_data = {
                 "github_id": data["github_id"],
@@ -137,7 +139,8 @@ class SyncActionsService:
                 "run_number": data["run_number"],
                 "head_sha": data["head_sha"],
                 "head_branch": data["head_branch"],
-                "created_at": created_at or datetime.utcnow(),  # fallback only if API had no date
+                "created_at": created_at
+                or datetime.utcnow(),  # fallback only if API had no date
                 "started_at": _parse_datetime(data.get("started_at")),
                 "completed_at": _parse_datetime(data.get("completed_at")),
             }

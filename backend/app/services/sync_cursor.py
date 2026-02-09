@@ -144,8 +144,7 @@ async def sync_cursor(db: AsyncSession, api_key: str) -> int:
     spend_data = await get_spend(api_key)
     if spend_data is not None:
         total_cents = sum(
-            m.get("spendCents") or 0
-            for m in (spend_data.get("teamMemberSpend") or [])
+            m.get("spendCents") or 0 for m in (spend_data.get("teamMemberSpend") or [])
         )
         total_members = spend_data.get("totalMembers")
         db.add(
@@ -170,15 +169,27 @@ async def sync_cursor(db: AsyncSession, api_key: str) -> int:
         )
         start_ts = int(
             datetime(
-                chunk_start.year, chunk_start.month, chunk_start.day,
-                0, 0, 0, tzinfo=timezone.utc,
-            ).timestamp() * 1000
+                chunk_start.year,
+                chunk_start.month,
+                chunk_start.day,
+                0,
+                0,
+                0,
+                tzinfo=timezone.utc,
+            ).timestamp()
+            * 1000
         )
         end_ts = int(
             datetime(
-                chunk_end.year, chunk_end.month, chunk_end.day,
-                23, 59, 59, tzinfo=timezone.utc,
-            ).timestamp() * 1000
+                chunk_end.year,
+                chunk_end.month,
+                chunk_end.day,
+                23,
+                59,
+                59,
+                tzinfo=timezone.utc,
+            ).timestamp()
+            * 1000
         )
         usage_data = await get_daily_usage(
             api_key, start_ts, end_ts, use_seconds=use_seconds

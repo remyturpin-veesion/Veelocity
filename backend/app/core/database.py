@@ -7,11 +7,14 @@ from app.core.config import settings
 # echo=False to avoid verbose SQL logging (use echo="debug" for troubleshooting)
 engine = create_async_engine(settings.database_url, echo=False)
 
-async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session_maker = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
+
     pass
 
 

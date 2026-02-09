@@ -36,11 +36,11 @@ class SyncService:
     async def sync_all(self, fetch_details: bool = False) -> int:
         """
         Full sync: repos and PRs. Details (reviews/comments/commits) are optional.
-        
+
         Args:
             fetch_details: If True, also fetch reviews/comments/commits (slow).
                           If False, just fetch PRs (fast initial sync).
-        
+
         Continues even if one repo fails - isolates errors per repo.
         """
         count = 0
@@ -65,7 +65,7 @@ class SyncService:
         # Update sync state
         await self._sync_state.update_last_full_sync(self._connector.name)
         await self._db.commit()
-        
+
         logger.info(f"Full sync complete: {count} items")
         return count
 
@@ -98,11 +98,11 @@ class SyncService:
             since=since,
             until=until,
         )
-        
+
         if not prs:
             logger.debug(f"No PRs to sync for {repo_data['full_name']}")
             return 0
-            
+
         count += await self._upsert_prs(repo.id, prs)
         logger.info(f"  {repo_data['full_name']}: {len(prs)} PRs")
 
@@ -140,15 +140,19 @@ class SyncService:
                     pr.additions = details.get("additions", 0)
                     pr.deletions = details.get("deletions", 0)
                     pr.commits_count = details.get("commits_count", 0)
-                
+
                 # Mark PR as having details synced
                 pr.details_synced_at = datetime.utcnow()
-                
+
                 # Log progress every 50 PRs
                 if (i + 1) % 50 == 0:
-                    logger.info(f"  {repo_data['full_name']}: {i + 1}/{len(prs)} PRs detailed")
+                    logger.info(
+                        f"  {repo_data['full_name']}: {i + 1}/{len(prs)} PRs detailed"
+                    )
             except Exception as e:
-                logger.warning(f"Failed to fetch details for PR #{pr_data['number']}: {e}")
+                logger.warning(
+                    f"Failed to fetch details for PR #{pr_data['number']}: {e}"
+                )
                 continue
 
         return count
@@ -156,7 +160,7 @@ class SyncService:
     async def sync_recent(self, since: datetime | None = None) -> int:
         """
         Incremental sync: only fetch PRs updated since last sync.
-        
+
         If since is not provided, uses last_sync_at from database.
         Falls back to full sync if no previous sync exists.
         Continues even if one repo fails.
@@ -164,14 +168,14 @@ class SyncService:
         # Get last sync time if not provided
         if since is None:
             since = await self._sync_state.get_last_sync(self._connector.name)
-        
+
         # If no previous sync, do full sync
         if since is None:
             logger.info("No previous sync found, performing full sync")
             return await self.sync_all()
-        
+
         logger.info(f"Incremental sync since {since}")
-        
+
         count = 0
         repos = await self._connector.fetch_repos()
         count += await self._upsert_repos(repos)
@@ -194,7 +198,7 @@ class SyncService:
         # Update sync state
         await self._sync_state.update_last_sync(self._connector.name)
         await self._db.commit()
-        
+
         logger.info(f"Incremental sync complete: {count} items")
         return count
 
@@ -286,7 +290,9 @@ class SyncService:
             )
             existing = result.scalar_one_or_none()
             review_data = {**data, "pr_id": pr_id}
-            review_data["submitted_at"] = _parse_datetime(review_data.get("submitted_at"))
+            review_data["submitted_at"] = _parse_datetime(
+                review_data.get("submitted_at")
+            )
             if existing:
                 # Update existing review (state can change: PENDING -> APPROVED, etc.)
                 for key, value in review_data.items():
@@ -318,7 +324,9 @@ class SyncService:
         await self._db.flush()
         return count
 
-    async def _upsert_commits(self, repo_id: int, pr_id: int, commits: list[dict]) -> int:
+    async def _upsert_commits(
+        self, repo_id: int, pr_id: int, commits: list[dict]
+    ) -> int:
         count = 0
         for data in commits:
             result = await self._db.execute(

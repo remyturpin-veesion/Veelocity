@@ -51,13 +51,15 @@ class GitHubActionsConnector(BaseConnector):
                 break
             data = response.json()
             for wf in data.get("workflows", []):
-                workflows.append({
-                    "github_id": wf["id"],
-                    "name": wf["name"],
-                    "path": wf["path"],
-                    "state": wf["state"],
-                    "is_deployment": is_deployment_workflow(wf["name"], wf["path"]),
-                })
+                workflows.append(
+                    {
+                        "github_id": wf["id"],
+                        "name": wf["name"],
+                        "path": wf["path"],
+                        "state": wf["state"],
+                        "is_deployment": is_deployment_workflow(wf["name"], wf["path"]),
+                    }
+                )
             if len(data.get("workflows", [])) < 100:
                 break
             page += 1
@@ -72,7 +74,7 @@ class GitHubActionsConnector(BaseConnector):
     ) -> list[dict]:
         """
         Fetch recent runs for a workflow.
-        
+
         Limited to max_pages to avoid API rate limits.
         """
         runs = []
@@ -88,17 +90,23 @@ class GitHubActionsConnector(BaseConnector):
             for run in data.get("workflow_runs", []):
                 # created_at = when the run was created on GitHub (used for daily charts)
                 created_at = run.get("created_at") or run.get("run_started_at")
-                runs.append({
-                    "github_id": run["id"],
-                    "status": run["status"],
-                    "conclusion": run.get("conclusion"),
-                    "run_number": run["run_number"],
-                    "head_sha": run["head_sha"],
-                    "head_branch": run["head_branch"],
-                    "created_at": created_at,
-                    "started_at": run.get("run_started_at"),
-                    "completed_at": run.get("updated_at") if run["status"] == "completed" else None,
-                })
+                runs.append(
+                    {
+                        "github_id": run["id"],
+                        "status": run["status"],
+                        "conclusion": run.get("conclusion"),
+                        "run_number": run["run_number"],
+                        "head_sha": run["head_sha"],
+                        "head_branch": run["head_branch"],
+                        "created_at": created_at,
+                        "started_at": run.get("run_started_at"),
+                        "completed_at": (
+                            run.get("updated_at")
+                            if run["status"] == "completed"
+                            else None
+                        ),
+                    }
+                )
             if len(data.get("workflow_runs", [])) < per_page:
                 break
             page += 1

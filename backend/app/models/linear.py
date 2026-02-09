@@ -3,7 +3,15 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -33,14 +41,20 @@ class LinearWorkflowState(Base):
     """Linear workflow state (e.g. Todo, In Progress, In Review, Done) per team."""
 
     __tablename__ = "linear_workflow_states"
-    __table_args__ = (UniqueConstraint("team_id", "linear_id", name="uq_linear_workflow_state_team_linear_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "team_id", "linear_id", name="uq_linear_workflow_state_team_linear_id"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("linear_teams.id"), index=True)
     linear_id: Mapped[str] = mapped_column(String(50), index=True)
     name: Mapped[str] = mapped_column(String(100))  # e.g., "Todo", "In Progress"
     position: Mapped[float] = mapped_column(Float, default=0.0)
-    type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # unstarted | started | completed
+    type: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # unstarted | started | completed
 
     team: Mapped["LinearTeam"] = relationship(back_populates="workflow_states")
 
@@ -86,7 +100,9 @@ class LinearIssueStateTransition(Base):
     linear_issue_id: Mapped[int] = mapped_column(
         ForeignKey("linear_issues.id", ondelete="CASCADE"), index=True
     )
-    from_state: Mapped[str | None] = mapped_column(String(100), nullable=True)  # null = creation
+    from_state: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # null = creation
     to_state: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime)
 

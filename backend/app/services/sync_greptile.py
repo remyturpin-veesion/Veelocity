@@ -28,7 +28,10 @@ def _normalize_repo(raw: dict) -> dict:
         repository = raw.get("repository", "") or ""
         if remote and branch and repository:
             repo_id = f"{remote}:{branch}:{repository}"
-            logger.debug("Constructed Greptile repo ID: %s (no id/repositoryId in response)", repo_id)
+            logger.debug(
+                "Constructed Greptile repo ID: %s (no id/repositoryId in response)",
+                repo_id,
+            )
         else:
             logger.warning("Greptile repo missing id and cannot construct one: %s", raw)
 
@@ -80,9 +83,15 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
         if len(all_ids) > 1:
             ids_to_delete = all_ids[1:]  # keep first (most recent), delete rest
             await db.execute(
-                delete(GreptileRepository).where(GreptileRepository.id.in_(ids_to_delete))
+                delete(GreptileRepository).where(
+                    GreptileRepository.id.in_(ids_to_delete)
+                )
             )
-            logger.info("Greptile: removed %d duplicate entries for %s", len(ids_to_delete), row.repo_lower)
+            logger.info(
+                "Greptile: removed %d duplicate entries for %s",
+                len(ids_to_delete),
+                row.repo_lower,
+            )
     await db.flush()
 
     # Resolve GitHub token (needed by Greptile API for private repos)
@@ -103,7 +112,11 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
                 repos_to_upsert.append(info)
             else:
                 skipped += 1
-                logger.warning("Greptile repo skipped (no ID): keys=%s, repository=%s", list(r.keys()), r.get("repository", "?"))
+                logger.warning(
+                    "Greptile repo skipped (no ID): keys=%s, repository=%s",
+                    list(r.keys()),
+                    r.get("repository", "?"),
+                )
         if skipped:
             logger.warning("Greptile sync: %d repos skipped due to missing ID", skipped)
 
@@ -113,6 +126,7 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
     found_repos = {(info.get("repository") or "").lower() for info in repos_to_upsert}
     # Parse explicit repos (skip org:* entries — they'll be resolved elsewhere)
     from app.services.github_repo_resolver import parse_repo_entries
+
     _, explicit_repos = parse_repo_entries(creds.github_repos or "")
     if explicit_repos:
         for part in explicit_repos:
@@ -130,7 +144,9 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
             for name in name_variants:
                 for branch in ("main", "master"):
                     repo_id = f"github:{branch}:{name}"
-                    info_raw = await get_repository(api_key, repo_id, github_token=github_token)
+                    info_raw = await get_repository(
+                        api_key, repo_id, github_token=github_token
+                    )
                     if info_raw:
                         used_id = repo_id
                         break
@@ -140,9 +156,16 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
                 info = _normalize_repo(info_raw)
                 info["greptile_repo_id"] = info.get("greptile_repo_id") or used_id
                 repos_to_upsert.append(info)
-                logger.info("Greptile: fetched %s individually as %s (not in list response)", part, used_id)
+                logger.info(
+                    "Greptile: fetched %s individually as %s (not in list response)",
+                    part,
+                    used_id,
+                )
             else:
-                logger.info("Greptile: %s not indexed in Greptile (tried main/master, original/lowercase) — skipping", part)
+                logger.info(
+                    "Greptile: %s not indexed in Greptile (tried main/master, original/lowercase) — skipping",
+                    part,
+                )
 
     # Deduplicate by repository name (keep first occurrence)
     seen_repos: set[str] = set()

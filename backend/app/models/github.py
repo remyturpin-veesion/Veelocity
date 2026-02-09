@@ -15,9 +15,13 @@ class Repository(Base):
     full_name: Mapped[str] = mapped_column(String(512), unique=True)
     default_branch: Mapped[str] = mapped_column(String(255), default="main")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
-    pull_requests: Mapped[list["PullRequest"]] = relationship(back_populates="repository")
+    pull_requests: Mapped[list["PullRequest"]] = relationship(
+        back_populates="repository"
+    )
     commits: Mapped[list["Commit"]] = relationship(back_populates="repository")
     workflows: Mapped[list["Workflow"]] = relationship(back_populates="repository")
 
@@ -82,13 +86,17 @@ class Commit(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     sha: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     repo_id: Mapped[int] = mapped_column(ForeignKey("repositories.id"))
-    pr_id: Mapped[int | None] = mapped_column(ForeignKey("pull_requests.id"), nullable=True)
+    pr_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pull_requests.id"), nullable=True
+    )
     author_login: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
     committed_at: Mapped[datetime] = mapped_column(DateTime)
 
     repository: Mapped["Repository"] = relationship(back_populates="commits")
-    pull_request: Mapped["PullRequest | None"] = relationship(back_populates="commits_rel")
+    pull_request: Mapped["PullRequest | None"] = relationship(
+        back_populates="commits_rel"
+    )
 
 
 class Workflow(Base):
@@ -102,7 +110,9 @@ class Workflow(Base):
     state: Mapped[str] = mapped_column(String(50))  # active, disabled, etc.
     is_deployment: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     repository: Mapped["Repository"] = relationship(back_populates="workflows")
     runs: Mapped[list["WorkflowRun"]] = relationship(back_populates="workflow")
@@ -115,7 +125,9 @@ class WorkflowRun(Base):
     github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"))
     status: Mapped[str] = mapped_column(String(50))  # queued, in_progress, completed
-    conclusion: Mapped[str | None] = mapped_column(String(50), nullable=True)  # success, failure, cancelled
+    conclusion: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # success, failure, cancelled
     run_number: Mapped[int] = mapped_column(Integer)
     head_sha: Mapped[str] = mapped_column(String(40), index=True)
     head_branch: Mapped[str] = mapped_column(String(255))

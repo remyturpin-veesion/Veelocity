@@ -50,7 +50,10 @@ async def update_settings(
     Omit a field to leave it unchanged. Requires VEELOCITY_ENCRYPTION_KEY to store secrets.
     """
     if not encryption_available() and (
-        body.github_token or body.linear_api_key or body.cursor_api_key or body.greptile_api_key
+        body.github_token
+        or body.linear_api_key
+        or body.cursor_api_key
+        or body.greptile_api_key
     ):
         raise HTTPException(
             status_code=400,
@@ -150,11 +153,17 @@ async def list_github_orgs(db: AsyncSession = Depends(get_db)):
 
 @router.get("/github/repos", response_model=GitHubReposResponse)
 async def list_github_repos(
-    q: Annotated[str | None, Query(description="Filter repos by name (case-insensitive)")] = None,
-    per_page: Annotated[int, Query(ge=1, le=100, description="Max repos to return")] = 50,
+    q: Annotated[
+        str | None, Query(description="Filter repos by name (case-insensitive)")
+    ] = None,
+    per_page: Annotated[
+        int, Query(ge=1, le=100, description="Max repos to return")
+    ] = 50,
     org: Annotated[
         str | None,
-        Query(description="Organization login to list repos from (e.g. Veesion). Omit for user repos."),
+        Query(
+            description="Organization login to list repos from (e.g. Veesion). Omit for user repos."
+        ),
     ] = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -192,7 +201,10 @@ async def list_github_repos(
                         },
                     )
                     if resp.status_code == 404:
-                        raise HTTPException(status_code=404, detail=f"Organization '{org}' not found or no access.")
+                        raise HTTPException(
+                            status_code=404,
+                            detail=f"Organization '{org}' not found or no access.",
+                        )
                     if resp.status_code == 403:
                         raise HTTPException(
                             status_code=502,
@@ -210,11 +222,13 @@ async def list_github_repos(
                         full_name = repo.get("full_name") or ""
                         if query_lower and query_lower not in full_name.lower():
                             continue
-                        collected.append({
-                            "id": repo["id"],
-                            "full_name": full_name,
-                            "name": repo.get("name") or full_name.split("/")[-1],
-                        })
+                        collected.append(
+                            {
+                                "id": repo["id"],
+                                "full_name": full_name,
+                                "name": repo.get("name") or full_name.split("/")[-1],
+                            }
+                        )
                         if len(collected) >= per_page:
                             break
                     if len(data) < 100:
@@ -251,11 +265,13 @@ async def list_github_repos(
                         full_name = repo.get("full_name") or ""
                         if query_lower and query_lower not in full_name.lower():
                             continue
-                        collected.append({
-                            "id": repo["id"],
-                            "full_name": full_name,
-                            "name": repo.get("name") or full_name.split("/")[-1],
-                        })
+                        collected.append(
+                            {
+                                "id": repo["id"],
+                                "full_name": full_name,
+                                "name": repo.get("name") or full_name.split("/")[-1],
+                            }
+                        )
                         if len(collected) >= per_page:
                             break
                     if len(data) < 100:

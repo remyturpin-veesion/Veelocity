@@ -60,9 +60,7 @@ async def get_quick_overview(
     prs_in_queue = pr_result.scalar() or 0
 
     # --- Median CI pipeline duration (all completed workflow runs in period) ---
-    run_query = select(
-        WorkflowRun.started_at, WorkflowRun.completed_at
-    ).where(
+    run_query = select(WorkflowRun.started_at, WorkflowRun.completed_at).where(
         and_(
             WorkflowRun.status == "completed",
             WorkflowRun.started_at.isnot(None),
@@ -524,7 +522,9 @@ async def get_cycle_time(
         prev_start, prev_end = comparison_service.calculate_previous_period(
             start_date, end_date
         )
-        prev_result = await service.get_cycle_time(prev_start, prev_end, effective_team_id)
+        prev_result = await service.get_cycle_time(
+            prev_start, prev_end, effective_team_id
+        )
         trend = await comparison_service.calculate_trend(
             metric_name="cycle_time",
             current_period=(start_date, end_date),
@@ -743,29 +743,29 @@ async def get_pr_health(
 ):
     """
     Get PR health scores for the time period.
-    
+
     Calculates a health score (0-100) for each PR based on:
     - Review rounds (CHANGES_REQUESTED count)
     - Comment volume (excessive discussion)
     - PR size (lines changed)
     - Time to first review
     - Time to merge
-    
+
     Query params:
     - start_date, end_date: Time period
     - repo_id: Filter by repository
     - author_login: Filter by author
     - min_score, max_score: Filter by score range
     - include_summary: If true, includes summary statistics
-    
+
     Returns:
         List of PR health scores with optional summary
     """
     if not start_date or not end_date:
         start_date, end_date = get_default_date_range()
-    
+
     service = PRHealthService(db)
-    
+
     # Calculate health scores
     health_scores = await service.calculate_pr_health(
         start_date=start_date,
@@ -776,14 +776,14 @@ async def get_pr_health(
         min_score=min_score,
         max_score=max_score,
     )
-    
+
     response = {
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
         "pr_health_scores": [score.to_dict() for score in health_scores],
         "count": len(health_scores),
     }
-    
+
     # Add summary if requested
     if include_summary:
         summary = await service.get_health_summary(
@@ -793,7 +793,7 @@ async def get_pr_health(
             repo_ids=repo_ids,
         )
         response["summary"] = summary
-    
+
     return response
 
 
@@ -846,9 +846,7 @@ async def get_proposed_recommendations(db: AsyncSession = Depends(get_db)):
     Includes run_at, period, and full recommendation list with link and details.
     """
     result = await db.execute(
-        select(RecommendationRun)
-        .order_by(RecommendationRun.run_at.desc())
-        .limit(1)
+        select(RecommendationRun).order_by(RecommendationRun.run_at.desc()).limit(1)
     )
     run = result.scalar_one_or_none()
     if not run:
@@ -941,9 +939,16 @@ async def get_linear_overview(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     team_id: int | None = None,
-    team_ids: list[int] | None = Query(None, description="Filter by team IDs (e.g. ?team_ids=1&team_ids=2)"),
-    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
-    assignee_name: str | None = Query(None, description="Filter by Linear assignee name (e.g. for per-developer metrics)"),
+    team_ids: list[int] | None = Query(
+        None, description="Filter by team IDs (e.g. ?team_ids=1&team_ids=2)"
+    ),
+    no_teams: bool = Query(
+        False, description="If true, return empty results (no teams selected)"
+    ),
+    assignee_name: str | None = Query(
+        None,
+        description="Filter by Linear assignee name (e.g. for per-developer metrics)",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -973,7 +978,9 @@ async def get_linear_issues_completed(
     period: Literal["day", "week", "month"] = "week",
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
-    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
+    no_teams: bool = Query(
+        False, description="If true, return empty results (no teams selected)"
+    ),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1002,7 +1009,9 @@ async def get_linear_issues_completed(
 async def get_linear_backlog(
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
-    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
+    no_teams: bool = Query(
+        False, description="If true, return empty results (no teams selected)"
+    ),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1025,7 +1034,9 @@ async def get_linear_time_in_state(
     end_date: datetime | None = None,
     team_id: int | None = None,
     team_ids: list[int] | None = Query(None),
-    no_teams: bool = Query(False, description="If true, return empty results (no teams selected)"),
+    no_teams: bool = Query(
+        False, description="If true, return empty results (no teams selected)"
+    ),
     assignee_name: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):

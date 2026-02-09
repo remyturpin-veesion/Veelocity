@@ -37,7 +37,9 @@ async def get_team_members(api_key: str) -> dict[str, Any] | None:
                 logger.warning("Cursor API: rate limited")
                 return None
             if resp.status_code != 200:
-                logger.warning("Cursor API members: %s %s", resp.status_code, resp.text[:200])
+                logger.warning(
+                    "Cursor API members: %s %s", resp.status_code, resp.text[:200]
+                )
                 return None
             return resp.json()
     except Exception as e:
@@ -147,7 +149,12 @@ async def get_spend(api_key: str) -> dict[str, Any] | None:
         }
         # Capture billing period from first page response if present
         if data:
-            for key in ("billingPeriodStart", "billingPeriodEnd", "startDate", "endDate"):
+            for key in (
+                "billingPeriodStart",
+                "billingPeriodEnd",
+                "startDate",
+                "endDate",
+            ):
                 if key in data:
                     result[key] = data[key]
         return result

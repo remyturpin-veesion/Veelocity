@@ -57,15 +57,9 @@ async def build_report(
         start_date, end_date, repo_id=repo_id
     )
 
-    pr_review = await dev_svc.get_pr_review_time(
-        start_date, end_date, repo_id=repo_id
-    )
-    pr_merge = await dev_svc.get_pr_merge_time(
-        start_date, end_date, repo_id=repo_id
-    )
-    throughput = await dev_svc.get_throughput(
-        start_date, end_date, repo_id=repo_id
-    )
+    pr_review = await dev_svc.get_pr_review_time(start_date, end_date, repo_id=repo_id)
+    pr_merge = await dev_svc.get_pr_merge_time(start_date, end_date, repo_id=repo_id)
+    throughput = await dev_svc.get_throughput(start_date, end_date, repo_id=repo_id)
 
     alerts = await alerts_svc.get_alerts(start_date, end_date, repo_id=repo_id)
     recommendations = await rec_engine.get_recommendations(
@@ -101,9 +95,11 @@ async def build_report(
         },
         "recommendations": {
             "count": len(recommendations),
-            "items": [r if isinstance(r, dict) else r.__dict__ for r in recommendations]
-            if recommendations
-            else [],
+            "items": (
+                [r if isinstance(r, dict) else r.__dict__ for r in recommendations]
+                if recommendations
+                else []
+            ),
         },
     }
 

@@ -34,9 +34,7 @@ class LinearConnector(BaseConnector):
         """Test connection by fetching viewer info."""
         query = "{ viewer { id name } }"
         try:
-            response = await self._client.post(
-                self.BASE_URL, json={"query": query}
-            )
+            response = await self._client.post(self.BASE_URL, json={"query": query})
             if response.status_code == 200:
                 data = response.json()
                 return "data" in data and data["data"].get("viewer") is not None
@@ -166,31 +164,37 @@ class LinearConnector(BaseConnector):
                 self.BASE_URL,
                 json={"query": query, "variables": variables},
             )
-            
+
             if response.status_code != 200:
                 break
 
             data = response.json()
             issues_data = data.get("data", {}).get("issues", {})
             nodes = issues_data.get("nodes", [])
-            
+
             for issue in nodes:
-                issues.append({
-                    "linear_id": issue["id"],
-                    "identifier": issue["identifier"],
-                    "title": issue["title"],
-                    "description": issue.get("description"),
-                    "priority": issue.get("priority", 0),
-                    "state": issue.get("state", {}).get("name", "Unknown"),
-                    "assignee_name": issue.get("assignee", {}).get("name") if issue.get("assignee") else None,
-                    "team_linear_id": issue.get("team", {}).get("id"),
-                    "url": issue.get("url"),
-                    "created_at": issue.get("createdAt"),
-                    "started_at": issue.get("startedAt"),
-                    "completed_at": issue.get("completedAt"),
-                    "canceled_at": issue.get("canceledAt"),
-                })
-            
+                issues.append(
+                    {
+                        "linear_id": issue["id"],
+                        "identifier": issue["identifier"],
+                        "title": issue["title"],
+                        "description": issue.get("description"),
+                        "priority": issue.get("priority", 0),
+                        "state": issue.get("state", {}).get("name", "Unknown"),
+                        "assignee_name": (
+                            issue.get("assignee", {}).get("name")
+                            if issue.get("assignee")
+                            else None
+                        ),
+                        "team_linear_id": issue.get("team", {}).get("id"),
+                        "url": issue.get("url"),
+                        "created_at": issue.get("createdAt"),
+                        "started_at": issue.get("startedAt"),
+                        "completed_at": issue.get("completedAt"),
+                        "canceled_at": issue.get("canceledAt"),
+                    }
+                )
+
             page_info = issues_data.get("pageInfo", {})
             if not page_info.get("hasNextPage"):
                 break
@@ -242,11 +246,13 @@ class LinearConnector(BaseConnector):
                 from_state = (node.get("fromState") or {}).get("name")
                 created_at = node.get("createdAt")
                 if created_at:
-                    out.append({
-                        "from_state": from_state,
-                        "to_state": to_state,
-                        "created_at": created_at,
-                    })
+                    out.append(
+                        {
+                            "from_state": from_state,
+                            "to_state": to_state,
+                            "created_at": created_at,
+                        }
+                    )
             return out
         except Exception:
             return []

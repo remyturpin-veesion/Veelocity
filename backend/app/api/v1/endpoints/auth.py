@@ -26,9 +26,7 @@ GITHUB_SCOPES = "repo,read:org,read:user"
 
 
 def _oauth_available() -> bool:
-    return bool(
-        settings.github_oauth_client_id and settings.github_oauth_client_secret
-    )
+    return bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
 
 
 @router.get("/github/status")
@@ -97,13 +95,17 @@ async def auth_github_callback(
 
         cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
         if not cookie_state or not secrets.compare_digest(cookie_state, state):
-            return fail("state mismatch (cookie may be missing if callback URL host/port differs from start)")
+            return fail(
+                "state mismatch (cookie may be missing if callback URL host/port differs from start)"
+            )
 
         if not _oauth_available():
             return fail("OAuth not configured on server")
 
         # Exchange code for access token
-        redirect_uri = f"{settings.oauth_backend_base_url.rstrip('/')}/api/v1/auth/github/callback"
+        redirect_uri = (
+            f"{settings.oauth_backend_base_url.rstrip('/')}/api/v1/auth/github/callback"
+        )
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 GITHUB_ACCESS_TOKEN_URL,
@@ -131,7 +133,9 @@ async def auth_github_callback(
         if not access_token:
             # GitHub may return 200 with error in body (e.g. redirect_uri_mismatch)
             err = data.get("error", "unknown")
-            logger.warning("GitHub response missing access_token: error=%s %s", err, data)
+            logger.warning(
+                "GitHub response missing access_token: error=%s %s", err, data
+            )
             return RedirectResponse(url=redirect_fail)
 
         if not encryption_available():

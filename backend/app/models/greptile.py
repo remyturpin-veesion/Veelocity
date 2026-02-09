@@ -15,7 +15,9 @@ class GreptileRepository(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     greptile_repo_id: Mapped[str] = mapped_column(String(512), unique=True, index=True)
-    repository: Mapped[str] = mapped_column(String(512), default="")  # full_name owner/repo
+    repository: Mapped[str] = mapped_column(
+        String(512), default=""
+    )  # full_name owner/repo
     remote: Mapped[str] = mapped_column(String(255), default="")
     branch: Mapped[str] = mapped_column(String(255), default="")
     private: Mapped[bool | None] = mapped_column(nullable=True)

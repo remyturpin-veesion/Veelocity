@@ -57,7 +57,9 @@ class GreptileMetricsService:
             logger.info(
                 "Greptile bot auto-detected as '%s' (%d reviews). "
                 "Set GREPTILE_BOT_LOGIN='%s' in .env to avoid this lookup.",
-                row.reviewer_login, row.cnt, row.reviewer_login,
+                row.reviewer_login,
+                row.cnt,
+                row.reviewer_login,
             )
             return row.reviewer_login
 
@@ -75,13 +77,25 @@ class GreptileMetricsService:
         self._bot_login = await self._resolve_bot_login()
         filtered_repo_ids = _repo_filter(repo_ids)
 
-        review_coverage = await self._review_coverage(start_date, end_date, filtered_repo_ids)
-        response_time = await self._avg_response_time(start_date, end_date, filtered_repo_ids)
-        comments_per_pr = await self._avg_comments_per_pr(start_date, end_date, filtered_repo_ids)
+        review_coverage = await self._review_coverage(
+            start_date, end_date, filtered_repo_ids
+        )
+        response_time = await self._avg_response_time(
+            start_date, end_date, filtered_repo_ids
+        )
+        comments_per_pr = await self._avg_comments_per_pr(
+            start_date, end_date, filtered_repo_ids
+        )
         index_health = await self._index_health(filtered_repo_ids)
-        per_repo = await self._per_repo_breakdown(start_date, end_date, filtered_repo_ids)
-        trend = await self._review_trend(start_date, end_date, filtered_repo_ids, granularity)
-        recommendations = self._build_recommendations(review_coverage, index_health, per_repo)
+        per_repo = await self._per_repo_breakdown(
+            start_date, end_date, filtered_repo_ids
+        )
+        trend = await self._review_trend(
+            start_date, end_date, filtered_repo_ids, granularity
+        )
+        recommendations = self._build_recommendations(
+            review_coverage, index_health, per_repo
+        )
 
         return {
             "bot_login": self._bot_login,
@@ -90,7 +104,8 @@ class GreptileMetricsService:
             "avg_comments_per_pr": comments_per_pr,
             "total_prs": review_coverage["total_prs"],
             "prs_reviewed_by_greptile": review_coverage["reviewed_prs"],
-            "prs_without_review": review_coverage["total_prs"] - review_coverage["reviewed_prs"],
+            "prs_without_review": review_coverage["total_prs"]
+            - review_coverage["reviewed_prs"],
             "index_health": index_health,
             "per_repo": per_repo,
             "trend": trend,
@@ -136,7 +151,9 @@ class GreptileMetricsService:
         reviewed_result = await self._db.execute(reviewed_q)
         reviewed_prs = reviewed_result.scalar() or 0
 
-        coverage_pct = round(100.0 * reviewed_prs / total_prs, 1) if total_prs > 0 else 0.0
+        coverage_pct = (
+            round(100.0 * reviewed_prs / total_prs, 1) if total_prs > 0 else 0.0
+        )
 
         return {
             "total_prs": total_prs,
@@ -211,7 +228,9 @@ class GreptileMetricsService:
             )
         )
         if repo_ids:
-            comments_per_pr_sq = comments_per_pr_sq.where(PullRequest.repo_id.in_(repo_ids))
+            comments_per_pr_sq = comments_per_pr_sq.where(
+                PullRequest.repo_id.in_(repo_ids)
+            )
 
         comments_per_pr_sq = comments_per_pr_sq.group_by(PRComment.pr_id).subquery()
 
@@ -236,9 +255,7 @@ class GreptileMetricsService:
         github_repos = {row.full_name: row.id for row in github_result.all()}
 
         # Greptile repos (keyed by lowercase name for case-insensitive matching)
-        greptile_result = await self._db.execute(
-            select(GreptileRepository)
-        )
+        greptile_result = await self._db.execute(select(GreptileRepository))
         greptile_rows = greptile_result.scalars().all()
         greptile_by_name: dict[str, GreptileRepository] = {}
         for r in greptile_rows:
@@ -246,13 +263,10 @@ class GreptileMetricsService:
                 greptile_by_name[r.repository.lower()] = r
 
         # Latest commit SHA per repo
-        latest_sha_q = (
-            select(
-                Commit.repo_id,
-                func.max(Commit.committed_at).label("latest_at"),
-            )
-            .group_by(Commit.repo_id)
-        )
+        latest_sha_q = select(
+            Commit.repo_id,
+            func.max(Commit.committed_at).label("latest_at"),
+        ).group_by(Commit.repo_id)
         latest_sha_result = await self._db.execute(latest_sha_q)
         latest_commit_map: dict[int, str] = {}
         for row in latest_sha_result.all():
@@ -308,7 +322,9 @@ class GreptileMetricsService:
             "total_files_processed": total_files_processed,
             "total_files": total_files,
             "file_coverage_pct": (
-                round(100.0 * total_files_processed / total_files, 1) if total_files > 0 else None
+                round(100.0 * total_files_processed / total_files, 1)
+                if total_files > 0
+                else None
             ),
         }
 
@@ -339,13 +355,10 @@ class GreptileMetricsService:
                 greptile_by_name[r.repository.lower()] = r
 
         # Latest commit SHA per repo
-        latest_sha_q = (
-            select(
-                Commit.repo_id,
-                func.max(Commit.committed_at).label("latest_at"),
-            )
-            .group_by(Commit.repo_id)
-        )
+        latest_sha_q = select(
+            Commit.repo_id,
+            func.max(Commit.committed_at).label("latest_at"),
+        ).group_by(Commit.repo_id)
         latest_sha_result = await self._db.execute(latest_sha_q)
         latest_commit_map: dict[int, str] = {}
         for row in latest_sha_result.all():
@@ -426,7 +439,11 @@ class GreptileMetricsService:
         )
         resp_result = await self._db.execute(resp_q)
         resp_map = {
-            row.repo_id: round(float(row.avg_seconds) / 60.0, 1) if row.avg_seconds and float(row.avg_seconds) > 0 else None
+            row.repo_id: (
+                round(float(row.avg_seconds) / 60.0, 1)
+                if row.avg_seconds and float(row.avg_seconds) > 0
+                else None
+            )
             for row in resp_result.all()
         }
 
@@ -476,7 +493,11 @@ class GreptileMetricsService:
                     index_status = "error"
                 else:
                     latest_sha = latest_commit_map.get(repo_id)
-                    if latest_sha and greptile_repo.sha and latest_sha != greptile_repo.sha:
+                    if (
+                        latest_sha
+                        and greptile_repo.sha
+                        and latest_sha != greptile_repo.sha
+                    ):
                         index_status = "stale"
                     else:
                         index_status = "indexed"
@@ -485,23 +506,39 @@ class GreptileMetricsService:
                 nf = greptile_repo.num_files or 0
                 file_coverage_pct = round(100.0 * fp / nf, 1) if nf > 0 else None
 
-            per_repo.append({
-                "repo_name": full_name,
-                "index_status": index_status,
-                "file_coverage_pct": file_coverage_pct,
-                "review_coverage_pct": round(100.0 * reviewed / total, 1) if total > 0 else None,
-                "avg_response_time_minutes": resp_map.get(repo_id),
-                "avg_comments_per_pr": comments_map.get(repo_id),
-                "total_prs": total,
-                "reviewed_prs": reviewed,
-            })
+            per_repo.append(
+                {
+                    "repo_name": full_name,
+                    "index_status": index_status,
+                    "file_coverage_pct": file_coverage_pct,
+                    "review_coverage_pct": (
+                        round(100.0 * reviewed / total, 1) if total > 0 else None
+                    ),
+                    "avg_response_time_minutes": resp_map.get(repo_id),
+                    "avg_comments_per_pr": comments_map.get(repo_id),
+                    "total_prs": total,
+                    "reviewed_prs": reviewed,
+                }
+            )
 
         # Sort: repos with issues first (not_indexed, error), then by coverage ascending
-        status_priority = {"error": 0, "not_indexed": 1, "active": 2, "stale": 3, "indexed": 4}
-        per_repo.sort(key=lambda r: (
-            status_priority.get(r["index_status"], 9),
-            r["review_coverage_pct"] if r["review_coverage_pct"] is not None else 999,
-        ))
+        status_priority = {
+            "error": 0,
+            "not_indexed": 1,
+            "active": 2,
+            "stale": 3,
+            "indexed": 4,
+        }
+        per_repo.sort(
+            key=lambda r: (
+                status_priority.get(r["index_status"], 9),
+                (
+                    r["review_coverage_pct"]
+                    if r["review_coverage_pct"] is not None
+                    else 999
+                ),
+            )
+        )
 
         return per_repo
 
@@ -539,7 +576,9 @@ class GreptileMetricsService:
             total_q = total_q.where(PullRequest.repo_id.in_(repo_ids))
 
         total_result = await self._db.execute(total_q)
-        total_by_period = {str(row.period.date()): row.total for row in total_result.all()}
+        total_by_period = {
+            str(row.period.date()): row.total for row in total_result.all()
+        }
 
         # Reviewed PRs per period
         reviewed_q = (
@@ -562,7 +601,9 @@ class GreptileMetricsService:
             reviewed_q = reviewed_q.where(PullRequest.repo_id.in_(repo_ids))
 
         reviewed_result = await self._db.execute(reviewed_q)
-        reviewed_by_period = {str(row.period.date()): row.reviewed for row in reviewed_result.all()}
+        reviewed_by_period = {
+            str(row.period.date()): row.reviewed for row in reviewed_result.all()
+        }
 
         # Merge — for daily granularity, fill every day in the range so the
         # chart has a continuous x-axis (matching the Cursor chart behaviour).
@@ -583,12 +624,14 @@ class GreptileMetricsService:
             total = total_by_period.get(period, 0)
             reviewed = reviewed_by_period.get(period, 0)
             coverage = round(100.0 * reviewed / total, 1) if total > 0 else 0.0
-            trend.append({
-                "week": period,
-                "coverage_pct": coverage,
-                "prs_total": total,
-                "prs_reviewed": reviewed,
-            })
+            trend.append(
+                {
+                    "week": period,
+                    "coverage_pct": coverage,
+                    "prs_total": total,
+                    "prs_reviewed": reviewed,
+                }
+            )
 
         return trend
 
@@ -604,53 +647,63 @@ class GreptileMetricsService:
         recommendations: list[dict] = []
 
         # 1. Not-indexed repos
-        not_indexed = [r["repo_name"] for r in per_repo if r["index_status"] == "not_indexed"]
+        not_indexed = [
+            r["repo_name"] for r in per_repo if r["index_status"] == "not_indexed"
+        ]
         if not_indexed:
-            recommendations.append({
-                "type": "not_indexed",
-                "severity": "warning",
-                "message": f"{len(not_indexed)} repo{'s are' if len(not_indexed) > 1 else ' is'} not indexed in Greptile",
-                "detail": "These repositories won't receive AI code reviews. Index them in Greptile to improve coverage.",
-                "repos": not_indexed,
-                "tags": ["greptile"],
-            })
+            recommendations.append(
+                {
+                    "type": "not_indexed",
+                    "severity": "warning",
+                    "message": f"{len(not_indexed)} repo{'s are' if len(not_indexed) > 1 else ' is'} not indexed in Greptile",
+                    "detail": "These repositories won't receive AI code reviews. Index them in Greptile to improve coverage.",
+                    "repos": not_indexed,
+                    "tags": ["greptile"],
+                }
+            )
 
         # 2. Error repos
         error_repos = [r["repo_name"] for r in per_repo if r["index_status"] == "error"]
         if error_repos:
-            recommendations.append({
-                "type": "index_error",
-                "severity": "error",
-                "message": f"{len(error_repos)} repo{'s have' if len(error_repos) > 1 else ' has'} indexing errors",
-                "detail": "Re-index these repositories in the Greptile app to fix the errors.",
-                "repos": error_repos,
-                "tags": ["greptile"],
-            })
+            recommendations.append(
+                {
+                    "type": "index_error",
+                    "severity": "error",
+                    "message": f"{len(error_repos)} repo{'s have' if len(error_repos) > 1 else ' has'} indexing errors",
+                    "detail": "Re-index these repositories in the Greptile app to fix the errors.",
+                    "repos": error_repos,
+                    "tags": ["greptile"],
+                }
+            )
 
         # 3. Stale indexes
         stale_repos = [r["repo_name"] for r in per_repo if r["index_status"] == "stale"]
         if stale_repos:
-            recommendations.append({
-                "type": "stale_index",
-                "severity": "info",
-                "message": f"{len(stale_repos)} repo{'s have' if len(stale_repos) > 1 else ' has'} stale indexes",
-                "detail": "The indexed version differs from the latest commit. Re-index for more accurate reviews.",
-                "repos": stale_repos,
-                "tags": ["greptile", "github"],
-            })
+            recommendations.append(
+                {
+                    "type": "stale_index",
+                    "severity": "info",
+                    "message": f"{len(stale_repos)} repo{'s have' if len(stale_repos) > 1 else ' has'} stale indexes",
+                    "detail": "The indexed version differs from the latest commit. Re-index for more accurate reviews.",
+                    "repos": stale_repos,
+                    "tags": ["greptile", "github"],
+                }
+            )
 
         # 4. Low overall review coverage
         coverage = review_coverage["coverage_pct"]
         total_prs = review_coverage["total_prs"]
         if total_prs > 0 and coverage < 80.0:
-            recommendations.append({
-                "type": "low_coverage",
-                "severity": "warning" if coverage < 50.0 else "info",
-                "message": f"Overall review coverage is {coverage}%",
-                "detail": "Aim for 80%+ of PRs reviewed by Greptile. Check that Greptile is installed on all repos.",
-                "repos": [],
-                "tags": ["github"],
-            })
+            recommendations.append(
+                {
+                    "type": "low_coverage",
+                    "severity": "warning" if coverage < 50.0 else "info",
+                    "message": f"Overall review coverage is {coverage}%",
+                    "detail": "Aim for 80%+ of PRs reviewed by Greptile. Check that Greptile is installed on all repos.",
+                    "repos": [],
+                    "tags": ["github"],
+                }
+            )
 
         # 5. Per-repo low coverage (for repos that are indexed but have low coverage)
         low_coverage_repos = [
@@ -662,24 +715,28 @@ class GreptileMetricsService:
             and r["review_coverage_pct"] < 50.0
         ]
         if low_coverage_repos:
-            recommendations.append({
-                "type": "low_repo_coverage",
-                "severity": "warning",
-                "message": f"{len(low_coverage_repos)} indexed repo{'s have' if len(low_coverage_repos) > 1 else ' has'} less than 50% review coverage",
-                "detail": "These repos are indexed but Greptile isn't reviewing most PRs. Check the GitHub App installation.",
-                "repos": low_coverage_repos,
-                "tags": ["github"],
-            })
+            recommendations.append(
+                {
+                    "type": "low_repo_coverage",
+                    "severity": "warning",
+                    "message": f"{len(low_coverage_repos)} indexed repo{'s have' if len(low_coverage_repos) > 1 else ' has'} less than 50% review coverage",
+                    "detail": "These repos are indexed but Greptile isn't reviewing most PRs. Check the GitHub App installation.",
+                    "repos": low_coverage_repos,
+                    "tags": ["github"],
+                }
+            )
 
         # 6. All good!
         if not recommendations and total_prs > 0 and coverage >= 80.0:
-            recommendations.append({
-                "type": "all_good",
-                "severity": "success",
-                "message": "Greptile coverage is healthy",
-                "detail": f"{coverage}% of PRs are reviewed by Greptile across {index_health['indexed_repos']} indexed repos.",
-                "repos": [],
-                "tags": ["greptile"],
-            })
+            recommendations.append(
+                {
+                    "type": "all_good",
+                    "severity": "success",
+                    "message": "Greptile coverage is healthy",
+                    "detail": f"{coverage}% of PRs are reviewed by Greptile across {index_health['indexed_repos']} indexed repos.",
+                    "repos": [],
+                    "tags": ["greptile"],
+                }
+            )
 
         return recommendations

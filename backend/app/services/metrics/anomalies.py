@@ -81,9 +81,7 @@ class AnomalyDetectionService:
             return []
 
         # Convert dates to strings if they're datetime objects
-        date_strings = [
-            d.isoformat() if isinstance(d, datetime) else d for d in dates
-        ]
+        date_strings = [d.isoformat() if isinstance(d, datetime) else d for d in dates]
 
         # Calculate IQR
         q1 = np.percentile(values, 25)
@@ -114,9 +112,13 @@ class AnomalyDetectionService:
 
                 # Calculate deviation percentage
                 if value > median:
-                    deviation_pct = ((value - median) / median * 100) if median != 0 else 0
+                    deviation_pct = (
+                        ((value - median) / median * 100) if median != 0 else 0
+                    )
                 else:
-                    deviation_pct = ((median - value) / median * 100) if median != 0 else 0
+                    deviation_pct = (
+                        ((median - value) / median * 100) if median != 0 else 0
+                    )
 
                 # Generate explanation
                 direction = "higher" if value > median else "lower"

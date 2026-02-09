@@ -164,9 +164,7 @@ class DORAMetricsService:
             t_fail = run.completed_at
             wf_id = run.workflow_id
             next_successes = success_by_workflow.get(wf_id, [])
-            next_success = next(
-                (t for t, _ in next_successes if t > t_fail), None
-            )
+            next_success = next((t for t, _ in next_successes if t > t_fail), None)
             if next_success:
                 recovery_seconds = (next_success - t_fail).total_seconds()
                 recovery_times.append(recovery_seconds / 3600)
@@ -205,7 +203,7 @@ class DORAMetricsService:
         2. For each deployment, find the PR that contains the deployed commit (head_sha)
         3. Find the first commit on that PR
         4. Lead time = deployment time - first commit time
-        
+
         If author_login is specified, only includes deployments of commits by that author.
         """
         # Get successful deployments

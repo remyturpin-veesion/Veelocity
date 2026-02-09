@@ -20,7 +20,7 @@ ISSUE_PATTERN: Pattern = re.compile(
 def extract_issue_identifiers(text: str) -> list[str]:
     """
     Extract issue identifiers from text.
-    
+
     Supports formats:
     - ENG-123
     - [ENG-123]
@@ -29,7 +29,7 @@ def extract_issue_identifiers(text: str) -> list[str]:
     """
     if not text:
         return []
-    
+
     matches = ISSUE_PATTERN.findall(text)
     # Normalize to uppercase
     return list(set(m.upper() for m in matches))
@@ -44,7 +44,7 @@ class LinkingService:
     async def link_all_prs(self) -> int:
         """
         Find and link all PRs to their corresponding Linear issues.
-        
+
         Returns count of links created.
         """
         count = 0
@@ -75,7 +75,9 @@ class LinkingService:
                     await self._db.execute(
                         update(LinearIssue)
                         .where(LinearIssue.id == issue_id)
-                        .where(LinearIssue.linked_pr_id.is_(None))  # Don't overwrite existing
+                        .where(
+                            LinearIssue.linked_pr_id.is_(None)
+                        )  # Don't overwrite existing
                         .values(linked_pr_id=pr.id)
                     )
                     count += 1
@@ -86,7 +88,7 @@ class LinkingService:
     async def link_pr(self, pr: PullRequest) -> LinearIssue | None:
         """
         Link a single PR to its Linear issue.
-        
+
         Returns the linked issue, or None if no match found.
         """
         identifiers = set()
@@ -98,9 +100,7 @@ class LinkingService:
 
         for identifier in identifiers:
             result = await self._db.execute(
-                select(LinearIssue).where(
-                    LinearIssue.identifier == identifier.upper()
-                )
+                select(LinearIssue).where(LinearIssue.identifier == identifier.upper())
             )
             issue = result.scalar_one_or_none()
             if issue and not issue.linked_pr_id:

@@ -36,9 +36,7 @@ async def get_workflows(
     total = count_result.scalar() or 0
 
     result = await db.execute(
-        query.order_by(Workflow.name)
-        .offset(pagination.offset)
-        .limit(pagination.limit)
+        query.order_by(Workflow.name).offset(pagination.offset).limit(pagination.limit)
     )
     workflows = result.scalars().all()
 
@@ -56,7 +54,9 @@ async def get_workflows(
     return PaginatedResponse.create(items, total, pagination)
 
 
-@router.get("/workflows/{workflow_id}/runs", response_model=PaginatedResponse[dict[str, Any]])
+@router.get(
+    "/workflows/{workflow_id}/runs", response_model=PaginatedResponse[dict[str, Any]]
+)
 async def get_workflow_runs(
     workflow_id: int,
     conclusion: str | None = None,

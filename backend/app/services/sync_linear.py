@@ -199,9 +199,7 @@ class SyncLinearService:
         await self._db.flush()
         return count
 
-    async def _upsert_issues(
-        self, issues: list[dict], team_map: dict[str, int]
-    ) -> int:
+    async def _upsert_issues(self, issues: list[dict], team_map: dict[str, int]) -> int:
         """Insert or update issues."""
         count = 0
         for data in issues:
@@ -258,10 +256,7 @@ class SyncLinearService:
         transitions added (not issue count).
         """
         # Completed issues that have no state transitions yet
-        subq = (
-            select(LinearIssueStateTransition.linear_issue_id)
-            .distinct()
-        )
+        subq = select(LinearIssueStateTransition.linear_issue_id).distinct()
         q = (
             select(LinearIssue.id, LinearIssue.linear_id)
             .where(
