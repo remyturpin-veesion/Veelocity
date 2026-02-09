@@ -9,6 +9,7 @@ import type { TimePeriodKey } from '@/stores/filters.js';
 
 const TABS = [
   { path: '/', label: 'Dashboard' },
+  { path: '/dora', label: 'DORA' },
   { path: '/github', label: 'GitHub' },
   { path: '/linear', label: 'Linear' },
   { path: '/cursor', label: 'Cursor' },

@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 export type MetricKey =
   | 'deployment-frequency'
   | 'lead-time'
+  | 'change-failure-rate'
+  | 'mttr'
   | 'cycle-time'
   | 'throughput'
   | 'pr-review-time'
@@ -36,6 +38,22 @@ const METRIC_EXPLANATIONS: Record<MetricKey, MetricExplanation> = {
     howCalculated:
       'For each deployment we find the first commit in that deployment and measure the time from that commit to the deployment. We then report the count of changes, and the average and median lead time in hours.',
     source: 'GitHub commits + GitHub Actions runs',
+  },
+  'change-failure-rate': {
+    title: 'Change failure rate (proxy)',
+    whyUseful:
+      'A DORA metric indicating the percentage of deployments that cause failures. Lower is better, as it reflects release quality and stability.',
+    howCalculated:
+      'In this product, we use a proxy: the percentage of deployment workflow runs that fail (GitHub Actions). This does not use incident tools, so it is a best-effort signal based on CI/CD outcomes.',
+    source: 'GitHub Actions (deployment workflow runs)',
+  },
+  mttr: {
+    title: 'MTTR (proxy)',
+    whyUseful:
+      'Mean time to restore measures how quickly services recover after a failure. Lower MTTR indicates faster recovery and better operational resilience.',
+    howCalculated:
+      'We estimate MTTR using deployment workflow data: for each failed deployment run, we measure the time until the next successful run of the same workflow. This is a proxy, not incident-based MTTR.',
+    source: 'GitHub Actions (deployment workflow runs)',
   },
   'cycle-time': {
     title: 'Cycle time',
@@ -143,7 +161,11 @@ export function MetricInfoButton({ metricKey }: MetricInfoButtonProps) {
       <button
         type="button"
         className="metric-info-button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
         title={`About ${explanation.title}`}
         aria-label={`Learn more about ${explanation.title}`}
       >

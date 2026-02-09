@@ -139,51 +139,83 @@ async def _resolve_repos(creds) -> list[str]:
     from app.services.github_repo_resolver import parse_repo_entries, resolve_github_repos
 
     if not creds.github_token or not (creds.github_repos or "").strip():
+        logger.debug("No GitHub token or repos configured — nothing to resolve")
         return []
 
-    orgs, _ = parse_repo_entries(creds.github_repos)
+    orgs, explicit = parse_repo_entries(creds.github_repos)
     if orgs:
-        return await resolve_github_repos(creds.github_token, creds.github_repos)
+        logger.info(
+            "Resolving org subscriptions: %s (+ %d explicit repos)",
+            orgs,
+            len(explicit),
+        )
+        resolved = await resolve_github_repos(creds.github_token, creds.github_repos)
+        logger.info("Resolved %d total repos from org subscriptions", len(resolved))
+        return resolved
     # No org subscriptions — split directly (fast path, no HTTP)
-    return [x.strip() for x in creds.github_repos.split(",") if x.strip()]
+    repos = [x.strip() for x in creds.github_repos.split(",") if x.strip()]
+    logger.debug("Using %d explicit repos (no org subscriptions)", len(repos))
+    return repos
 
 
 async def _run_sync_impl():
-    """Implementation of run_sync (without state flags)."""
+    """Implementation of run_sync (without state flags).
+
+    Flow:
+    1. Resolve org:* patterns → flat list of repos.
+    2. Incremental sync (also registers newly discovered repos in the DB).
+    3. After incremental sync, check for repos that still have no PR data
+       (i.e. newly discovered repos) and run a targeted fast sync for them.
+    """
     from app.connectors.rate_limiter import get_rate_limiter
 
     # Reset rate limiter at start of sync
     rate_limiter = get_rate_limiter()
     rate_limiter.reset()
-    
+
     async with async_session_maker() as db:
         total_items = 0
         total_errors = []
 
-        # Check for repos that need full sync (no data yet)
-        repos_needing_full_sync = await _get_repos_without_data(db)
-        if repos_needing_full_sync:
-            logger.info(
-                f"Found {len(repos_needing_full_sync)} repos without data: "
-                f"{repos_needing_full_sync}. Running fast sync (PRs only)."
-            )
-
         creds = await CredentialsService(db).get_credentials()
         # Resolve org:* patterns to actual repo list
         resolved_repos = await _resolve_repos(creds)
+        if not resolved_repos:
+            logger.info("No GitHub repos configured — skipping sync")
+            return
+
+        logger.info("Resolved %d GitHub repos for sync", len(resolved_repos))
 
         # GitHub connector (PRs, reviews, comments, commits)
         github = create_github_connector(token=creds.github_token, repos=resolved_repos)
         if github:
-            # If any repo needs full sync, do fast sync (PRs only, no details)
-            if repos_needing_full_sync:
-                logger.info("Running fast GitHub sync (PRs only, no details)")
-                items, errors = await _sync_connector_safe(github, db, "sync_all_fast")
-            else:
-                items, errors = await _sync_connector_safe(github, db, "sync_recent")
+            # Step 1: Incremental sync — also discovers & registers new repos in DB
+            items, errors = await _sync_connector_safe(github, db, "sync_recent")
             total_items += items
             total_errors.extend(errors)
-            logger.info(f"GitHub sync: {items} items, {len(errors)} errors")
+            logger.info(f"GitHub incremental sync: {items} items, {len(errors)} errors")
+
+            # Step 2: Check for repos that were just registered but have no PR data
+            # (e.g. newly discovered org repos whose recent-only fetch found 0 PRs)
+            repos_needing_full_sync = await _get_repos_without_data(db)
+            if repos_needing_full_sync:
+                logger.info(
+                    f"Found {len(repos_needing_full_sync)} repos without data: "
+                    f"{repos_needing_full_sync}. Running fast sync (PRs only)."
+                )
+                # Scoped connector: only the repos that actually need full sync
+                github_new = create_github_connector(
+                    token=creds.github_token, repos=repos_needing_full_sync
+                )
+                if github_new:
+                    items, errors = await _sync_connector_safe(
+                        github_new, db, "sync_all_fast"
+                    )
+                    total_items += items
+                    total_errors.extend(errors)
+                    logger.info(
+                        f"New repos fast sync: {items} items, {len(errors)} errors"
+                    )
 
         # GitHub Actions (Linear, Cursor, Greptile run in separate 5-min jobs)
         github_actions = create_github_actions_connector(

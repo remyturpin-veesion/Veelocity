@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell.js';
 
 // Lazy-load screens to reduce initial bundle and memory (helps avoid "Aw, Snap!" / Error code: 5)
 const DashboardScreen = lazy(() => import('@/screens/DashboardScreen.js').then((m) => ({ default: m.DashboardScreen })));
+const DoraScreen = lazy(() => import('@/screens/DoraScreen.js').then((m) => ({ default: m.DoraScreen })));
 const TeamScreen = lazy(() => import('@/screens/TeamScreen.js').then((m) => ({ default: m.TeamScreen })));
 const GitHubOverviewScreen = lazy(() => import('@/screens/GitHubOverviewScreen.js').then((m) => ({ default: m.GitHubOverviewScreen })));
 const PullRequestScreen = lazy(() => import('@/screens/PullRequestScreen.js').then((m) => ({ default: m.PullRequestScreen })));
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
     element: <ShellLayout />,
     children: [
       { index: true, element: <DashboardScreen /> },
+      { path: 'dora', element: <DoraScreen /> },
       { path: 'team', element: <TeamScreen /> },
       { path: 'github', element: <GitHubOverviewScreen /> },
       { path: 'github/pull-request', element: <PullRequestScreen /> },

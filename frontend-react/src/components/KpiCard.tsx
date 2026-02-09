@@ -15,6 +15,7 @@ interface KpiCardProps {
   icon?: React.ReactNode;
   accent?: KpiAccent;
   trend?: KpiTrend;
+  info?: React.ReactNode;
 }
 
 const ACCENT_VAR: Record<KpiAccent, string> = {
@@ -29,7 +30,7 @@ function formatTrendPercent(changePercent: number): string {
   return `${sign}${changePercent}%`;
 }
 
-export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary', trend }: KpiCardProps) {
+export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary', trend, info }: KpiCardProps) {
   const accentColor = ACCENT_VAR[accent];
   const content = (
     <>
@@ -38,7 +39,10 @@ export function KpiCard({ title, value, subtitle, to, icon, accent = 'primary', 
           {icon}
         </span>
       )}
-      <div className="card__title">{title}</div>
+      <div className="card__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span>{title}</span>
+        {info}
+      </div>
       <div className="kpi-card__value-row">
         <div className="card__value kpi-card__value" style={{ color: accentColor }}>
           {value}
