@@ -138,7 +138,6 @@ export function MetricInfoButton({ metricKey }: MetricInfoButtonProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const explanation = METRIC_EXPLANATIONS[metricKey];
-  if (!explanation) return null;
 
   useEffect(() => {
     if (!open) return;
@@ -155,6 +154,8 @@ export function MetricInfoButton({ metricKey }: MetricInfoButtonProps) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [open]);
+
+  if (!explanation) return null;
 
   return (
     <>

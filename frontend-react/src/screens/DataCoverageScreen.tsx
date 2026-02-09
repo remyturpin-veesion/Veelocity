@@ -54,10 +54,10 @@ function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; nam
   for (let i = 0; i < len; i++) {
     const g = github[i];
     const prs = Number(g?.count) || 0;
-    const workflowRuns = Number(github_actions[i]?.count) ?? 0;
-    const issues = Number(linear[i]?.count) ?? 0;
-    const cursorRequests = Number(cursor?.[i]?.count) ?? 0;
-    const greptileRepos = Number(greptile?.[i]?.count) ?? 0;
+    const workflowRuns = Number(github_actions[i]?.count) || 0;
+    const issues = Number(linear[i]?.count) || 0;
+    const cursorRequests = Number(cursor?.[i]?.count) || 0;
+    const greptileRepos = Number(greptile?.[i]?.count) || 0;
     if (typeof g?.date !== 'string') continue;
     result.push({
       date: g.date,
@@ -133,12 +133,12 @@ export function DataCoverageScreen() {
   const currentJob = syncStatus?.current_job ?? null;
   const tasksRemaining = syncStatus?.prs_without_details ?? 0;
   const isFullySynced = (syncStatus?.is_complete ?? false) && !syncInProgress;
-  const allRepos = (syncStatus?.repositories ?? []).slice().sort((a, b) => {
+  const allRepos = useMemo(() => (syncStatus?.repositories ?? []).slice().sort((a, b) => {
     const pctA = a.total_prs > 0 ? (a.with_details / a.total_prs) : 0;
     const pctB = b.total_prs > 0 ? (b.with_details / b.total_prs) : 0;
     return pctB - pctA;
-  });
-  const allLinearTeams = syncStatus?.linear_teams ?? [];
+  }), [syncStatus?.repositories]);
+  const allLinearTeams = useMemo(() => syncStatus?.linear_teams ?? [], [syncStatus?.linear_teams]);
   const repos = allRepos.slice(0, MAX_VISIBLE_REPOS);
   const reposOmitted = allRepos.length - repos.length;
   const linearTeams = allLinearTeams.slice(0, MAX_VISIBLE_LINEAR_TEAMS);

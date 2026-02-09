@@ -21,6 +21,72 @@ function formatNumber(value: number | null | undefined, decimals = 1): string {
   return value.toFixed(decimals);
 }
 
+const INDUSTRY_SUMMARY_2025 = [
+  {
+    label: 'AI adoption',
+    value: '90%',
+    detail: 'of respondents use AI as part of their work',
+  },
+  {
+    label: 'Productivity lift',
+    value: '>80%',
+    detail: 'report increased productivity from AI',
+  },
+  {
+    label: 'Trust gap',
+    value: '30%',
+    detail: 'report little to no trust in AI-generated code',
+  },
+  {
+    label: 'Platform engineering',
+    value: '90%',
+    detail: 'of organizations have adopted platform engineering',
+  },
+];
+
+const INDUSTRY_DEPLOYMENT_FREQUENCY_2025 = [
+  { label: 'Fewer than once per six months', share: 3.6, maxPerWeek: 1 / 26 },
+  { label: 'Between once per month and once every six months', share: 20.3, maxPerWeek: 1 / 4 },
+  { label: 'Between once per week and once per month', share: 31.5, maxPerWeek: 1 },
+  { label: 'Between once per day and once per week', share: 21.9, maxPerWeek: 7 },
+  { label: 'Between once per hour and once per day', share: 6.5, maxPerWeek: 168 },
+  { label: 'On demand (multiple deploys per day)', share: 16.2, maxPerWeek: Number.POSITIVE_INFINITY },
+];
+
+const INDUSTRY_LEAD_TIME_2025 = [
+  { label: 'More than six months', share: 2.0, maxHours: Number.POSITIVE_INFINITY, minHours: 6 * 30 * 24 },
+  { label: 'Between one month and six months', share: 13.2, maxHours: 6 * 30 * 24, minHours: 30 * 24 },
+  { label: 'Between one week and one month', share: 28.3, maxHours: 30 * 24, minHours: 7 * 24 },
+  { label: 'Between one day and one week', share: 31.9, maxHours: 7 * 24, minHours: 24 },
+  { label: 'Less than one day', share: 15.0, maxHours: 24, minHours: 1 },
+  { label: 'Less than one hour', share: 9.4, maxHours: 1, minHours: 0 },
+];
+
+const INDUSTRY_RECOVERY_TIME_2025 = [
+  { label: 'More than six months', share: 1.0, maxHours: Number.POSITIVE_INFINITY, minHours: 6 * 30 * 24 },
+  { label: 'Between one month and six months', share: 4.9, maxHours: 6 * 30 * 24, minHours: 30 * 24 },
+  { label: 'Between one week and one month', share: 9.4, maxHours: 30 * 24, minHours: 7 * 24 },
+  { label: 'Between one day and one week', share: 28.0, maxHours: 7 * 24, minHours: 24 },
+  { label: 'Less than one day', share: 35.3, maxHours: 24, minHours: 1 },
+  { label: 'Less than one hour', share: 21.3, maxHours: 1, minHours: 0 },
+];
+
+function classifyDeploymentFrequency(valuePerWeek: number | null | undefined) {
+  if (valuePerWeek == null) return null;
+  return (
+    INDUSTRY_DEPLOYMENT_FREQUENCY_2025.find((bucket) => valuePerWeek < bucket.maxPerWeek) ??
+    INDUSTRY_DEPLOYMENT_FREQUENCY_2025[INDUSTRY_DEPLOYMENT_FREQUENCY_2025.length - 1]
+  );
+}
+
+function classifyHours(valueHours: number | null | undefined, buckets: typeof INDUSTRY_LEAD_TIME_2025) {
+  if (valueHours == null) return null;
+  return (
+    buckets.find((bucket) => valueHours >= bucket.minHours && valueHours < bucket.maxHours) ??
+    buckets[0]
+  );
+}
+
 interface ReportData {
   period?: {
     start_date?: string;
@@ -89,6 +155,130 @@ function MetricRow({
   );
 }
 
+function StatCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
+      <div style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{label}</div>
+      <div style={{ fontSize: '1.5rem', fontWeight: 700, margin: '6px 0 4px' }}>{value}</div>
+      <div style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.4 }}>{detail}</div>
+    </div>
+  );
+}
+
+function TierTable({
+  title,
+  valueLabel,
+  value,
+  buckets,
+  tierLabels,
+  formatBucket,
+  highlight,
+}: {
+  title: string;
+  valueLabel: string;
+  value: string;
+  buckets: Array<{ label: string; share: number }>;
+  tierLabels: string[];
+  formatBucket: (b: { label: string; share: number }) => string;
+  highlight?: { label: string; share: number } | null;
+}) {
+  const palette = [
+    { bg: 'rgba(244,63,94,0.16)', fg: '#f87171', border: 'rgba(244,63,94,0.35)' },
+    { bg: 'rgba(249,115,22,0.16)', fg: 'var(--metric-orange)', border: 'rgba(249,115,22,0.35)' },
+    { bg: 'rgba(234,179,8,0.16)', fg: '#facc15', border: 'rgba(234,179,8,0.35)' },
+    { bg: 'rgba(59,130,246,0.16)', fg: 'var(--primary)', border: 'rgba(59,130,246,0.35)' },
+    { bg: 'rgba(14,165,233,0.16)', fg: '#38bdf8', border: 'rgba(14,165,233,0.35)' },
+    { bg: 'rgba(34,197,94,0.16)', fg: 'var(--metric-green)', border: 'rgba(34,197,94,0.35)' },
+  ];
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
+        <h3 className="dashboard-section-title" style={{ margin: 0 }}>{title}</h3>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{valueLabel}: {value}</span>
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `220px repeat(${buckets.length}, minmax(140px, 1fr))`,
+          gap: 8,
+        }}
+      >
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Tier</div>
+        {buckets.map((bucket) => {
+          const isActive = highlight?.label === bucket.label;
+          return (
+            <div
+              key={bucket.label}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 10,
+                border: `1px solid ${isActive ? 'rgba(59,130,246,0.45)' : 'rgba(148,163,184,0.18)'}`,
+                background: isActive ? 'rgba(59,130,246,0.12)' : 'rgba(148,163,184,0.08)',
+                color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: '0.75rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {isActive ? 'Veesion' : 'Industry'}
+            </div>
+          );
+        })}
+
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Range</div>
+        {buckets.map((bucket) => {
+          const isActive = highlight?.label === bucket.label;
+          const tierLabel = tierLabels[Math.min(tierLabels.length - 1, buckets.indexOf(bucket))] ?? 'Tier';
+          const tierStyle = palette[Math.min(palette.length - 1, buckets.indexOf(bucket))];
+          return (
+            <div
+              key={`${bucket.label}-range`}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                border: `1px solid ${isActive ? 'rgba(59,130,246,0.45)' : 'rgba(148,163,184,0.18)'}`,
+                background: isActive ? 'rgba(59,130,246,0.12)' : 'rgba(148,163,184,0.04)',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  background: tierStyle.bg,
+                  color: tierStyle.fg,
+                  border: `1px solid ${tierStyle.border}`,
+                  marginBottom: 8,
+                }}
+              >
+                {tierLabel}
+              </span>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{bucket.label}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
+                {formatBucket(bucket)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function DoraMetricsScreen() {
   useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
@@ -138,13 +328,37 @@ export function DoraMetricsScreen() {
   const dora = report?.dora;
   const dev = report?.development;
   const recs = report?.recommendations;
+  const depFreqBucket = classifyDeploymentFrequency(dora?.deployment_frequency?.average_per_week ?? null);
+  const leadTimeBucket = classifyHours(dora?.lead_time?.average_hours ?? null, INDUSTRY_LEAD_TIME_2025);
+  const mttrBucket = classifyHours(dora?.deployment_reliability?.mttr_hours ?? null, INDUSTRY_RECOVERY_TIME_2025);
 
   return (
     <div>
-      <h1 className="screen-title">DORA Metrics Report</h1>
+      <h1 className="screen-title">DORA Metrics Report 2025</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        {formatDateRangeDisplay(startDate, endDate)} &middot; Full report with DORA + development metrics
+        {formatDateRangeDisplay(startDate, endDate)} &middot; 2025 industry report summary with DORA comparisons
       </p>
+
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
+          <h2 className="dashboard-section-title" style={{ margin: 0 }}>2025 Industry Summary</h2>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            DORA State of AI-assisted Software Development (2025)
+          </span>
+        </div>
+        <div className="card" style={{ marginBottom: 12 }}>
+          <p style={{ margin: 0, color: 'var(--text)', lineHeight: 1.6 }}>
+            Based on a global survey of nearly 5,000 technology professionals (June 13 – July 21, 2025) plus
+            100+ hours of qualitative research, the 2025 report finds AI is now nearly universal and acts as an
+            amplifier of existing organizational strengths and weaknesses.
+          </p>
+        </div>
+        <div className="dashboard__kpi-row">
+          {INDUSTRY_SUMMARY_2025.map((item) => (
+            <StatCard key={item.label} label={item.label} value={item.value} detail={item.detail} />
+          ))}
+        </div>
+      </section>
 
       <section style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
@@ -171,6 +385,47 @@ export function DoraMetricsScreen() {
             value={formatHours(dora?.deployment_reliability?.mttr_hours)}
             subtitle="mean time to recovery"
           />
+        </div>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
+          <h2 className="dashboard-section-title" style={{ margin: 0 }}>Industry Benchmarks (2025)</h2>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Where you sit vs industry distribution</span>
+        </div>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <TierTable
+            title="Deployment frequency"
+            valueLabel="Veesion"
+            value={dora?.deployment_frequency?.average_per_week != null
+              ? `${formatNumber(dora.deployment_frequency.average_per_week)} /week`
+              : '—'}
+            buckets={INDUSTRY_DEPLOYMENT_FREQUENCY_2025}
+            tierLabels={['Low', 'Below avg', 'Mid', 'Above avg', 'High', 'Elite']}
+            highlight={depFreqBucket}
+            formatBucket={(bucket) => `${bucket.share}% of industry`}
+          />
+          <TierTable
+            title="Lead time for changes"
+            valueLabel="Veesion"
+            value={formatHours(dora?.lead_time?.average_hours)}
+            buckets={INDUSTRY_LEAD_TIME_2025}
+            tierLabels={['Low', 'Below avg', 'Mid', 'Above avg', 'High', 'Elite']}
+            highlight={leadTimeBucket}
+            formatBucket={(bucket) => `${bucket.share}% of industry`}
+          />
+          <TierTable
+            title="MTTR"
+            valueLabel="Veesion"
+            value={formatHours(dora?.deployment_reliability?.mttr_hours)}
+            buckets={INDUSTRY_RECOVERY_TIME_2025}
+            tierLabels={['Low', 'Below avg', 'Mid', 'Above avg', 'High', 'Elite']}
+            highlight={mttrBucket}
+            formatBucket={(bucket) => `${bucket.share}% of industry`}
+          />
+          <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+            Change failure rate: the 2025 report provides a rework-rate distribution rather than direct change-failure benchmarks.
+          </div>
         </div>
       </section>
 

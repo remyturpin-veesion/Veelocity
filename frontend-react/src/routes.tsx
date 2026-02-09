@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell.js';
 
 // Lazy-load screens to reduce initial bundle and memory (helps avoid "Aw, Snap!" / Error code: 5)
@@ -90,9 +90,3 @@ export const router = createBrowserRouter([
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ]);
-
-export function useIsActive(path: string): boolean {
-  const loc = useLocation();
-  if (path === '/') return loc.pathname === '/' || loc.pathname === '/dashboard';
-  return loc.pathname === path || loc.pathname.startsWith(path + '/');
-}

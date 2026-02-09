@@ -4,7 +4,7 @@ import { useFiltersStore } from '@/stores/filters.js';
 import { getDevelopers, getDeveloperStats } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import type { Developer, DeveloperStats } from '@/types/index.js';
+import type { Developer } from '@/types/index.js';
 
 function getInitials(login: string): string {
   return login

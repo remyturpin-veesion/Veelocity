@@ -132,7 +132,7 @@ export function CorrelationsScreen() {
   const noReposSelected = hasNoReposSelected();
 
   const periodQueries = useQueries({
-    queries: FIXED_PERIODS.map(({ days, label, period }) => {
+    queries: FIXED_PERIODS.map(({ days, period }) => {
       const { start_date, end_date } = getDateRangeForDays(days);
       return {
         queryKey: ['metrics', 'correlations', days, start_date, end_date, repoIds],
@@ -146,7 +146,6 @@ export function CorrelationsScreen() {
         enabled: !noReposSelected,
       };
     }),
-    enabled: !noReposSelected,
   });
 
   if (noReposSelected) {

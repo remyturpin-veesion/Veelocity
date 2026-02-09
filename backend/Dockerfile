@@ -3,6 +3,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system dependencies (ca-certificates needed for HTTPS connections)
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 

@@ -288,10 +288,10 @@ export function GreptileOverviewScreen() {
               <Tooltip
                 contentStyle={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', borderRadius: 8, fontSize: '0.8125rem' }}
                 labelStyle={{ color: 'var(--text)' }}
-                formatter={(value: number, name: string) => {
+                formatter={((value: number, name: string) => {
                   if (name === 'coverage_pct') return [`${value}%`, 'Coverage'];
                   return [value, name];
-                }}
+                }) as never}
               />
               <Area
                 type="monotone"

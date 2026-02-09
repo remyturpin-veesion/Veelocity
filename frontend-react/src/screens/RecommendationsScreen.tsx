@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getProposedRecommendations } from '@/api/endpoints.js';
-import { EmptyState } from '@/components/EmptyState.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import type { Recommendation } from '@/types/index.js';
 
