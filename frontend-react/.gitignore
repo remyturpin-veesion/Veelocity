@@ -29,3 +29,4 @@ demo/
 test-results/
 playwright-report/
 playwright.config.ts
+/scripts
