@@ -134,7 +134,7 @@ class RecommendationEngine:
                     description=f"{large_pr_count} PR(s) are large (>500 lines or low size score). Smaller PRs are reviewed faster and reduce risk.",
                     priority="medium",
                     metric_context=f"{large_pr_count} large PR(s) in period",
-                    link="/metrics/pr-health",
+                    link="/github/code-review/prs",
                 )
             )
 
@@ -154,7 +154,7 @@ class RecommendationEngine:
                     description="Some reviewers handle a large share of reviews. Spread ownership (e.g. CODEOWNERS) to avoid bottlenecks and burnout.",
                     priority="medium",
                     metric_context=f"Bottleneck(s): {names}",
-                    link="/metrics/reviewer-workload",
+                    link="/github/pull-request",
                 )
             )
 

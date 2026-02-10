@@ -9,7 +9,6 @@ export type MetricKey =
   | 'throughput'
   | 'pr-review-time'
   | 'pr-merge-time'
-  | 'pr-health'
   | 'reviewer-workload'
   | 'linear-backlog'
   | 'linear-issues-completed'
@@ -86,14 +85,6 @@ const METRIC_EXPLANATIONS: Record<MetricKey, MetricExplanation> = {
     howCalculated:
       'For each merged PR we compute the time from opened_at to merged_at. We report the count of PRs and the average merge time in hours.',
     source: 'GitHub pull requests',
-  },
-  'pr-health': {
-    title: 'PR health',
-    whyUseful:
-      'A composite score for pull requests based on factors like review coverage, comment activity, and size. It helps identify PRs that might need attention or process improvements.',
-    howCalculated:
-      'Each PR is scored using factors such as number of reviews, comments, and size. The score is normalized; you see the number of PRs scored and the average score, plus a list of PRs with their health score and category.',
-    source: 'GitHub PRs, reviews, and comments',
   },
   'reviewer-workload': {
     title: 'Reviewer workload',

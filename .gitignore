@@ -11,4 +11,7 @@
 .env.local
 *.env
 !.env.example
-.venv-pdf
+.venv*
+
+# Used by Playwright for demo / screenshot
+output/

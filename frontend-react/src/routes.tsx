@@ -26,8 +26,6 @@ const ThroughputScreen = lazy(() => import('@/screens/metrics/ThroughputScreen.j
 const PRReviewTimeScreen = lazy(() => import('@/screens/metrics/PRReviewTimeScreen.js').then((m) => ({ default: m.PRReviewTimeScreen })));
 const PRMergeTimeScreen = lazy(() => import('@/screens/metrics/PRMergeTimeScreen.js').then((m) => ({ default: m.PRMergeTimeScreen })));
 const CycleTimeScreen = lazy(() => import('@/screens/metrics/CycleTimeScreen.js').then((m) => ({ default: m.CycleTimeScreen })));
-const PRHealthScreen = lazy(() => import('@/screens/metrics/PRHealthScreen.js').then((m) => ({ default: m.PRHealthScreen })));
-const ReviewerWorkloadScreen = lazy(() => import('@/screens/metrics/ReviewerWorkloadScreen.js').then((m) => ({ default: m.ReviewerWorkloadScreen })));
 const LinearIssuesCompletedScreen = lazy(() => import('@/screens/metrics/LinearIssuesCompletedScreen.js').then((m) => ({ default: m.LinearIssuesCompletedScreen })));
 const LinearBacklogScreen = lazy(() => import('@/screens/metrics/LinearBacklogScreen.js').then((m) => ({ default: m.LinearBacklogScreen })));
 const LinearTimeInStateScreen = lazy(() => import('@/screens/metrics/LinearTimeInStateScreen.js').then((m) => ({ default: m.LinearTimeInStateScreen })));
@@ -57,8 +55,6 @@ export const router = createBrowserRouter([
       { path: 'metrics/pr-merge-time', element: <PRMergeTimeScreen /> },
       { path: 'metrics/cycle-time', element: <CycleTimeScreen /> },
       { path: 'metrics/throughput', element: <ThroughputScreen /> },
-      { path: 'metrics/pr-health', element: <PRHealthScreen /> },
-      { path: 'metrics/reviewer-workload', element: <ReviewerWorkloadScreen /> },
       { path: 'metrics/linear/issues-completed', element: <LinearIssuesCompletedScreen /> },
       { path: 'metrics/linear/backlog', element: <LinearBacklogScreen /> },
       { path: 'metrics/linear/time-in-state', element: <LinearTimeInStateScreen /> },

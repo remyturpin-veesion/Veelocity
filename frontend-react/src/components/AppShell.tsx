@@ -29,7 +29,10 @@ const GITHUB_SIDEBAR = {
     { path: '/github/pull-request', icon: '📋', label: 'Metrics' },
     { path: '/github/code-review/prs', icon: '📄', label: 'PRs' },
   ],
-  dev: [{ path: '/metrics/cycle-time', icon: '🔄', label: 'Cycle time' }],
+  dev: [
+    { path: '/metrics/throughput', icon: '📦', label: 'Throughput' },
+    { path: '/metrics/cycle-time', icon: '🔄', label: 'Cycle time' },
+  ],
   insights: [
     { path: '/insights/recommendations', icon: '🛡', label: 'Recommendations' },
     { path: '/insights/correlations', icon: '📈', label: 'Correlations' },
