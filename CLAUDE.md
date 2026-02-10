@@ -89,6 +89,7 @@ GitHub and Linear API keys are stored encrypted in the database. Configure them 
 - **Linear:** API key (Linear → Settings → API) and optional workspace name — set in Settings.
 - **Sync:** `DEPLOYMENT_PATTERNS` (comma-separated: "deploy,release,publish") remains in `.env`.
 - **GitHub OAuth (optional):** Requires `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `OAUTH_BACKEND_BASE_URL`, `OAUTH_FRONTEND_REDIRECT_URL`. Endpoints at `/api/v1/auth/github`.
+- **Sentry (optional):** Error reporting. Backend: `SENTRY_DSN` in backend env; frontend: `VITE_SENTRY_DSN` in frontend env. For self-hosted Sentry the DSN is from Project → Client Keys (DSN). Omit to disable.
 
 ### Sync Architecture
 

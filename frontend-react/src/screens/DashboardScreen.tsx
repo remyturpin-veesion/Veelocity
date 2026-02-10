@@ -27,6 +27,7 @@ import {
   getCursorOverview,
   getGreptileMetrics,
   getQuickOverview,
+  getSentryOverview,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
@@ -177,6 +178,12 @@ export function DashboardScreen() {
     enabled:
       (settings.data?.greptile_configured === true || settings.data?.github_configured === true) &&
       !noReposSelected,
+  });
+
+  const sentryOverview = useQuery({
+    queryKey: ['sentry', 'overview', '24h'],
+    queryFn: () => getSentryOverview({ stats_period: '24h' }),
+    enabled: settings.data?.sentry_configured === true,
   });
 
   const quickOverview = useQuery({
@@ -336,6 +343,28 @@ export function DashboardScreen() {
             </div>
           </>
         )}
+      </div>
+    ) : null;
+
+  /** Sentry summary card: errors 24h, open issues; title links to Sentry overview */
+  const sentrySummaryCard =
+    settings.data?.sentry_configured && sentryOverview.data ? (
+      <div className="card dashboard__row-card">
+        <h3 className="dashboard-section-title">
+          <Link to="/sentry" style={{ color: 'var(--text)', textDecoration: 'none' }}>Sentry</Link>
+        </h3>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Errors (24h)</span>
+          <span>{sentryOverview.data.org_totals?.events_24h ?? 0}</span>
+        </div>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Open issues</span>
+          <span>{sentryOverview.data.org_totals?.open_issues_count ?? 0}</span>
+        </div>
+        <div className="dashboard-quick-overview__row">
+          <span style={{ color: 'var(--text-muted)' }}>Projects</span>
+          <span>{(sentryOverview.data.projects ?? []).length}</span>
+        </div>
       </div>
     ) : null;
 
@@ -650,6 +679,9 @@ export function DashboardScreen() {
             </div>
           </div>
         )}
+
+        {/* Sentry: summary card when connected */}
+        {sentrySummaryCard}
 
         <div className="dashboard__bottom-three">
           <div className="card">

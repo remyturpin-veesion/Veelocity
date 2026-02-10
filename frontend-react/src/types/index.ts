@@ -121,6 +121,35 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
+export interface SentryOverviewIssue {
+  id: string;
+  short_id: string;
+  title: string;
+  count: number;
+  last_seen: string;
+}
+
+export interface SentryOverviewProject {
+  id: string;
+  slug: string;
+  name: string;
+  events_24h: number;
+  events_7d: number;
+  open_issues_count: number;
+  top_issues: SentryOverviewIssue[];
+}
+
+export interface SentryOverviewResponse {
+  sentry_base_url: string;
+  org: string;
+  org_totals: {
+    events_24h: number;
+    events_7d: number;
+    open_issues_count: number;
+  };
+  projects: SentryOverviewProject[];
+}
+
 export interface SettingsResponse {
   github_configured: boolean;
   github_has_token?: boolean;
@@ -130,6 +159,10 @@ export interface SettingsResponse {
   linear_workspace_name?: string;
   cursor_configured?: boolean;
   greptile_configured?: boolean;
+  sentry_configured?: boolean;
+  sentry_base_url?: string;
+  sentry_org?: string;
+  sentry_project?: string;
   storage_available?: boolean;
   [key: string]: unknown;
 }
