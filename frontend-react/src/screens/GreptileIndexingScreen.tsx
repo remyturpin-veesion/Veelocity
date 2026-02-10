@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getGreptileRepos,
@@ -8,22 +8,33 @@ import {
   refreshGreptileStatus,
 } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import type { GreptileManagedRepo } from '@/types/index.js';
+import type { GreptileManagedRepo, GreptileIndexResult } from '@/types/index.js';
+
+// ---------------------------------------------------------------------------
+// Per-repo feedback
+// ---------------------------------------------------------------------------
+
+interface RepoFeedback {
+  type: 'success' | 'error';
+  message: string;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Derived index_status values — aligned with the Greptile overview screen. */
 const STATUS_CONFIG: Record<string, { label: string; color: string; priority: number }> = {
-  completed: { label: 'Indexed', color: 'var(--metric-green)', priority: 5 },
-  submitted: { label: 'Submitted', color: 'var(--metric-blue)', priority: 4 },
+  indexed: { label: 'Indexed', color: 'var(--metric-green)', priority: 5 },
+  active: { label: 'Active', color: 'var(--metric-blue)', priority: 4 },
   processing: { label: 'Processing', color: 'var(--metric-blue)', priority: 3 },
-  cloning: { label: 'Cloning', color: 'var(--metric-blue)', priority: 2 },
-  failed: { label: 'Failed', color: 'var(--metric-orange)', priority: 1 },
+  stale: { label: 'Stale', color: 'var(--metric-orange)', priority: 2 },
+  error: { label: 'Error', color: 'var(--metric-orange)', priority: 1 },
+  not_indexed: { label: 'Not indexed', color: 'var(--text-muted)', priority: 0 },
 };
 
 function getStatusConfig(status: string | null) {
-  if (!status) return { label: 'Not indexed', color: 'var(--text-muted)', priority: 0 };
+  if (!status) return STATUS_CONFIG.not_indexed;
   return STATUS_CONFIG[status] ?? { label: status, color: 'var(--text-muted)', priority: 0 };
 }
 
@@ -55,7 +66,7 @@ function fmtTimeAgo(iso: string | null): string {
   }
 }
 
-type RepoSortKey = 'repository' | 'greptile_status' | 'files_processed' | 'synced_at';
+type RepoSortKey = 'repository' | 'index_status' | 'files_processed' | 'synced_at';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -99,16 +110,60 @@ export function GreptileIndexingScreen() {
   });
 
   // Sorting & search
-  const [sortKey, setSortKey] = useState<RepoSortKey>('greptile_status');
+  const [sortKey, setSortKey] = useState<RepoSortKey>('index_status');
   const [sortAsc, setSortAsc] = useState(true);
   const [repoSearch, setRepoSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
 
   // Indexing tracking
   const [indexingRepos, setIndexingRepos] = useState<Set<string>>(new Set());
 
+  // Per-repo feedback (success / error toasts)
+  const [repoFeedback, setRepoFeedback] = useState<Record<string, RepoFeedback>>({});
+  const feedbackTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    const timers = feedbackTimers.current;
+    return () => {
+      Object.values(timers).forEach(clearTimeout);
+    };
+  }, []);
+
+  const setFeedbackForRepo = useCallback((repo: string, fb: RepoFeedback) => {
+    setRepoFeedback((prev) => ({ ...prev, [repo]: fb }));
+    // Clear any existing timer
+    if (feedbackTimers.current[repo]) {
+      clearTimeout(feedbackTimers.current[repo]);
+    }
+    // Auto-dismiss success after 8s, errors persist longer (15s)
+    const delay = fb.type === 'success' ? 8_000 : 15_000;
+    feedbackTimers.current[repo] = setTimeout(() => {
+      setRepoFeedback((prev) => {
+        const next = { ...prev };
+        delete next[repo];
+        return next;
+      });
+      delete feedbackTimers.current[repo];
+    }, delay);
+  }, []);
+
+  const clearFeedbackForRepo = useCallback((repo: string) => {
+    setRepoFeedback((prev) => {
+      const next = { ...prev };
+      delete next[repo];
+      return next;
+    });
+    if (feedbackTimers.current[repo]) {
+      clearTimeout(feedbackTimers.current[repo]);
+      delete feedbackTimers.current[repo];
+    }
+  }, []);
+
   const handleIndexRepo = useCallback(
     (repo: GreptileManagedRepo, reload: boolean) => {
       setIndexingRepos((prev) => new Set(prev).add(repo.repository));
+      clearFeedbackForRepo(repo.repository);
       indexMutation.mutate(
         {
           repository: repo.repository,
@@ -116,6 +171,26 @@ export function GreptileIndexingScreen() {
           reload,
         },
         {
+          onSuccess: (data: GreptileIndexResult) => {
+            if (data.status === 'error') {
+              const detail = data.error_detail || data.error_code || 'Unknown error';
+              setFeedbackForRepo(repo.repository, {
+                type: 'error',
+                message: `Indexing failed: ${detail}`,
+              });
+            } else {
+              setFeedbackForRepo(repo.repository, {
+                type: 'success',
+                message: data.message || 'Indexing submitted',
+              });
+            }
+          },
+          onError: (err: Error) => {
+            setFeedbackForRepo(repo.repository, {
+              type: 'error',
+              message: `Request failed: ${err.message}`,
+            });
+          },
           onSettled: () => {
             setIndexingRepos((prev) => {
               const next = new Set(prev);
@@ -126,7 +201,7 @@ export function GreptileIndexingScreen() {
         }
       );
     },
-    [indexMutation]
+    [indexMutation, setFeedbackForRepo, clearFeedbackForRepo]
   );
 
   const handleIndexAll = useCallback(
@@ -144,13 +219,17 @@ export function GreptileIndexingScreen() {
     if (q) {
       rows = rows.filter((r) => r.repository.toLowerCase().includes(q));
     }
+    // Filter by status (empty set = show all)
+    if (statusFilter.size > 0) {
+      rows = rows.filter((r) => statusFilter.has(r.index_status ?? 'not_indexed'));
+    }
     rows.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'repository') {
         cmp = a.repository.localeCompare(b.repository);
-      } else if (sortKey === 'greptile_status') {
-        const pa = getStatusConfig(a.greptile_status).priority;
-        const pb = getStatusConfig(b.greptile_status).priority;
+      } else if (sortKey === 'index_status') {
+        const pa = getStatusConfig(a.index_status).priority;
+        const pb = getStatusConfig(b.index_status).priority;
         cmp = pa - pb;
       } else if (sortKey === 'files_processed') {
         const va = a.files_processed ?? -1;
@@ -164,16 +243,18 @@ export function GreptileIndexingScreen() {
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [reposData?.repos, sortKey, sortAsc, repoSearch]);
+  }, [reposData?.repos, sortKey, sortAsc, repoSearch, statusFilter]);
 
   const repoStats = useMemo(() => {
-    if (!reposData?.repos) return { indexed: 0, processing: 0, notIndexed: 0, failed: 0, total: 0 };
+    if (!reposData?.repos) return { indexed: 0, active: 0, processing: 0, notIndexed: 0, failed: 0, stale: 0, total: 0 };
     const repos = reposData.repos;
     return {
-      indexed: repos.filter((r) => r.greptile_status === 'completed').length,
-      processing: repos.filter((r) => ['submitted', 'processing', 'cloning'].includes(r.greptile_status || '')).length,
-      notIndexed: repos.filter((r) => !r.greptile_status).length,
-      failed: repos.filter((r) => r.greptile_status === 'failed').length,
+      indexed: repos.filter((r) => r.index_status === 'indexed').length,
+      processing: repos.filter((r) => r.index_status === 'processing').length,
+      active: repos.filter((r) => r.index_status === 'active').length,
+      notIndexed: repos.filter((r) => r.index_status === 'not_indexed').length,
+      failed: repos.filter((r) => r.index_status === 'error').length,
+      stale: repos.filter((r) => r.index_status === 'stale').length,
       total: repos.length,
     };
   }, [reposData?.repos]);
@@ -248,17 +329,22 @@ export function GreptileIndexingScreen() {
           </a>
         </div>
       </div>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.875rem' }}>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 8, fontSize: '0.875rem' }}>
         Manage which repositories are indexed in Greptile for AI code review.
+      </p>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.8125rem' }}>
+        Status and progress reflect the <strong>last sync</strong> with Greptile (not live). Use <strong>Refresh status</strong> to fetch the latest; progress may only appear once indexing completes.
       </p>
 
       {/* Action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <StatBadge label="Indexed" count={repoStats.indexed} color="var(--metric-green)" />
-          <StatBadge label="Processing" count={repoStats.processing} color="var(--metric-blue)" />
+          {repoStats.active > 0 && <StatBadge label="Active" count={repoStats.active} color="var(--metric-blue)" />}
+          {repoStats.processing > 0 && <StatBadge label="Processing" count={repoStats.processing} color="var(--metric-blue)" />}
           <StatBadge label="Not indexed" count={repoStats.notIndexed} color="var(--text-muted)" />
-          {repoStats.failed > 0 && <StatBadge label="Failed" count={repoStats.failed} color="var(--metric-orange)" />}
+          {repoStats.stale > 0 && <StatBadge label="Stale" count={repoStats.stale} color="var(--metric-orange)" />}
+          {repoStats.failed > 0 && <StatBadge label="Error" count={repoStats.failed} color="var(--metric-orange)" />}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {repoStats.notIndexed > 0 && (
@@ -309,21 +395,40 @@ export function GreptileIndexingScreen() {
             marginBottom: 16,
             padding: '10px 16px',
             borderRadius: 8,
-            background: 'rgba(34, 197, 94, 0.08)',
-            border: '1px solid rgba(34, 197, 94, 0.3)',
+            background:
+              indexAllMutation.data.errors > 0
+                ? 'rgba(239, 68, 68, 0.08)'
+                : 'rgba(34, 197, 94, 0.08)',
+            border:
+              indexAllMutation.data.errors > 0
+                ? '1px solid rgba(239, 68, 68, 0.3)'
+                : '1px solid rgba(34, 197, 94, 0.3)',
             fontSize: '0.8125rem',
-            color: 'var(--metric-green)',
+            color:
+              indexAllMutation.data.errors > 0
+                ? 'var(--metric-orange)'
+                : 'var(--metric-green)',
           }}
         >
           Indexing submitted for {indexAllMutation.data.submitted} repos
-          {indexAllMutation.data.errors > 0 && ` (${indexAllMutation.data.errors} errors)`}
+          {indexAllMutation.data.errors > 0 && ` (${indexAllMutation.data.errors} failed)`}
         </div>
       )}
-
-      {/* Search */}
-      <div style={{ marginBottom: 12 }}>
-        <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Search repositories\u2026" />
-      </div>
+      {indexAllMutation.isError && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '10px 16px',
+            borderRadius: 8,
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            fontSize: '0.8125rem',
+            color: 'var(--metric-orange)',
+          }}
+        >
+          Index all failed: {(indexAllMutation.error as Error)?.message || 'Unknown error'}
+        </div>
+      )}
 
       {/* Repository table */}
       {isLoading ? (
@@ -334,8 +439,26 @@ export function GreptileIndexingScreen() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--surface-border)', textAlign: 'left' }}>
-                  <SortableTh label="Repository" sortKey="repository" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
-                  <SortableTh label="Status" sortKey="greptile_status" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                  <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <SortableThInner label="Repository" sortKey="repository" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                      <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Filter\u2026" />
+                    </div>
+                  </th>
+                  <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <SortableThInner label="Status" sortKey="index_status" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                      <StatusFilterPills
+                        options={Object.entries(STATUS_CONFIG).map(([value, config]) => ({
+                          value,
+                          label: config.label,
+                          color: config.color,
+                        }))}
+                        selected={statusFilter}
+                        onChange={setStatusFilter}
+                      />
+                    </div>
+                  </th>
                   <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 500 }}>Progress</th>
                   <SortableTh label="Last sync" sortKey="synced_at" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
                   <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>Actions</th>
@@ -348,6 +471,8 @@ export function GreptileIndexingScreen() {
                     repo={repo}
                     isIndexing={indexingRepos.has(repo.repository)}
                     onIndex={(reload) => handleIndexRepo(repo, reload)}
+                    feedback={repoFeedback[repo.repository] ?? null}
+                    onDismissFeedback={() => clearFeedbackForRepo(repo.repository)}
                   />
                 ))}
                 {sortedRepos.length === 0 && (
@@ -394,8 +519,13 @@ function StatBadge({ label, count, color }: { label: string; count: number; colo
 
 function StatusBadge({ status }: { status: string | null }) {
   const config = getStatusConfig(status);
+  const title =
+    status === 'processing'
+      ? 'Queued or in progress (as of last sync). Use Refresh status to update.'
+      : undefined;
   return (
     <span
+      title={title}
       style={{
         display: 'inline-block',
         padding: '2px 10px',
@@ -412,9 +542,24 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
-function ProgressBar({ processed, total }: { processed: number | null; total: number | null }) {
+function ProgressBar({
+  processed,
+  total,
+  titleWhenEmpty,
+}: {
+  processed: number | null;
+  total: number | null;
+  titleWhenEmpty?: string;
+}) {
   if (processed == null || total == null || total === 0) {
-    return <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{'\u2014'}</span>;
+    return (
+      <span
+        style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+        title={titleWhenEmpty}
+      >
+        {'\u2014'}
+      </span>
+    );
   }
   const pct = Math.round((processed / total) * 100);
   const barColor =
@@ -455,50 +600,112 @@ function RepoRow({
   repo,
   isIndexing,
   onIndex,
+  feedback,
+  onDismissFeedback,
 }: {
   repo: GreptileManagedRepo;
   isIndexing: boolean;
   onIndex: (reload: boolean) => void;
+  feedback: RepoFeedback | null;
+  onDismissFeedback: () => void;
 }) {
-  const isProcessing = ['submitted', 'processing', 'cloning'].includes(repo.greptile_status || '');
-  const isCompleted = repo.greptile_status === 'completed';
-  const isFailed = repo.greptile_status === 'failed';
-  const isNotIndexed = !repo.greptile_status;
+  const isProcessing = repo.index_status === 'processing';
+  const isCompleted = repo.index_status === 'indexed';
+  const isFailed = repo.index_status === 'error';
+  const isNotIndexed = repo.index_status === 'not_indexed';
+  const isActive = repo.index_status === 'active';
 
   return (
-    <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
-      <td style={{ padding: '10px 12px' }}>
-        <div style={{ fontWeight: 500 }}>{repo.repository}</div>
-        <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-          {repo.greptile_branch || repo.default_branch || 'main'}
-        </div>
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        <StatusBadge status={repo.greptile_status} />
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        <ProgressBar processed={repo.files_processed} total={repo.num_files} />
-      </td>
-      <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-        {fmtTimeAgo(repo.synced_at)}
-      </td>
-      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-          {(isNotIndexed || isFailed) && (
-            <ActionButton label="Index" onClick={() => onIndex(false)} disabled={isIndexing} variant="primary" />
-          )}
-          {isProcessing && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--metric-blue)', fontStyle: 'italic' }}>
-              {isIndexing ? 'Submitting\u2026' : 'Processing\u2026'}
-            </span>
-          )}
-          {(isCompleted || isFailed) && (
-            <ActionButton label="Re-index" onClick={() => onIndex(true)} disabled={isIndexing} variant="secondary" />
-          )}
-          {isIndexing && <Spinner />}
-        </div>
-      </td>
-    </tr>
+    <>
+      <tr style={{ borderBottom: feedback ? 'none' : '1px solid var(--surface-border)' }}>
+        <td style={{ padding: '10px 12px' }}>
+          <div style={{ fontWeight: 500 }}>{repo.repository}</div>
+          <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+            {repo.greptile_branch || repo.default_branch || 'main'}
+          </div>
+        </td>
+        <td style={{ padding: '10px 12px' }}>
+          <StatusBadge status={repo.index_status} />
+        </td>
+        <td style={{ padding: '10px 12px' }}>
+          <ProgressBar
+            processed={repo.files_processed}
+            total={repo.num_files}
+            titleWhenEmpty={
+              isProcessing
+                ? 'Progress may not be reported until indexing completes. Use Refresh status to update.'
+                : undefined
+            }
+          />
+        </td>
+        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+          {fmtTimeAgo(repo.synced_at)}
+        </td>
+        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            {(isNotIndexed || isFailed || isActive) && (
+              <ActionButton label="Index" onClick={() => onIndex(false)} disabled={isIndexing} variant="primary" />
+            )}
+            {isProcessing && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--metric-blue)', fontStyle: 'italic' }}>
+                {isIndexing ? 'Submitting\u2026' : 'Processing\u2026'}
+              </span>
+            )}
+            {(isCompleted || isFailed) && (
+              <ActionButton label="Re-index" onClick={() => onIndex(true)} disabled={isIndexing} variant="secondary" />
+            )}
+            {isIndexing && <Spinner />}
+          </div>
+        </td>
+      </tr>
+      {feedback && (
+        <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
+          <td colSpan={5} style={{ padding: '0 12px 8px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 12px',
+                borderRadius: 6,
+                fontSize: '0.75rem',
+                background:
+                  feedback.type === 'error'
+                    ? 'rgba(239, 68, 68, 0.08)'
+                    : 'rgba(34, 197, 94, 0.08)',
+                border:
+                  feedback.type === 'error'
+                    ? '1px solid rgba(239, 68, 68, 0.3)'
+                    : '1px solid rgba(34, 197, 94, 0.3)',
+                color:
+                  feedback.type === 'error'
+                    ? 'var(--metric-orange)'
+                    : 'var(--metric-green)',
+              }}
+            >
+              <span>{feedback.message}</span>
+              <button
+                type="button"
+                onClick={onDismissFeedback}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'inherit',
+                  fontSize: '0.875rem',
+                  lineHeight: 1,
+                  padding: '0 4px',
+                  opacity: 0.7,
+                }}
+                aria-label="Dismiss"
+              >
+                &times;
+              </button>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -553,6 +760,42 @@ function Spinner() {
   );
 }
 
+function SortableThInner({
+  label,
+  sortKey: key,
+  currentSort,
+  asc,
+  onSort,
+}: {
+  label: string;
+  sortKey: RepoSortKey;
+  currentSort: RepoSortKey;
+  asc: boolean;
+  onSort: (k: RepoSortKey) => void;
+}) {
+  const active = currentSort === key;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => onSort(key)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSort(key)}
+      style={{
+        color: active ? 'var(--text)' : 'var(--text-muted)',
+        fontWeight: 500,
+        cursor: 'pointer',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+      {active && (
+        <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
+      )}
+    </span>
+  );
+}
+
 function SortableTh({
   label,
   sortKey: key,
@@ -584,6 +827,57 @@ function SortableTh({
         <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
       )}
     </th>
+  );
+}
+
+function StatusFilterPills({
+  options,
+  selected,
+  onChange,
+}: {
+  options: Array<{ value: string; label: string; color: string }>;
+  selected: Set<string>;
+  onChange: (s: Set<string>) => void;
+}) {
+  const toggle = (value: string) => {
+    if (selected.size === 0) {
+      const next = new Set(options.map((o) => o.value));
+      next.delete(value);
+      onChange(next);
+    } else {
+      const next = new Set(selected);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      onChange(next);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {options.map(({ value, label, color }) => {
+        const isActive = selected.size === 0 || selected.has(value);
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => toggle(value)}
+            style={{
+              padding: '2px 8px',
+              fontSize: '0.6875rem',
+              fontWeight: 500,
+              borderRadius: 999,
+              border: `1px solid ${isActive ? `color-mix(in srgb, ${color} 40%, transparent)` : 'var(--surface-border)'}`,
+              background: isActive ? `color-mix(in srgb, ${color} 14%, transparent)` : 'transparent',
+              color: isActive ? color : 'var(--text-muted)',
+              cursor: 'pointer',
+              opacity: isActive ? 1 : 0.7,
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

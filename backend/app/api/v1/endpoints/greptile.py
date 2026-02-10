@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models.github import PRComment, PRReview, Repository
+from app.models.github import PRComment, PRReview, PullRequest, Repository
 from app.models.greptile import GreptileRepository
 from app.services.credentials import CredentialsService
 from app.services.greptile_client import (
@@ -218,6 +218,7 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
     """
     Combined view: all configured GitHub repos with their Greptile indexing status.
     Merges data from the Repository table (GitHub sync) and GreptileRepository table.
+    Returns a derived ``index_status`` consistent with the overview metrics screen.
     """
     service = CredentialsService(db)
     creds = await service.get_credentials()
@@ -234,6 +235,31 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
     )
     gr_repos = gr_result.scalars().all()
 
+    # Detect repos with Greptile bot reviews (for "active" status).
+    # Auto-detect the bot login the same way as the metrics service.
+    bot_login = "greptile"
+    detect_q = (
+        select(PRReview.reviewer_login, func.count(PRReview.id).label("cnt"))
+        .where(PRReview.reviewer_login.ilike("%greptile%"))
+        .group_by(PRReview.reviewer_login)
+        .order_by(func.count(PRReview.id).desc())
+        .limit(1)
+    )
+    detect_result = await db.execute(detect_q)
+    detect_row = detect_result.first()
+    if detect_row:
+        bot_login = detect_row.reviewer_login
+
+    # Set of repo IDs that have at least one Greptile bot review
+    reviewed_q = (
+        select(PullRequest.repo_id)
+        .join(PRReview, PRReview.pr_id == PullRequest.id)
+        .where(PRReview.reviewer_login == bot_login)
+        .distinct()
+    )
+    reviewed_result = await db.execute(reviewed_q)
+    greptile_reviewed_repo_ids: set[int] = {r[0] for r in reviewed_result.all()}
+
     # Build lookup: lowercase repo name -> Greptile data
     gr_by_name: dict[str, GreptileRepository] = {}
     for gr in gr_repos:
@@ -248,11 +274,13 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
         key = name.lower()
         seen_names.add(key)
         gr = gr_by_name.get(key)
+        index_status = _derive_index_status(gr, repo.id in greptile_reviewed_repo_ids)
         combined.append({
             "repository": name,
             "github_repo_id": repo.id,
             "default_branch": repo.default_branch or "main",
             "greptile_status": gr.status if gr else None,
+            "index_status": index_status,
             "greptile_branch": gr.branch if gr else None,
             "files_processed": gr.files_processed if gr else None,
             "num_files": gr.num_files if gr else None,
@@ -265,11 +293,13 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
     for gr in gr_repos:
         key = (gr.repository or "").lower().strip()
         if key and key not in seen_names:
+            index_status = _derive_index_status(gr, False)
             combined.append({
                 "repository": gr.repository or "",
                 "github_repo_id": None,
                 "default_branch": gr.branch or "main",
                 "greptile_status": gr.status,
+                "index_status": index_status,
                 "greptile_branch": gr.branch,
                 "files_processed": gr.files_processed,
                 "num_files": gr.num_files,
@@ -284,6 +314,24 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
         "total_greptile_repos": len(gr_repos),
         "greptile_configured": bool(creds.greptile_api_key),
     }
+
+
+def _derive_index_status(
+    gr: GreptileRepository | None,
+    has_bot_reviews: bool,
+) -> str:
+    """Derive a high-level index_status consistent with the overview screen."""
+    if gr is None:
+        return "active" if has_bot_reviews else "not_indexed"
+    status = (gr.status or "").lower()
+    if status in ("failed", "error"):
+        return "error"
+    if status in ("submitted", "processing", "cloning"):
+        return "processing"
+    if status == "completed":
+        return "indexed"
+    # Fallback for unexpected statuses
+    return status or "not_indexed"
 
 
 @router.post("/repos/index")
@@ -321,6 +369,30 @@ async def greptile_index_repo(
             "error_code": result.get("_error"),
             "error_detail": result.get("_body", ""),
         }
+
+    # Persist "submitted" status in the DB so the indexing screen reflects it
+    # immediately instead of waiting for the next background sync.
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    greptile_repo_id = f"{body.remote}:{body.branch}:{body.repository}"
+    now = datetime.utcnow()
+    stmt = pg_insert(GreptileRepository).values(
+        greptile_repo_id=greptile_repo_id,
+        repository=body.repository[:512],
+        remote=body.remote[:255],
+        branch=body.branch[:255],
+        status="submitted",
+        synced_at=now,
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[GreptileRepository.greptile_repo_id],
+        set_={
+            "status": "submitted",
+            "synced_at": now,
+        },
+    )
+    await db.execute(stmt)
+    await db.commit()
 
     return {
         "status": "submitted",

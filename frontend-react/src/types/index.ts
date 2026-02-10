@@ -224,6 +224,7 @@ export interface GreptileManagedRepo {
   github_repo_id: number | null;
   default_branch: string;
   greptile_status: string | null;  // completed, submitted, processing, cloning, failed, null
+  index_status: string;  // derived: indexed, active, processing, not_indexed, error, stale
   greptile_branch: string | null;
   files_processed: number | null;
   num_files: number | null;

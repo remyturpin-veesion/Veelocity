@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -10,7 +11,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { getSyncCoverage, getDailyCoverage, getSyncStatus } from '@/api/endpoints.js';
+import { getSyncCoverage, getDailyCoverage, getSyncStatus, getGreptileRepos } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import type { DailyCoverageResponse } from '@/types/index.js';
 
@@ -150,6 +151,27 @@ export function DataCoverageScreen() {
   const greptileConnected = syncStatus?.greptile_connected ?? false;
   const greptileReposCount = syncStatus?.greptile_repos_count ?? null;
 
+  const { data: greptileReposData, isLoading: greptileReposLoading } = useQuery({
+    queryKey: ['greptile', 'repos'],
+    queryFn: getGreptileRepos,
+    enabled: greptileConnected,
+  });
+  const greptileProgress = useMemo(() => {
+    if (!greptileReposData?.repos) return { indexed: 0, total: 0, pct: 0, byStatus: null };
+    const total = greptileReposData.total_github_repos ?? greptileReposData.repos.length;
+    const indexed = greptileReposData.repos.filter((r) => r.index_status === 'indexed').length;
+    const pct = total > 0 ? Math.round((indexed / total) * 100) : 0;
+    const byStatus = {
+      indexed,
+      notIndexed: greptileReposData.repos.filter((r) => r.index_status === 'not_indexed').length,
+      processing: greptileReposData.repos.filter((r) => r.index_status === 'processing').length,
+      stale: greptileReposData.repos.filter((r) => r.index_status === 'stale').length,
+      error: greptileReposData.repos.filter((r) => r.index_status === 'error').length,
+      active: greptileReposData.repos.filter((r) => r.index_status === 'active').length,
+    };
+    return { indexed, total, pct, byStatus };
+  }, [greptileReposData]);
+
   /** Overall progression % per connector for the accordion header (same logic as inner rows). */
   const connectorPct = useMemo(() => {
     const out: Record<string, number> = {};
@@ -163,9 +185,12 @@ export function DataCoverageScreen() {
     const teamsWithIssues = allLinearTeams.filter((t) => t.total_issues > 0).length;
     out.linear = allLinearTeams.length > 0 ? Math.round((teamsWithIssues / allLinearTeams.length) * 100) : 0;
     out.cursor = cursorConnected ? 100 : 0;
-    out.greptile = greptileConnected ? 100 : 0;
+    // Greptile: share of GitHub repos that are indexed (when data available; else 100% when connected)
+    out.greptile = greptileConnected
+      ? (greptileReposData ? greptileProgress.pct : 100)
+      : 0;
     return out;
-  }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected]);
+  }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected, greptileReposData, greptileProgress.pct]);
 
   if (isLoading) return <div className="loading">Loading coverage…</div>;
   if (error) return <div className="error">{(error as Error).message}</div>;
@@ -377,29 +402,59 @@ export function DataCoverageScreen() {
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">Greptile progression</h3>
                       <p className="data-coverage__repos-desc">
-                        Indexed repos synced to DB (hourly); overview reads from stored data.
+                        Repositories indexed in Greptile for AI code review. Sync from Greptile to DB runs periodically.
                       </p>
                       <ul className="data-coverage__repo-list">
                         <li
-                          className={`data-coverage__repo-row ${greptileConnected ? 'data-coverage__repo-row--complete' : ''}`}
-                          style={{ '--repo-pct': greptileConnected ? '100%' : '0%' } as React.CSSProperties}
+                          className={`data-coverage__repo-row ${greptileProgress.pct === 100 && greptileConnected ? 'data-coverage__repo-row--complete' : ''}`}
+                          style={{ '--repo-pct': `${greptileProgress.pct}%` } as React.CSSProperties}
                         >
                           <span className="data-coverage__repo-row-fill" aria-hidden />
-                          <span className="data-coverage__repo-name" title="Greptile API">
-                            Greptile API
+                          <span className="data-coverage__repo-name" title="Indexing progress">
+                            Indexing progress
                           </span>
                           <span className="data-coverage__repo-counts">
-                            {greptileConnected
-                              ? greptileReposCount != null
-                                ? `${greptileReposCount.toLocaleString()} indexed repo${greptileReposCount === 1 ? '' : 's'}`
-                                : 'Connected'
-                              : 'Not configured'}
+                            {greptileConnected ? (
+                              greptileReposLoading && !greptileReposData ? (
+                                'Loading…'
+                              ) : greptileReposData ? (
+                                <>
+                                  {greptileProgress.indexed.toLocaleString()} indexed / {greptileProgress.total.toLocaleString()} GitHub repos
+                                  {greptileProgress.byStatus && (
+                                    <span className="data-coverage__greptile-breakdown" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                                      {' '}
+                                      ({[
+                                        greptileProgress.byStatus.indexed > 0 && `${greptileProgress.byStatus.indexed} indexed`,
+                                        greptileProgress.byStatus.active > 0 && `${greptileProgress.byStatus.active} active`,
+                                        greptileProgress.byStatus.processing > 0 && `${greptileProgress.byStatus.processing} processing`,
+                                        greptileProgress.byStatus.notIndexed > 0 && `${greptileProgress.byStatus.notIndexed} not indexed`,
+                                        greptileProgress.byStatus.stale > 0 && `${greptileProgress.byStatus.stale} stale`,
+                                        greptileProgress.byStatus.error > 0 && `${greptileProgress.byStatus.error} error`,
+                                      ].filter(Boolean).join(', ')})
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                greptileReposCount != null
+                                  ? `${greptileReposCount.toLocaleString()} repo${greptileReposCount === 1 ? '' : 's'} in Greptile`
+                                  : 'Connected'
+                              )
+                            ) : (
+                              'Not configured'
+                            )}
                           </span>
-                          <span className="data-coverage__repo-pct" aria-label={greptileConnected ? '100% connected' : '0%'}>
-                            {greptileConnected ? '100%' : '0%'}
+                          <span className="data-coverage__repo-pct" aria-label={`${greptileProgress.pct}% indexed`}>
+                            {greptileConnected ? `${greptileProgress.pct}%` : '0%'}
                           </span>
                         </li>
                       </ul>
+                      {greptileConnected && (
+                        <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
+                          <Link to="/greptile/indexing" style={{ color: 'var(--link)', fontWeight: 500 }}>
+                            Manage indexing →
+                          </Link>
+                        </p>
+                      )}
                     </div>
                   )}
                   </div>

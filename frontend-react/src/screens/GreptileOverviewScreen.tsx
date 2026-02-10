@@ -112,6 +112,7 @@ export function GreptileOverviewScreen() {
   const [sortKey, setSortKey] = useState<MetricSortKey>('index_status');
   const [sortAsc, setSortAsc] = useState(true);
   const [repoSearch, setRepoSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
 
   const sortedRepos = useMemo(() => {
     if (!data?.per_repo) return [];
@@ -120,6 +121,10 @@ export function GreptileOverviewScreen() {
     const q = repoSearch.trim().toLowerCase();
     if (q) {
       rows = rows.filter((r) => r.repo_name.toLowerCase().includes(q));
+    }
+    // Filter by status (empty set = show all)
+    if (statusFilter.size > 0) {
+      rows = rows.filter((r) => statusFilter.has(r.index_status));
     }
     const statusPriority: Record<string, number> = { stale: 0, active: 1, error: 2, not_indexed: 3, indexed: 4 };
     rows.sort((a, b) => {
@@ -136,7 +141,7 @@ export function GreptileOverviewScreen() {
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [data?.per_repo, sortKey, sortAsc, repoSearch]);
+  }, [data?.per_repo, sortKey, sortAsc, repoSearch, statusFilter]);
 
   const trendData = useMemo(
     () =>
@@ -151,9 +156,9 @@ export function GreptileOverviewScreen() {
   const indexingSummary = useMemo(() => {
     if (!reposData?.repos) return null;
     const repos = reposData.repos;
-    const notIndexed = repos.filter((r) => !r.greptile_status).length;
-    const failed = repos.filter((r) => r.greptile_status === 'failed').length;
-    const processing = repos.filter((r) => ['submitted', 'processing', 'cloning'].includes(r.greptile_status || '')).length;
+    const notIndexed = repos.filter((r) => r.index_status === 'not_indexed').length;
+    const failed = repos.filter((r) => r.index_status === 'error').length;
+    const processing = repos.filter((r) => r.index_status === 'processing').length;
     if (notIndexed === 0 && failed === 0 && processing === 0) return null;
     return { notIndexed, failed, processing };
   }, [reposData?.repos]);
@@ -351,19 +356,34 @@ export function GreptileOverviewScreen() {
       {/* ====== SECTION 3: Per-Repo Breakdown ====== */}
       {(data.per_repo?.length ?? 0) > 0 && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 8 }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
-              Per-Repository Breakdown
-            </h2>
-            <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Search repositories\u2026" />
-          </div>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 12, marginTop: 8 }}>
+            Per-Repository Breakdown
+          </h2>
           <div className="card" style={{ marginBottom: 28 }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--surface-border)', textAlign: 'left' }}>
-                    <SortableTh label="Repository" sortKey="repo_name" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
-                    <SortableTh label="Index Status" sortKey="index_status" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                    <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <SortableThInner label="Repository" sortKey="repo_name" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                        <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Filter\u2026" />
+                      </div>
+                    </th>
+                    <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <SortableThInner label="Index Status" sortKey="index_status" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
+                        <StatusFilterPills
+                          options={Object.entries(REVIEW_STATUS_LABEL).map(([value, label]) => ({
+                            value,
+                            label,
+                            color: REVIEW_STATUS_COLOR[value] ?? 'var(--text-muted)',
+                          }))}
+                          selected={statusFilter}
+                          onChange={setStatusFilter}
+                        />
+                      </div>
+                    </th>
                     <SortableTh label="Review Coverage" sortKey="review_coverage_pct" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
                     <SortableTh label="Avg Response" sortKey="avg_response_time_minutes" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
                     <SortableTh label="Avg Comments" sortKey="avg_comments_per_pr" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
@@ -539,6 +559,42 @@ function CoverageBar({ pct, label }: { pct: number; label: string }) {
   );
 }
 
+function SortableThInner({
+  label,
+  sortKey: key,
+  currentSort,
+  asc,
+  onSort,
+}: {
+  label: string;
+  sortKey: MetricSortKey;
+  currentSort: MetricSortKey;
+  asc: boolean;
+  onSort: (k: MetricSortKey) => void;
+}) {
+  const active = currentSort === key;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => onSort(key)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSort(key)}
+      style={{
+        color: active ? 'var(--text)' : 'var(--text-muted)',
+        fontWeight: 500,
+        cursor: 'pointer',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+      {active && (
+        <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
+      )}
+    </span>
+  );
+}
+
 function SortableTh({
   label,
   sortKey: key,
@@ -570,6 +626,57 @@ function SortableTh({
         <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
       )}
     </th>
+  );
+}
+
+function StatusFilterPills({
+  options,
+  selected,
+  onChange,
+}: {
+  options: Array<{ value: string; label: string; color: string }>;
+  selected: Set<string>;
+  onChange: (s: Set<string>) => void;
+}) {
+  const toggle = (value: string) => {
+    if (selected.size === 0) {
+      const next = new Set(options.map((o) => o.value));
+      next.delete(value);
+      onChange(next);
+    } else {
+      const next = new Set(selected);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      onChange(next);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {options.map(({ value, label, color }) => {
+        const isActive = selected.size === 0 || selected.has(value);
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => toggle(value)}
+            style={{
+              padding: '2px 8px',
+              fontSize: '0.6875rem',
+              fontWeight: 500,
+              borderRadius: 999,
+              border: `1px solid ${isActive ? `color-mix(in srgb, ${color} 40%, transparent)` : 'var(--surface-border)'}`,
+              background: isActive ? `color-mix(in srgb, ${color} 14%, transparent)` : 'transparent',
+              color: isActive ? color : 'var(--text-muted)',
+              cursor: 'pointer',
+              opacity: isActive ? 1 : 0.7,
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
