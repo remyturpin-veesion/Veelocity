@@ -14,6 +14,7 @@ const TABS = [
   { path: '/linear', label: 'Linear' },
   { path: '/cursor', label: 'Cursor' },
   { path: '/greptile', label: 'Greptile' },
+  { path: '/sentry', label: 'Sentry' },
   { path: '/team', label: 'Team' },
   { path: '/data-coverage', label: 'Data coverage' },
 ] as const;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSettings, getGitHubOAuthStatus, updateSettings } from '@/api/endpoints.js';
+import { getSettings, getGitHubOAuthStatus, updateSettings, testSentryConnection } from '@/api/endpoints.js';
 import { baseUrl } from '@/api/client.js';
 import { GitHubRepoMultiSelect } from '@/components/GitHubRepoMultiSelect.js';
 
@@ -30,6 +30,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [cursorApiKey, setCursorApiKey] = useState('');
   const [greptileConfigured, setGreptileConfigured] = useState(false);
   const [greptileApiKey, setGreptileApiKey] = useState('');
+  const [sentryConfigured, setSentryConfigured] = useState(false);
+  const [sentryBaseUrl, setSentryBaseUrl] = useState('https://sentry.tooling.veesion.io');
+  const [sentryOrg, setSentryOrg] = useState('');
+  const [sentryProject, setSentryProject] = useState('');
+  const [sentryApiKey, setSentryApiKey] = useState('');
+  const [sentryTestLoading, setSentryTestLoading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [githubOAuthEnabled, setGithubOAuthEnabled] = useState(false);
 
@@ -47,6 +53,10 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         setLinearConfigured(settingsData.linear_configured ?? false);
         setCursorConfigured(settingsData.cursor_configured ?? false);
         setGreptileConfigured(settingsData.greptile_configured ?? false);
+        setSentryConfigured(settingsData.sentry_configured ?? false);
+        setSentryBaseUrl(settingsData.sentry_base_url?.trim() || 'https://sentry.tooling.veesion.io');
+        setSentryOrg(settingsData.sentry_org ?? '');
+        setSentryProject(settingsData.sentry_project ?? '');
         setStorageAvailable(settingsData.storage_available ?? true);
         setGithubOAuthEnabled(oauthData?.enabled ?? false);
       })
@@ -169,6 +179,51 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       })
       .catch((e) => setError(formatApiError(e)))
       .finally(() => setSaving(false));
+  };
+
+  const handleSaveSentry = () => {
+    if (sentryApiKey.trim() && !storageAvailable) {
+      setError('Server cannot store API keys (encryption not configured).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    updateSettings({
+      sentry_api_token: sentryApiKey.trim() || undefined,
+      sentry_base_url: sentryBaseUrl.trim() || 'https://sentry.tooling.veesion.io',
+      sentry_org: sentryOrg.trim(),
+      sentry_project: sentryProject.trim(),
+    })
+      .then((data) => {
+        setSentryApiKey('');
+        setSentryConfigured(data.sentry_configured ?? false);
+        setSentryBaseUrl(data.sentry_base_url?.trim() || 'https://sentry.tooling.veesion.io');
+        setSentryOrg(data.sentry_org ?? '');
+        setSentryProject(data.sentry_project ?? '');
+      })
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSaving(false));
+  };
+
+  const handleDisconnectSentry = () => {
+    setSaving(true);
+    setError(null);
+    updateSettings({ sentry_api_token: '' })
+      .then(() => {
+        setSentryConfigured(false);
+        setSentryApiKey('');
+      })
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSaving(false));
+  };
+
+  const handleTestSentry = () => {
+    setSentryTestLoading(true);
+    setError(null);
+    testSentryConnection()
+      .then(() => setError(null))
+      .catch((e) => setError(formatApiError(e)))
+      .finally(() => setSentryTestLoading(false));
   };
 
   if (!open) return null;
@@ -435,6 +490,157 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     <button
                       type="button"
                       onClick={handleDisconnectGreptile}
+                      disabled={saving}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        border: '1px solid var(--surface-border)',
+                        background: 'transparent',
+                        color: 'var(--text-muted)',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="settings-section settings-section--sentry" aria-labelledby="settings-sentry-title">
+              <div className="settings-section__header">
+                <div className="settings-section__icon" aria-hidden>S</div>
+                <div className="settings-section__title-wrap">
+                  <h3 id="settings-sentry-title" className="settings-section__title">Sentry</h3>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 6,
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      padding: '2px 8px',
+                      borderRadius: 999,
+                      background: sentryConfigured ? 'var(--success-bg, rgba(34, 197, 94, 0.15))' : 'var(--surface)',
+                      color: sentryConfigured ? 'var(--success-fg, #22c55e)' : 'var(--text-muted)',
+                      border: '1px solid ' + (sentryConfigured ? 'var(--success-border, rgba(34, 197, 94, 0.4))' : 'var(--surface-border)'),
+                    }}
+                  >
+                    {sentryConfigured ? 'Connected' : 'Not connected'}
+                  </span>
+                </div>
+              </div>
+              <div className="settings-section__body">
+                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Connect Sentry to link to your project and test the API. Create an auth token in Sentry → Settings → Account → API → Auth Tokens (scopes: project:read, event:read, org:read).
+                </p>
+                <label style={{ display: 'block', marginTop: 12, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Base URL</label>
+                <input
+                  type="text"
+                  placeholder="https://sentry.tooling.veesion.io"
+                  value={sentryBaseUrl}
+                  onChange={(e) => setSentryBaseUrl(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <label style={{ display: 'block', marginTop: 8, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Org slug</label>
+                <input
+                  type="text"
+                  placeholder="my-org"
+                  value={sentryOrg}
+                  onChange={(e) => setSentryOrg(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <label style={{ display: 'block', marginTop: 8, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Project slug</label>
+                <input
+                  type="text"
+                  placeholder="my-project"
+                  value={sentryProject}
+                  onChange={(e) => setSentryProject(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <label style={{ display: 'block', marginTop: 8, marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Sentry API token</label>
+                <input
+                  type="password"
+                  placeholder={sentryConfigured ? '•••••••• (leave blank to keep)' : 'Paste your auth token'}
+                  value={sentryApiKey}
+                  onChange={(e) => setSentryApiKey(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--surface-border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveSentry}
+                    disabled={saving}
+                    className="settings-dialog__btn settings-dialog__btn--primary"
+                  >
+                    {sentryConfigured ? 'Update' : 'Connect Sentry'}
+                  </button>
+                  {sentryConfigured && (
+                    <button
+                      type="button"
+                      onClick={handleTestSentry}
+                      disabled={sentryTestLoading}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        border: '1px solid var(--surface-border)',
+                        background: 'transparent',
+                        color: 'var(--text)',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                        cursor: sentryTestLoading ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {sentryTestLoading ? 'Testing…' : 'Test connection'}
+                    </button>
+                  )}
+                  {sentryConfigured && sentryBaseUrl && (
+                    <a
+                      href={sentryOrg ? `${sentryBaseUrl.replace(/\/$/, '')}/organizations/${sentryOrg}/issues/` : `${sentryBaseUrl.replace(/\/$/, '')}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '0.875rem', color: 'var(--link)' }}
+                    >
+                      Open in Sentry
+                    </a>
+                  )}
+                  {sentryConfigured && (
+                    <button
+                      type="button"
+                      onClick={handleDisconnectSentry}
                       disabled={saving}
                       style={{
                         padding: '8px 16px',

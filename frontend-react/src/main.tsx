@@ -1,9 +1,19 @@
+import * as Sentry from '@sentry/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './theme/index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+
+const dsn = (import.meta as ImportMeta & { env: { VITE_SENTRY_DSN?: string } }).env.VITE_SENTRY_DSN
+if (dsn?.trim()) {
+  Sentry.init({
+    dsn: dsn.trim(),
+    environment: (import.meta as ImportMeta & { env: { MODE?: string } }).env.MODE ?? 'development',
+    tracesSampleRate: 0.1,
+  })
+}
 
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Root element #root not found')

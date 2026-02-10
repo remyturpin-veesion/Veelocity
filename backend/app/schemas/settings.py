@@ -14,6 +14,10 @@ class SettingsResponse(BaseModel):
     linear_workspace_name: str
     cursor_configured: bool = False
     greptile_configured: bool = False
+    sentry_configured: bool = False
+    sentry_base_url: str = ""
+    sentry_org: str = ""
+    sentry_project: str = ""
     storage_available: bool
 
 
@@ -26,6 +30,10 @@ class SettingsUpdate(BaseModel):
     linear_workspace_name: str | None = None
     cursor_api_key: str | None = None
     greptile_api_key: str | None = None
+    sentry_api_token: str | None = None
+    sentry_base_url: str | None = None
+    sentry_org: str | None = None
+    sentry_project: str | None = None
 
 
 class GitHubRepoItem(BaseModel):

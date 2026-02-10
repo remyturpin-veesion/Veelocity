@@ -2,13 +2,33 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.services.scheduler import run_sync, start_scheduler, stop_scheduler
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        integrations=[
+            StarletteIntegration(
+                transaction_style="endpoint",
+                failed_request_status_codes=range(500, 600),
+            ),
+            FastApiIntegration(
+                transaction_style="endpoint",
+            ),
+        ],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
 
 # Configure logging - reduce SQLAlchemy verbosity
 logging.basicConfig(

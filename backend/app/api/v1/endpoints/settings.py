@@ -36,6 +36,10 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),
         greptile_configured=masked.get("greptile_configured", False),
+        sentry_configured=masked.get("sentry_configured", False),
+        sentry_base_url=masked.get("sentry_base_url", ""),
+        sentry_org=masked.get("sentry_org", ""),
+        sentry_project=masked.get("sentry_project", ""),
         storage_available=masked["storage_available"],
     )
 
@@ -54,6 +58,7 @@ async def update_settings(
         or body.linear_api_key
         or body.cursor_api_key
         or body.greptile_api_key
+        or body.sentry_api_token
     ):
         raise HTTPException(
             status_code=400,
@@ -82,6 +87,17 @@ async def update_settings(
             await service.clear_greptile_api_key()
         else:
             updates["greptile_api_key"] = body.greptile_api_key
+    if body.sentry_api_token is not None:
+        if (body.sentry_api_token or "").strip() == "":
+            await service.clear_sentry_api_token()
+        else:
+            updates["sentry_api_token"] = body.sentry_api_token
+    if body.sentry_base_url is not None:
+        updates["sentry_base_url"] = body.sentry_base_url
+    if body.sentry_org is not None:
+        updates["sentry_org"] = body.sentry_org
+    if body.sentry_project is not None:
+        updates["sentry_project"] = body.sentry_project
     if updates:
         await service.set_credentials(**updates)
     masked = await service.get_masked()
@@ -94,8 +110,56 @@ async def update_settings(
         linear_workspace_name=masked["linear_workspace_name"],
         cursor_configured=masked.get("cursor_configured", False),
         greptile_configured=masked.get("greptile_configured", False),
+        sentry_configured=masked.get("sentry_configured", False),
+        sentry_base_url=masked.get("sentry_base_url", ""),
+        sentry_org=masked.get("sentry_org", ""),
+        sentry_project=masked.get("sentry_project", ""),
         storage_available=masked["storage_available"],
     )
+
+
+@router.get("/sentry/test")
+async def test_sentry_connection(db: AsyncSession = Depends(get_db)):
+    """
+    Test the stored Sentry API token against the configured base URL.
+    Returns { "ok": true } on success or 400/502 with detail on failure.
+    """
+    service = CredentialsService(db)
+    creds = await service.get_credentials()
+    if not creds.sentry_api_token:
+        raise HTTPException(
+            status_code=400,
+            detail="No Sentry API token configured. Add a token in Settings first.",
+        )
+    base = (creds.sentry_base_url or "").rstrip("/")
+    if not base:
+        base = "https://sentry.tooling.veesion.io"
+    try:
+        async with httpx.AsyncClient(
+            base_url=base,
+            headers={
+                "Authorization": f"Bearer {creds.sentry_api_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=10.0,
+        ) as client:
+            resp = await client.get("/api/0/organizations/")
+            if resp.status_code == 200:
+                return {"ok": True}
+            if resp.status_code == 401:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Sentry API token is invalid or expired.",
+                )
+            raise HTTPException(
+                status_code=502,
+                detail=f"Sentry API error: {resp.status_code}",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to test Sentry connection")
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 def _github_headers(token: str) -> dict[str, str]:

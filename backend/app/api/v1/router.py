@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     linear,
     metrics,
     repositories,
+    sentry,
     settings,
     sync,
 )
@@ -27,6 +28,7 @@ api_router.include_router(metrics.router)
 api_router.include_router(repositories.router)
 api_router.include_router(developers.router)
 api_router.include_router(settings.router)
+api_router.include_router(sentry.router)
 api_router.include_router(cursor.router)
 api_router.include_router(greptile.router)
 api_router.include_router(sync.router)

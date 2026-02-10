@@ -110,6 +110,16 @@ Enables the "Connect with GitHub" button in Settings (alternative to manually en
 
 See [docs/guides/github-oauth-setup.md](guides/github-oauth-setup.md) for setup instructions.
 
+### Sentry (Optional)
+
+Error reporting to Sentry (e.g. self-hosted at https://sentry.tooling.veesion.io). Get the DSN from your Sentry project: **Project → Client Keys (DSN)**. Leave unset to disable.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN` | — | Backend: DSN for error reporting (optional) |
+| `SENTRY_ENVIRONMENT` | `development` | Backend: environment name (e.g. `production`) |
+| `VITE_SENTRY_DSN` | — | Frontend: DSN (baked at build time; optional) |
+
 ## Health Checks
 
 Both the backend and frontend have built-in health checks:

@@ -25,6 +25,7 @@ import type {
   ProposedRecommendationsResponse,
   RecommendationsResponse,
   Repository,
+  SentryOverviewResponse,
   SettingsResponse,
   SyncCoverageResponse,
   SyncStatusResponse,
@@ -163,6 +164,10 @@ export async function updateSettings(updates: {
   linear_workspace_name?: string;
   cursor_api_key?: string;
   greptile_api_key?: string;
+  sentry_api_token?: string;
+  sentry_base_url?: string;
+  sentry_org?: string;
+  sentry_project?: string;
 }): Promise<SettingsResponse> {
   const body: Record<string, string | undefined> = {};
   if (updates.github_token != null) body.github_token = updates.github_token;
@@ -171,7 +176,21 @@ export async function updateSettings(updates: {
   if (updates.linear_workspace_name != null) body.linear_workspace_name = updates.linear_workspace_name;
   if (updates.cursor_api_key != null) body.cursor_api_key = updates.cursor_api_key;
   if (updates.greptile_api_key != null) body.greptile_api_key = updates.greptile_api_key;
+  if (updates.sentry_api_token != null) body.sentry_api_token = updates.sentry_api_token;
+  if (updates.sentry_base_url != null) body.sentry_base_url = updates.sentry_base_url;
+  if (updates.sentry_org != null) body.sentry_org = updates.sentry_org;
+  if (updates.sentry_project != null) body.sentry_project = updates.sentry_project;
   return apiPut(prefix + '/settings', body);
+}
+
+export async function testSentryConnection(): Promise<{ ok: boolean }> {
+  return apiGet(prefix + '/settings/sentry/test');
+}
+
+export async function getSentryOverview(params?: {
+  stats_period?: '24h' | '7d';
+}): Promise<SentryOverviewResponse> {
+  return apiGet(prefix + '/sentry/overview', params as Record<string, string>);
 }
 
 export async function getDevelopers(params?: {

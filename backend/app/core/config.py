@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # Greptile bot login (the GitHub username used by Greptile for PR reviews)
     greptile_bot_login: str = "greptile[bot]"
 
+    # Sentry (optional – error reporting; DSN from project Client Keys in Sentry UI)
+    sentry_dsn: str | None = None
+    sentry_environment: str = "development"  # e.g. development, staging, production
+
 
 settings = Settings()
 
