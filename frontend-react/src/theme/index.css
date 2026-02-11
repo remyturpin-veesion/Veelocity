@@ -282,6 +282,15 @@ button {
   gap: 10px;
 }
 
+.app-shell__filters-left {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .app-shell__date-range-wrap--right {
   margin-left: auto;
   flex-shrink: 0;
@@ -295,10 +304,8 @@ button {
   flex-shrink: 0;
 }
 
-.app-shell__filters-inner > .app-shell__filter-row:first-child {
-  flex: 1;
+.app-shell__filters-left .app-shell__filter-row:first-child {
   min-width: 0;
-  flex-shrink: 1;
 }
 
 .app-shell__filter-label {
@@ -2413,6 +2420,233 @@ button {
 .sentry-projects__empty {
   margin: 0;
   font-size: 0.875rem;
+}
+
+/* Greptile Repository Indexing screen */
+.greptile-indexing {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1400px;
+}
+
+/* Intro box: summary + actions + description in one card */
+.greptile-indexing__intro-box {
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+}
+
+.greptile-indexing__intro-box-summary {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.greptile-indexing__intro-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.greptile-indexing__intro-box-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.greptile-indexing__intro-box-desc strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.greptile-indexing__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.greptile-indexing__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-border) 30%, var(--surface));
+}
+
+.greptile-indexing__btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.greptile-indexing__btn--primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.greptile-indexing__btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 85%, black);
+  border-color: color-mix(in srgb, var(--primary) 85%, black);
+}
+
+.greptile-indexing__btn--outline {
+  color: var(--text-muted);
+}
+
+.greptile-indexing__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+}
+
+.greptile-indexing__summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.greptile-indexing__summary-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.greptile-indexing__toast {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.greptile-indexing__toast--success {
+  background: color-mix(in srgb, var(--metric-green) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--metric-green) 35%, transparent);
+  color: var(--metric-green);
+}
+
+.greptile-indexing__toast--error {
+  background: color-mix(in srgb, var(--metric-orange) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--metric-orange) 35%, transparent);
+  color: var(--metric-orange);
+}
+
+.greptile-indexing__table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+
+.greptile-indexing__search {
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: var(--bg);
+  color: var(--text);
+  width: 220px;
+  max-width: 100%;
+  outline: none;
+}
+
+.greptile-indexing__search:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.greptile-indexing__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 0 0 10px 10px;
+  background: var(--surface);
+}
+
+.greptile-indexing__table-wrap .greptile-indexing__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.greptile-indexing__table thead {
+  background: color-mix(in srgb, var(--surface-border) 25%, var(--surface));
+}
+
+.greptile-indexing__table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.greptile-indexing__table th[role="button"] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.greptile-indexing__table th[role="button"]:hover {
+  color: var(--text);
+}
+
+.greptile-indexing__table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.greptile-indexing__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.greptile-indexing__table tbody tr:hover td {
+  background: color-mix(in srgb, var(--surface-border) 15%, transparent);
+}
+
+.greptile-indexing__table tbody tr.greptile-indexing__table-feedback-row:hover td {
+  background: transparent;
+}
+
+.greptile-indexing__stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.greptile-indexing__status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .empty-state {

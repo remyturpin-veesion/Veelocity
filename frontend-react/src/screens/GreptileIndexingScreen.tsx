@@ -289,61 +289,36 @@ export function GreptileIndexingScreen() {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <h1 className="screen-title" style={{ marginBottom: 0 }}>Repository Indexing</h1>
-        <div style={{ display: 'flex', gap: 8 }} />
-      </div>
-      <PageSummary>Repository indexing status for Greptile</PageSummary>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+    <div className="greptile-indexing">
+      <h1 className="screen-title">Repository Indexing</h1>
+
+      <div className="greptile-indexing__intro-box">
+        <p className="greptile-indexing__intro-box-summary">Repository indexing status for Greptile</p>
+        <div className="greptile-indexing__intro-box-actions">
           <button
             type="button"
+            className="greptile-indexing__btn"
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8125rem',
-              borderRadius: 8,
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              cursor: refreshMutation.isPending ? 'wait' : 'pointer',
-              opacity: refreshMutation.isPending ? 0.6 : 1,
-            }}
           >
-            {refreshMutation.isPending ? 'Refreshing\u2026' : 'Refresh status'}
+            {refreshMutation.isPending ? 'Refreshing…' : 'Refresh status'}
           </button>
           <a
             href="https://app.greptile.com"
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8125rem',
-              borderRadius: 8,
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
-              color: 'var(--text-muted)',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
+            className="greptile-indexing__btn greptile-indexing__btn--outline"
           >
             Greptile app &#8599;
           </a>
         </div>
+        <p className="greptile-indexing__intro-box-desc">
+          Manage which repositories are indexed in Greptile for AI code review. Status and progress reflect the <strong>last sync</strong> with Greptile (not live). Use <strong>Refresh status</strong> to fetch the latest; progress may only appear once indexing completes.
+        </p>
       </div>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 8, fontSize: '0.875rem' }}>
-        Manage which repositories are indexed in Greptile for AI code review.
-      </p>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.8125rem' }}>
-        Status and progress reflect the <strong>last sync</strong> with Greptile (not live). Use <strong>Refresh status</strong> to fetch the latest; progress may only appear once indexing completes.
-      </p>
 
-      {/* Action bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="greptile-indexing__summary">
+        <div className="greptile-indexing__summary-badges">
           <StatBadge label="Indexed" count={repoStats.indexed} color="var(--metric-green)" />
           {repoStats.active > 0 && <StatBadge label="Active" count={repoStats.active} color="var(--metric-blue)" />}
           {repoStats.processing > 0 && <StatBadge label="Processing" count={repoStats.processing} color="var(--metric-blue)" />}
@@ -351,122 +326,73 @@ export function GreptileIndexingScreen() {
           {repoStats.stale > 0 && <StatBadge label="Stale" count={repoStats.stale} color="var(--metric-orange)" />}
           {repoStats.failed > 0 && <StatBadge label="Error" count={repoStats.failed} color="var(--metric-orange)" />}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="greptile-indexing__summary-actions">
           {repoStats.notIndexed > 0 && (
             <button
               type="button"
+              className="greptile-indexing__btn greptile-indexing__btn--primary"
               onClick={() => handleIndexAll(false)}
               disabled={indexAllMutation.isPending}
-              style={{
-                padding: '5px 12px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                borderRadius: 6,
-                border: '1px solid var(--primary)',
-                background: 'var(--primary)',
-                color: '#fff',
-                cursor: indexAllMutation.isPending ? 'wait' : 'pointer',
-                opacity: indexAllMutation.isPending ? 0.6 : 1,
-              }}
             >
-              {indexAllMutation.isPending ? 'Indexing\u2026' : `Index all (${repoStats.notIndexed} missing)`}
+              {indexAllMutation.isPending ? 'Indexing…' : `Index all (${repoStats.notIndexed} missing)`}
             </button>
           )}
           <button
             type="button"
+            className="greptile-indexing__btn greptile-indexing__btn--outline"
             onClick={() => handleIndexAll(true)}
             disabled={indexAllMutation.isPending}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              borderRadius: 6,
-              border: '1px solid var(--surface-border)',
-              background: 'var(--surface)',
-              color: 'var(--text-muted)',
-              cursor: indexAllMutation.isPending ? 'wait' : 'pointer',
-              opacity: indexAllMutation.isPending ? 0.6 : 1,
-            }}
           >
             Re-index all
           </button>
         </div>
       </div>
 
-      {/* Index All result toast */}
       {indexAllMutation.isSuccess && (
         <div
-          style={{
-            marginBottom: 16,
-            padding: '10px 16px',
-            borderRadius: 8,
-            background:
-              indexAllMutation.data.errors > 0
-                ? 'rgba(239, 68, 68, 0.08)'
-                : 'rgba(34, 197, 94, 0.08)',
-            border:
-              indexAllMutation.data.errors > 0
-                ? '1px solid rgba(239, 68, 68, 0.3)'
-                : '1px solid rgba(34, 197, 94, 0.3)',
-            fontSize: '0.8125rem',
-            color:
-              indexAllMutation.data.errors > 0
-                ? 'var(--metric-orange)'
-                : 'var(--metric-green)',
-          }}
+          className={`greptile-indexing__toast ${indexAllMutation.data.errors > 0 ? 'greptile-indexing__toast--error' : 'greptile-indexing__toast--success'}`}
         >
           Indexing submitted for {indexAllMutation.data.submitted} repos
           {indexAllMutation.data.errors > 0 && ` (${indexAllMutation.data.errors} failed)`}
         </div>
       )}
       {indexAllMutation.isError && (
-        <div
-          style={{
-            marginBottom: 16,
-            padding: '10px 16px',
-            borderRadius: 8,
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            fontSize: '0.8125rem',
-            color: 'var(--metric-orange)',
-          }}
-        >
+        <div className="greptile-indexing__toast greptile-indexing__toast--error">
           Index all failed: {(indexAllMutation.error as Error)?.message || 'Unknown error'}
         </div>
       )}
 
-      {/* Repository table */}
       {isLoading ? (
-        <div className="loading">Loading repositories\u2026</div>
+        <div className="loading">Loading repositories…</div>
       ) : (
-        <div className="card">
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+        <>
+          <div className="greptile-indexing__table-toolbar">
+            <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Filter repositories…" />
+            <StatusFilterPills
+              options={Object.entries(STATUS_CONFIG).map(([value, config]) => ({
+                value,
+                label: config.label,
+                color: config.color,
+              }))}
+              selected={statusFilter}
+              onChange={setStatusFilter}
+            />
+          </div>
+          <div className="greptile-indexing__table-wrap">
+            <table className="greptile-indexing__table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--surface-border)', textAlign: 'left' }}>
-                  <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <SortableThInner label="Repository" sortKey="repository" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
-                      <SearchInput value={repoSearch} onChange={setRepoSearch} placeholder="Filter\u2026" />
-                    </div>
+                <tr>
+                  <th role="button" tabIndex={0} onClick={() => handleSort('repository')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSort('repository')}>
+                    Repository {sortKey === 'repository' && (sortAsc ? '\u25B2' : '\u25BC')}
                   </th>
-                  <th style={{ padding: '10px 12px', verticalAlign: 'top' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <SortableThInner label="Status" sortKey="index_status" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
-                      <StatusFilterPills
-                        options={Object.entries(STATUS_CONFIG).map(([value, config]) => ({
-                          value,
-                          label: config.label,
-                          color: config.color,
-                        }))}
-                        selected={statusFilter}
-                        onChange={setStatusFilter}
-                      />
-                    </div>
+                  <th role="button" tabIndex={0} onClick={() => handleSort('index_status')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSort('index_status')}>
+                    Status {sortKey === 'index_status' && (sortAsc ? '\u25B2' : '\u25BC')}
                   </th>
-                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 500 }}>Progress</th>
-                  <SortableTh label="Last sync" sortKey="synced_at" currentSort={sortKey} asc={sortAsc} onSort={handleSort} />
-                  <th style={{ padding: '10px 12px', color: 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>Actions</th>
+                  <th>Progress</th>
+                  <th role="button" tabIndex={0} onClick={() => handleSort('synced_at')} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleSort('synced_at')}>
+                    Last sync {sortKey === 'synced_at' && (sortAsc ? '\u25B2' : '\u25BC')}
+                  </th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -490,7 +416,7 @@ export function GreptileIndexingScreen() {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -503,14 +429,8 @@ export function GreptileIndexingScreen() {
 function StatBadge({ label, count, color }: { label: string; count: number; color: string }) {
   return (
     <div
+      className="greptile-indexing__stat-badge"
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 12px',
-        borderRadius: 999,
-        fontSize: '0.8125rem',
-        fontWeight: 500,
         color,
         background: `color-mix(in srgb, ${color} 10%, transparent)`,
         border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`,
@@ -530,13 +450,9 @@ function StatusBadge({ status }: { status: string | null }) {
       : undefined;
   return (
     <span
+      className="greptile-indexing__status-badge"
       title={title}
       style={{
-        display: 'inline-block',
-        padding: '2px 10px',
-        borderRadius: 999,
-        fontSize: '0.75rem',
-        fontWeight: 500,
         color: config.color,
         background: `color-mix(in srgb, ${config.color} 12%, transparent)`,
         border: `1px solid color-mix(in srgb, ${config.color} 30%, transparent)`,
@@ -622,17 +538,17 @@ function RepoRow({
 
   return (
     <>
-      <tr style={{ borderBottom: feedback ? 'none' : '1px solid var(--surface-border)' }}>
-        <td style={{ padding: '10px 12px' }}>
+      <tr style={{ borderBottom: feedback ? 'none' : undefined }}>
+        <td>
           <div style={{ fontWeight: 500 }}>{repo.repository}</div>
-          <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 2 }}>
             {repo.greptile_branch || repo.default_branch || 'main'}
           </div>
         </td>
-        <td style={{ padding: '10px 12px' }}>
+        <td>
           <StatusBadge status={repo.index_status} />
         </td>
-        <td style={{ padding: '10px 12px' }}>
+        <td>
           <ProgressBar
             processed={repo.files_processed}
             total={repo.num_files}
@@ -643,10 +559,10 @@ function RepoRow({
             }
           />
         </td>
-        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+        <td style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
           {fmtTimeAgo(repo.synced_at)}
         </td>
-        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+        <td style={{ textAlign: 'right' }}>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
             {(isNotIndexed || isFailed || isActive) && (
               <ActionButton label="Index" onClick={() => onIndex(false)} disabled={isIndexing} variant="primary" />
@@ -664,8 +580,8 @@ function RepoRow({
         </td>
       </tr>
       {feedback && (
-        <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
-          <td colSpan={5} style={{ padding: '0 12px 8px' }}>
+        <tr className="greptile-indexing__table-feedback-row">
+          <td colSpan={5} style={{ padding: '0 16px 12px', verticalAlign: 'top', borderBottom: '1px solid var(--surface-border)' }}>
             <div
               style={{
                 display: 'flex',
@@ -765,76 +681,6 @@ function Spinner() {
   );
 }
 
-function SortableThInner({
-  label,
-  sortKey: key,
-  currentSort,
-  asc,
-  onSort,
-}: {
-  label: string;
-  sortKey: RepoSortKey;
-  currentSort: RepoSortKey;
-  asc: boolean;
-  onSort: (k: RepoSortKey) => void;
-}) {
-  const active = currentSort === key;
-  return (
-    <span
-      role="button"
-      tabIndex={0}
-      onClick={() => onSort(key)}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSort(key)}
-      style={{
-        color: active ? 'var(--text)' : 'var(--text-muted)',
-        fontWeight: 500,
-        cursor: 'pointer',
-        userSelect: 'none',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-      {active && (
-        <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
-      )}
-    </span>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey: key,
-  currentSort,
-  asc,
-  onSort,
-}: {
-  label: string;
-  sortKey: RepoSortKey;
-  currentSort: RepoSortKey;
-  asc: boolean;
-  onSort: (k: RepoSortKey) => void;
-}) {
-  const active = currentSort === key;
-  return (
-    <th
-      onClick={() => onSort(key)}
-      style={{
-        padding: '10px 12px',
-        color: active ? 'var(--text)' : 'var(--text-muted)',
-        fontWeight: 500,
-        cursor: 'pointer',
-        userSelect: 'none',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-      {active && (
-        <span style={{ marginLeft: 4, fontSize: '0.7rem' }}>{asc ? '\u25B2' : '\u25BC'}</span>
-      )}
-    </th>
-  );
-}
-
 function StatusFilterPills({
   options,
   selected,
@@ -897,20 +743,12 @@ function SearchInput({
 }) {
   return (
     <input
-      type="text"
+      type="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      style={{
-        padding: '5px 12px',
-        fontSize: '0.8125rem',
-        borderRadius: 6,
-        border: '1px solid var(--surface-border)',
-        background: 'var(--surface)',
-        color: 'var(--text)',
-        width: 220,
-        outline: 'none',
-      }}
+      className="greptile-indexing__search"
+      aria-label="Filter repositories"
     />
   );
 }

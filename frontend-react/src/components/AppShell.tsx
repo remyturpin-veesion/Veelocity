@@ -184,16 +184,20 @@ export function AppShell({ children }: AppShellProps) {
       {location.pathname !== '/data-coverage' && (
         <div className="app-shell__filters">
           <div className="app-shell__filters-inner">
-            <div className="app-shell__filter-row">
-              <span className="app-shell__filter-label">Repos</span>
-              <RepoMultiSelector />
+            <div className="app-shell__filters-left">
+              {!showLinearSidebar && (
+                <div className="app-shell__filter-row">
+                  <span className="app-shell__filter-label">Repos</span>
+                  <RepoMultiSelector />
+                </div>
+              )}
+              {showLinearSidebar && (
+                <div className="app-shell__filter-row">
+                  <span className="app-shell__filter-label">Teams</span>
+                  <LinearTeamMultiSelector />
+                </div>
+              )}
             </div>
-            {showLinearSidebar && (
-              <div className="app-shell__filter-row">
-                <span className="app-shell__filter-label">Teams</span>
-                <LinearTeamMultiSelector />
-              </div>
-            )}
             <div className="app-shell__date-range-wrap app-shell__date-range-wrap--right" ref={datePickerRef}>
               <button
                 type="button"
