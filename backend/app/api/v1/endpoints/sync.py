@@ -20,6 +20,7 @@ from app.models.github import (
 from app.models.cursor import CursorDailyUsage
 from app.models.greptile import GreptileRepository
 from app.models.linear import LinearIssue, LinearTeam
+from app.models.sentry import SentryIssue, SentryProject
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -984,10 +985,10 @@ class DailyCoverageResponse(BaseModel):
     """Daily counts per category for data coverage charts."""
 
     github: list[DailyCountItem]  # PRs created per day
-    github_actions: list[DailyCountItem]  # Workflow runs per day
     linear: list[DailyCountItem]  # Issues created per day
     cursor: list[DailyCountItem]  # AI requests per day
     greptile: list[DailyCountItem]  # Indexed repos per day
+    sentry: list[DailyCountItem]  # Projects synced per day
 
 
 @router.get("/coverage/daily", response_model=DailyCoverageResponse)
@@ -1015,25 +1016,6 @@ async def get_daily_coverage(
         DailyCountItem(
             date=(start + timedelta(days=i)).isoformat(),
             count=github_map.get(start + timedelta(days=i), 0),
-        )
-        for i in range((end - start).days + 1)
-    ]
-
-    # GitHub Actions: workflow runs (created_at) per day
-    run_date = cast(WorkflowRun.created_at, Date)
-    runs_by_day = await db.execute(
-        select(run_date.label("day"), func.count(WorkflowRun.id).label("count"))
-        .where(run_date >= start)
-        .where(run_date <= end)
-        .group_by(run_date)
-        .order_by(run_date)
-    )
-    runs_rows = runs_by_day.all()
-    runs_map = {row.day: row.count for row in runs_rows}
-    github_actions_list = [
-        DailyCountItem(
-            date=(start + timedelta(days=i)).isoformat(),
-            count=runs_map.get(start + timedelta(days=i), 0),
         )
         for i in range((end - start).days + 1)
     ]
@@ -1095,12 +1077,33 @@ async def get_daily_coverage(
         for i in range((end - start).days + 1)
     ]
 
+    # Sentry: projects synced per day (by synced_at date)
+    sentry_date = cast(SentryProject.synced_at, Date)
+    sentry_by_day = await db.execute(
+        select(
+            sentry_date.label("day"), func.count(SentryProject.id).label("count")
+        )
+        .where(sentry_date >= start)
+        .where(sentry_date <= end)
+        .group_by(sentry_date)
+        .order_by(sentry_date)
+    )
+    sentry_rows = sentry_by_day.all()
+    sentry_map = {row.day: row.count for row in sentry_rows}
+    sentry_list = [
+        DailyCountItem(
+            date=(start + timedelta(days=i)).isoformat(),
+            count=sentry_map.get(start + timedelta(days=i), 0),
+        )
+        for i in range((end - start).days + 1)
+    ]
+
     return DailyCoverageResponse(
         github=github_list,
-        github_actions=github_actions_list,
         linear=linear_list,
         cursor=cursor_list,
         greptile=greptile_list,
+        sentry=sentry_list,
     )
 
 

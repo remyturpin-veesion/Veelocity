@@ -434,10 +434,10 @@ export interface DailyCountItem {
 
 export interface DailyCoverageResponse {
   github: DailyCountItem[];
-  github_actions: DailyCountItem[];
   linear: DailyCountItem[];
   cursor: DailyCountItem[];
   greptile: DailyCountItem[];
+  sentry: DailyCountItem[];
 }
 
 export interface PRDetailRepository {

@@ -47,27 +47,27 @@ const MAX_CHART_POINTS = 91;
 const MAX_VISIBLE_REPOS = 50;
 const MAX_VISIBLE_LINEAR_TEAMS = 50;
 
-function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number; cursorRequests: number; greptileRepos: number }> {
-  const { github, github_actions, linear, cursor, greptile } = daily;
-  if (!github?.length || !Array.isArray(github_actions) || !Array.isArray(linear)) return [];
+function buildChartData(daily: DailyCoverageResponse): Array<{ date: string; name: string; prs: number; issues: number; cursorRequests: number; greptileRepos: number; sentryProjects: number }> {
+  const { github, linear, cursor, greptile, sentry } = daily;
+  if (!github?.length || !Array.isArray(linear)) return [];
   const len = Math.min(github.length, MAX_CHART_POINTS);
-  const result: Array<{ date: string; name: string; prs: number; workflowRuns: number; issues: number; cursorRequests: number; greptileRepos: number }> = [];
+  const result: Array<{ date: string; name: string; prs: number; issues: number; cursorRequests: number; greptileRepos: number; sentryProjects: number }> = [];
   for (let i = 0; i < len; i++) {
     const g = github[i];
     const prs = Number(g?.count) || 0;
-    const workflowRuns = Number(github_actions[i]?.count) || 0;
     const issues = Number(linear[i]?.count) || 0;
     const cursorRequests = Number(cursor?.[i]?.count) || 0;
     const greptileRepos = Number(greptile?.[i]?.count) || 0;
+    const sentryProjects = Number(sentry?.[i]?.count) || 0;
     if (typeof g?.date !== 'string') continue;
     result.push({
       date: g.date,
       name: formatDateLabel(g.date),
       prs: Number.isFinite(prs) ? prs : 0,
-      workflowRuns: Number.isFinite(workflowRuns) ? workflowRuns : 0,
       issues: Number.isFinite(issues) ? issues : 0,
       cursorRequests: Number.isFinite(cursorRequests) ? cursorRequests : 0,
       greptileRepos: Number.isFinite(greptileRepos) ? greptileRepos : 0,
+      sentryProjects: Number.isFinite(sentryProjects) ? sentryProjects : 0,
     });
   }
   return result;
@@ -490,7 +490,7 @@ export function DataCoverageScreen() {
           <h2 className="data-coverage__section-title">Sync progression (last 90 days)</h2>
           <div className="card data-coverage__chart-card">
             <p className="data-coverage__chart-desc">
-              Data synced per day: PRs created, workflow runs, Linear issues, Cursor AI requests, and Greptile repos.
+              Data synced per day: PRs created, Linear issues, Cursor AI requests, Greptile repos, and Sentry projects.
             </p>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -511,15 +511,6 @@ export function DataCoverageScreen() {
                   dataKey="prs"
                   name="PRs (GitHub)"
                   stroke="var(--primary)"
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="workflowRuns"
-                  name="Workflow runs"
-                  stroke="var(--metric-green)"
                   strokeWidth={2}
                   dot={{ r: 2 }}
                   connectNulls
@@ -547,6 +538,15 @@ export function DataCoverageScreen() {
                   dataKey="greptileRepos"
                   name="Greptile (synced)"
                   stroke="var(--metric-teal)"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sentryProjects"
+                  name="Sentry (synced)"
+                  stroke="var(--metric-purple, #8b5cf6)"
                   strokeWidth={2}
                   dot={{ r: 2 }}
                   connectNulls
