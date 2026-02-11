@@ -1,6 +1,5 @@
 """Tests for Linear metrics API endpoints."""
 
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

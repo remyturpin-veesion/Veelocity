@@ -42,12 +42,12 @@ export function LinearOverviewScreen() {
 
   const { data: coverage } = useQuery({
     queryKey: ['sync', 'coverage'],
-    queryFn: getSyncCoverage,
+    queryFn: () => getSyncCoverage(),
   });
 
   const { data: syncStatus } = useQuery({
     queryKey: ['sync', 'status'],
-    queryFn: getSyncStatus,
+    queryFn: () => getSyncStatus(),
   });
 
   const fullSyncMutation = useMutation({

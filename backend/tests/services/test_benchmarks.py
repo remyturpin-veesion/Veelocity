@@ -1,7 +1,5 @@
 """Tests for benchmark service."""
 
-import pytest
-
 from app.services.metrics.benchmarks import BenchmarkService
 
 

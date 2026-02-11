@@ -5,7 +5,6 @@ All data is filtered to the Production environment only.
 
 import logging
 from datetime import datetime
-from typing import Any
 
 import httpx
 from sqlalchemy import delete, select, update

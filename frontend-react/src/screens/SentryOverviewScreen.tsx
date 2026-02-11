@@ -6,7 +6,7 @@ import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
-import { useFiltersStore, formatDateRangeDisplay, toStartEnd } from '@/stores/filters.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import type { SentryOverviewIssue } from '@/types/index.js';
 
 export function SentryOverviewScreen() {
