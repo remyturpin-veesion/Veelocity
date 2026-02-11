@@ -9,6 +9,7 @@ const DoraBenchmarksScreen = lazy(() => import('@/screens/DoraBenchmarksScreen.j
 const DoraMetricsScreen = lazy(() => import('@/screens/DoraMetricsScreen.js').then((m) => ({ default: m.DoraMetricsScreen })));
 const TeamScreen = lazy(() => import('@/screens/TeamScreen.js').then((m) => ({ default: m.TeamScreen })));
 const GitHubOverviewScreen = lazy(() => import('@/screens/GitHubOverviewScreen.js').then((m) => ({ default: m.GitHubOverviewScreen })));
+const GitHubSyncedScreen = lazy(() => import('@/screens/GitHubSyncedScreen.js').then((m) => ({ default: m.GitHubSyncedScreen })));
 const PullRequestScreen = lazy(() => import('@/screens/PullRequestScreen.js').then((m) => ({ default: m.PullRequestScreen })));
 const CodeReviewPRsScreen = lazy(() => import('@/screens/CodeReviewPRsScreen.js').then((m) => ({ default: m.CodeReviewPRsScreen })));
 const LinearOverviewScreen = lazy(() => import('@/screens/LinearOverviewScreen.js').then((m) => ({ default: m.LinearOverviewScreen })));
@@ -17,6 +18,7 @@ const GreptileOverviewScreen = lazy(() => import('@/screens/GreptileOverviewScre
 const GreptileIndexingScreen = lazy(() => import('@/screens/GreptileIndexingScreen.js').then((m) => ({ default: m.GreptileIndexingScreen })));
 const GreptileRecommendationsScreen = lazy(() => import('@/screens/GreptileRecommendationsScreen.js').then((m) => ({ default: m.GreptileRecommendationsScreen })));
 const SentryOverviewScreen = lazy(() => import('@/screens/SentryOverviewScreen.js').then((m) => ({ default: m.SentryOverviewScreen })));
+const SentryProjectsScreen = lazy(() => import('@/screens/SentryProjectsScreen.js').then((m) => ({ default: m.SentryProjectsScreen })));
 const DataCoverageScreen = lazy(() => import('@/screens/DataCoverageScreen.js').then((m) => ({ default: m.DataCoverageScreen })));
 const PRDetailScreen = lazy(() => import('@/screens/PRDetailScreen.js').then((m) => ({ default: m.PRDetailScreen })));
 const RecommendationsScreen = lazy(() => import('@/screens/RecommendationsScreen.js').then((m) => ({ default: m.RecommendationsScreen })));
@@ -42,6 +44,7 @@ export const router = createBrowserRouter([
       { path: 'dora/metrics', element: <DoraMetricsScreen /> },
       { path: 'team', element: <TeamScreen /> },
       { path: 'github', element: <GitHubOverviewScreen /> },
+      { path: 'github/synced', element: <GitHubSyncedScreen /> },
       { path: 'github/pull-request', element: <PullRequestScreen /> },
       { path: 'github/code-review/prs', element: <CodeReviewPRsScreen /> },
       { path: 'linear', element: <LinearOverviewScreen /> },
@@ -50,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'greptile/indexing', element: <GreptileIndexingScreen /> },
       { path: 'greptile/recommendations', element: <GreptileRecommendationsScreen /> },
       { path: 'sentry', element: <SentryOverviewScreen /> },
+      { path: 'sentry/projects', element: <SentryProjectsScreen /> },
       { path: 'data-coverage', element: <DataCoverageScreen /> },
       { path: 'metrics/deployment-frequency', element: <DeploymentFrequencyScreen /> },
       { path: 'metrics/lead-time', element: <LeadTimeScreen /> },

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import { getExportReport } from '@/api/endpoints.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 
@@ -299,9 +300,7 @@ export function DoraMetricsScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA Metrics Report</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {formatDateRangeDisplay(startDate, endDate)}
-        </p>
+        <PageSummary>Full DORA metrics report · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         <div className="dashboard__kpi-row">
           <SkeletonCard />
           <SkeletonCard />
@@ -315,6 +314,7 @@ export function DoraMetricsScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA Metrics Report</h1>
+        <PageSummary>Full DORA metrics report · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Unable to load report"
           message="Make sure the backend is running and try again."
@@ -337,9 +337,7 @@ export function DoraMetricsScreen() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <h1 className="screen-title">DORA Metrics Report 2025</h1>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-            {formatDateRangeDisplay(startDate, endDate)} &middot; 2025 industry report summary with DORA comparisons
-          </p>
+          <PageSummary>Full DORA metrics report · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         </div>
         <div
           className="card"

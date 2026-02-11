@@ -20,7 +20,7 @@ from app.models.github import (
 from app.models.cursor import CursorDailyUsage
 from app.models.greptile import GreptileRepository
 from app.models.linear import LinearIssue, LinearTeam
-from app.models.sentry import SentryIssue, SentryProject
+from app.models.sentry import SentryProject
 from app.models.sync import SyncState
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -301,6 +301,10 @@ async def trigger_fill_details(
 @router.get("/status")
 async def get_sync_status(
     db: AsyncSession = Depends(get_db),
+    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+    no_repos: bool = Query(False, description="If true, return empty data (no repos selected)"),
+    start_date: str | None = Query(None, description="Start date YYYY-MM-DD (filter PRs by created_at)"),
+    end_date: str | None = Query(None, description="End date YYYY-MM-DD (filter PRs by created_at)"),
 ) -> dict:
     """
     Get sync status: how many PRs still need details, and Linear teams progression.
@@ -308,46 +312,86 @@ async def get_sync_status(
     from sqlalchemy import select, func
     from app.models.github import PullRequest, Repository
 
-    # Count PRs with and without details_synced_at
-    total_prs_result = await db.execute(select(func.count(PullRequest.id)))
-    total_prs = total_prs_result.scalar() or 0
+    # Build base filters (no_repos=true means "no repos selected" -> empty)
+    if no_repos:
+        repo_ids = []
+    pr_filter = []
+    if repo_ids is not None and len(repo_ids) == 0:
+        # Explicit "no repos selected" - return empty
+        total_prs = 0
+        prs_with_details = 0
+        prs_without_details = 0
+        progress_pct = 100.0
+        repos_status = []
+    else:
+        if repo_ids:
+            pr_filter.append(PullRequest.repo_id.in_(repo_ids))
+        if start_date:
+            try:
+                from datetime import datetime as dt
 
-    prs_with_details_result = await db.execute(
-        select(func.count(PullRequest.id)).where(
-            PullRequest.details_synced_at.isnot(None)
-        )
-    )
-    prs_with_details = prs_with_details_result.scalar() or 0
+                start_dt = dt.strptime(start_date, "%Y-%m-%d")
+                pr_filter.append(PullRequest.created_at >= start_dt)
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                from datetime import datetime as dt
 
-    prs_without_details = total_prs - prs_with_details
-    progress_pct = (prs_with_details / total_prs * 100) if total_prs > 0 else 100
+                end_dt = dt.strptime(end_date, "%Y-%m-%d")
+                end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                pr_filter.append(PullRequest.created_at <= end_dt)
+            except ValueError:
+                pass
 
-    # Get per-repo breakdown
-    repos_result = await db.execute(select(Repository))
-    repos = repos_result.scalars().all()
+        count_filter = pr_filter if pr_filter else []
 
-    repos_status = []
-    for repo in repos:
-        repo_prs_result = await db.execute(
-            select(func.count(PullRequest.id)).where(PullRequest.repo_id == repo.id)
-        )
-        repo_total = repo_prs_result.scalar() or 0
+        count_query = select(func.count(PullRequest.id))
+        if count_filter:
+            count_query = count_query.where(*count_filter)
+        total_prs_result = await db.execute(count_query)
+        total_prs = total_prs_result.scalar() or 0
 
-        repo_with_details_result = await db.execute(
-            select(func.count(PullRequest.id))
-            .where(PullRequest.repo_id == repo.id)
-            .where(PullRequest.details_synced_at.isnot(None))
-        )
-        repo_with_details = repo_with_details_result.scalar() or 0
+        details_filter = list(count_filter) + [PullRequest.details_synced_at.isnot(None)]
+        details_query = select(func.count(PullRequest.id)).where(*details_filter)
+        prs_with_details_result = await db.execute(details_query)
+        prs_with_details = prs_with_details_result.scalar() or 0
 
-        repos_status.append(
-            {
-                "name": repo.full_name,
-                "total_prs": repo_total,
-                "with_details": repo_with_details,
-                "without_details": repo_total - repo_with_details,
-            }
-        )
+        prs_without_details = total_prs - prs_with_details
+        progress_pct = (prs_with_details / total_prs * 100) if total_prs > 0 else 100
+
+        # Get per-repo breakdown (filter repos if repo_ids provided)
+        repos_query = select(Repository)
+        if repo_ids:
+            repos_query = repos_query.where(Repository.id.in_(repo_ids))
+        repos_result = await db.execute(repos_query)
+        repos = repos_result.scalars().all()
+
+        repos_status = []
+        for repo in repos:
+            repo_filters = [PullRequest.repo_id == repo.id] + count_filter
+            repo_prs_result = await db.execute(
+                select(func.count(PullRequest.id)).where(*repo_filters)
+            )
+            repo_total = repo_prs_result.scalar() or 0
+
+            repo_details_filters = [
+                PullRequest.repo_id == repo.id,
+                PullRequest.details_synced_at.isnot(None),
+            ] + count_filter
+            repo_with_details_result = await db.execute(
+                select(func.count(PullRequest.id)).where(*repo_details_filters)
+            )
+            repo_with_details = repo_with_details_result.scalar() or 0
+
+            repos_status.append(
+                {
+                    "name": repo.full_name,
+                    "total_prs": repo_total,
+                    "with_details": repo_with_details,
+                    "without_details": repo_total - repo_with_details,
+                }
+            )
 
     # Linear teams progression: per-team counts from DB only (not from Linear API).
     # total_issues = issues synced in app for this team; linked_issues = those with a linked PR (for cycle time).
@@ -995,17 +1039,37 @@ class DailyCoverageResponse(BaseModel):
 async def get_daily_coverage(
     db: AsyncSession = Depends(get_db),
     days: int = Query(90, ge=7, le=365),
+    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+    no_repos: bool = Query(False, description="If true, return empty GitHub data (no repos selected)"),
+    start_date: str | None = Query(None, description="Start date YYYY-MM-DD (overrides days)"),
+    end_date: str | None = Query(None, description="End date YYYY-MM-DD (overrides days)"),
 ) -> DailyCoverageResponse:
     """Get count of imported data per day per category (GitHub PRs, workflow runs, Linear issues)."""
-    end = datetime.utcnow().date()
-    start = end - timedelta(days=days)
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            if end < start:
+                end = start
+        except ValueError:
+            end = datetime.utcnow().date()
+            start = end - timedelta(days=days)
+    else:
+        end = datetime.utcnow().date()
+        start = end - timedelta(days=days)
 
+    if no_repos:
+        repo_ids = []
     # GitHub: PRs created per day (cast to date for PostgreSQL)
     pr_date = cast(PullRequest.created_at, Date)
+    pr_where = [pr_date >= start, pr_date <= end]
+    if repo_ids is not None and len(repo_ids) == 0:
+        pr_where.append(PullRequest.repo_id.in_([]))  # no matches
+    elif repo_ids:
+        pr_where.append(PullRequest.repo_id.in_(repo_ids))
     pr_by_day = await db.execute(
         select(pr_date.label("day"), func.count(PullRequest.id).label("count"))
-        .where(pr_date >= start)
-        .where(pr_date <= end)
+        .where(*pr_where)
         .group_by(pr_date)
         .order_by(pr_date)
     )
@@ -1089,11 +1153,15 @@ async def get_daily_coverage(
         .order_by(sentry_date)
     )
     sentry_rows = sentry_by_day.all()
-    sentry_map = {row.day: row.count for row in sentry_rows}
+    # Use ISO date string for keys to avoid type mismatch (PostgreSQL may return different date repr)
+    sentry_map = {
+        (row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day)[:10]): row.count
+        for row in sentry_rows
+    }
     sentry_list = [
         DailyCountItem(
             date=(start + timedelta(days=i)).isoformat(),
-            count=sentry_map.get(start + timedelta(days=i), 0),
+            count=sentry_map.get((start + timedelta(days=i)).isoformat(), 0),
         )
         for i in range((end - start).days + 1)
     ]
@@ -1110,10 +1178,18 @@ async def get_daily_coverage(
 @router.get("/coverage", response_model=SyncCoverageResponse)
 async def get_sync_coverage(
     db: AsyncSession = Depends(get_db),
+    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
+    no_repos: bool = Query(False, description="If true, return empty data (no repos selected)"),
+    start_date: str | None = Query(None, description="Start date YYYY-MM-DD"),
+    end_date: str | None = Query(None, description="End date YYYY-MM-DD"),
 ) -> SyncCoverageResponse:
     """Get data coverage statistics for all repositories."""
+    from datetime import datetime as dt
+
     from app.services.credentials import CredentialsService
 
+    if no_repos:
+        repo_ids = []
     creds = await CredentialsService(db).get_credentials()
     # Get connector sync states
     sync_states_result = await db.execute(select(SyncState))
@@ -1182,9 +1258,30 @@ async def get_sync_coverage(
             )
         )
 
-    # Get all repositories
-    repos_result = await db.execute(select(Repository).order_by(Repository.full_name))
-    repos = repos_result.scalars().all()
+    # Parse date range for filtering
+    start_dt = None
+    end_dt = None
+    if start_date:
+        try:
+            start_dt = dt.strptime(start_date, "%Y-%m-%d")
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end_dt = dt.strptime(end_date, "%Y-%m-%d")
+            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        except ValueError:
+            pass
+
+    # Get repositories (filter by repo_ids if provided)
+    repos_query = select(Repository).order_by(Repository.full_name)
+    if repo_ids is not None and len(repo_ids) == 0:
+        repos = []
+    else:
+        if repo_ids:
+            repos_query = repos_query.where(Repository.id.in_(repo_ids))
+        repos_result = await db.execute(repos_query)
+        repos = repos_result.scalars().all()
 
     repository_coverages: list[RepositoryCoverage] = []
     total_prs = 0
@@ -1192,42 +1289,55 @@ async def get_sync_coverage(
     total_runs = 0
 
     for repo in repos:
+        # Build PR filter (repo + optional date range)
+        pr_where = [PullRequest.repo_id == repo.id]
+        if start_dt:
+            pr_where.append(PullRequest.created_at >= start_dt)
+        if end_dt:
+            pr_where.append(PullRequest.created_at <= end_dt)
+
         # Count PRs and get date range
         pr_stats = await db.execute(
             select(
                 func.count(PullRequest.id),
                 func.min(PullRequest.created_at),
                 func.max(PullRequest.created_at),
-            ).where(PullRequest.repo_id == repo.id)
+            ).where(*pr_where)
         )
         pr_count, oldest_pr, newest_pr = pr_stats.one()
 
         # Count PRs with details (have details_synced_at)
+        pr_details_where = pr_where + [PullRequest.details_synced_at.isnot(None)]
         prs_with_details_result = await db.execute(
-            select(func.count(PullRequest.id))
-            .where(PullRequest.repo_id == repo.id)
-            .where(PullRequest.details_synced_at.isnot(None))
+            select(func.count(PullRequest.id)).where(*pr_details_where)
         )
         prs_with_details = prs_with_details_result.scalar() or 0
         prs_without_details = (pr_count or 0) - prs_with_details
 
-        # Count reviews
+        # Count reviews (on PRs matching filter)
         review_count_result = await db.execute(
             select(func.count(PRReview.id))
             .select_from(PRReview)
             .join(PullRequest)
-            .where(PullRequest.repo_id == repo.id)
+            .where(*pr_where)
         )
         review_count = review_count_result.scalar() or 0
 
-        # Count comments
+        # Count comments (on PRs matching filter)
         comment_count_result = await db.execute(
             select(func.count(PRComment.id))
             .select_from(PRComment)
             .join(PullRequest)
-            .where(PullRequest.repo_id == repo.id)
+            .where(*pr_where)
         )
         comment_count = comment_count_result.scalar() or 0
+
+        # Build commit filter (repo + optional date range)
+        commit_where = [Commit.repo_id == repo.id]
+        if start_dt:
+            commit_where.append(Commit.committed_at >= start_dt)
+        if end_dt:
+            commit_where.append(Commit.committed_at <= end_dt)
 
         # Count commits and get date range
         commit_stats = await db.execute(
@@ -1235,7 +1345,7 @@ async def get_sync_coverage(
                 func.count(Commit.id),
                 func.min(Commit.committed_at),
                 func.max(Commit.committed_at),
-            ).where(Commit.repo_id == repo.id)
+            ).where(*commit_where)
         )
         commit_count, oldest_commit, newest_commit = commit_stats.one()
 
@@ -1244,6 +1354,13 @@ async def get_sync_coverage(
             select(func.count(Workflow.id)).where(Workflow.repo_id == repo.id)
         )
         workflow_count = workflow_count_result.scalar() or 0
+
+        # Build workflow run filter (repo + optional date range)
+        run_base = [Workflow.repo_id == repo.id]
+        if start_dt:
+            run_base.append(WorkflowRun.created_at >= start_dt)
+        if end_dt:
+            run_base.append(WorkflowRun.created_at <= end_dt)
 
         # Count workflow runs and get date range
         run_stats = await db.execute(
@@ -1254,7 +1371,7 @@ async def get_sync_coverage(
             )
             .select_from(WorkflowRun)
             .join(Workflow)
-            .where(Workflow.repo_id == repo.id)
+            .where(*run_base)
         )
         run_count, oldest_run, newest_run = run_stats.one()
 
@@ -1284,24 +1401,45 @@ async def get_sync_coverage(
         total_commits += commit_count or 0
         total_runs += run_count or 0
 
-    # Count unique developers (based on PR authors and commit authors)
+    # Count unique developers (based on PR authors and commit authors in filtered set)
     unique_developers = set()
 
-    # Get unique PR authors
-    pr_authors_result = await db.execute(
-        select(PullRequest.author_login)
-        .distinct()
-        .where(PullRequest.author_login.isnot(None))
-    )
-    pr_authors = pr_authors_result.scalars().all()
-    unique_developers.update(pr_authors)
+    # Build base filters for developer count (same as repo loop)
+    if repo_ids is None or len(repo_ids) > 0:
+        dev_pr_where = []
+        if repo_ids:
+            dev_pr_where.append(PullRequest.repo_id.in_(repo_ids))
+        if start_dt:
+            dev_pr_where.append(PullRequest.created_at >= start_dt)
+        if end_dt:
+            dev_pr_where.append(PullRequest.created_at <= end_dt)
 
-    # Get unique commit authors
-    commit_authors_result = await db.execute(
-        select(Commit.author_login).distinct().where(Commit.author_login.isnot(None))
-    )
-    commit_authors = commit_authors_result.scalars().all()
-    unique_developers.update(commit_authors)
+        pr_authors_query = (
+            select(PullRequest.author_login)
+            .distinct()
+            .where(PullRequest.author_login.isnot(None))
+        )
+        if dev_pr_where:
+            pr_authors_query = pr_authors_query.where(*dev_pr_where)
+        pr_authors_result = await db.execute(pr_authors_query)
+        unique_developers.update(a[0] for a in pr_authors_result.all())
+
+        dev_commit_where = []
+        if repo_ids:
+            dev_commit_where.append(Commit.repo_id.in_(repo_ids))
+        if start_dt:
+            dev_commit_where.append(Commit.committed_at >= start_dt)
+        if end_dt:
+            dev_commit_where.append(Commit.committed_at <= end_dt)
+        commit_authors_query = (
+            select(Commit.author_login)
+            .distinct()
+            .where(Commit.author_login.isnot(None))
+        )
+        if dev_commit_where:
+            commit_authors_query = commit_authors_query.where(*dev_commit_where)
+        commit_authors_result = await db.execute(commit_authors_query)
+        unique_developers.update(a[0] for a in commit_authors_result.all())
 
     return SyncCoverageResponse(
         connectors=connectors,

@@ -1,4 +1,7 @@
-"""Sync Sentry API data into PostgreSQL (projects, event counts, unresolved issues)."""
+"""Sync Sentry API data into PostgreSQL (projects, event counts, unresolved issues).
+
+All data is filtered to the Production environment only.
+"""
 
 import logging
 from datetime import datetime
@@ -14,6 +17,8 @@ from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
 
+# Only sync data from the Production environment
+_SENTRY_ENVIRONMENT = "production"
 _MAX_PROJECTS = 50
 _TOP_ISSUES_PER_PROJECT = 10
 
@@ -75,6 +80,7 @@ async def sync_sentry(
                             "statsPeriod": period,
                             "field": "sum(quantity)",
                             "category": "error",
+                            "environment": _SENTRY_ENVIRONMENT,
                         },
                     )
                     if r_stats.status_code == 200:
@@ -153,11 +159,11 @@ async def sync_sentry(
                 if project_id is None:
                     continue
 
-                # Fetch unresolved issues for this project
+                # Fetch unresolved issues for this project (Production only)
                 r_issues = await client.get(
                     f"/api/0/projects/{org}/{slug}/issues/",
                     params={
-                        "query": "is:unresolved",
+                        "query": f"environment:{_SENTRY_ENVIRONMENT} is:unresolved",
                         "limit": _TOP_ISSUES_PER_PROJECT,
                     },
                 )

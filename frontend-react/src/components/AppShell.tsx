@@ -19,9 +19,10 @@ const TABS = [
   { path: '/data-coverage', label: 'Data coverage' },
 ] as const;
 
-/** Sidebar sublinks when on GitHub: Overview + DORA + Code Review + Dev + Insights */
+/** Sidebar sublinks when on GitHub: Overview + Synced + DORA + Code Review + Dev + Insights */
 const GITHUB_SIDEBAR = {
   overview: { path: '/github', icon: '⊞', label: 'Overview' },
+  synced: { path: '/github/synced', icon: '✓', label: 'Synced' },
   dora: [
     { path: '/metrics/deployment-frequency', icon: '🚀', label: 'Deployment frequency' },
     { path: '/metrics/lead-time', icon: '⏱', label: 'Lead time' },
@@ -59,6 +60,11 @@ const GREPTILE_SIDEBAR_LINKS = [
   { path: '/greptile/recommendations', icon: '🛡', label: 'Recommendations' },
 ] as const;
 
+const SENTRY_SIDEBAR_LINKS = [
+  { path: '/sentry', icon: '⊞', label: 'Overview' },
+  { path: '/sentry/projects', icon: '📦', label: 'Projects' },
+] as const;
+
 function isActive(path: string, current: string): boolean {
   if (path === '/') return current === '/' || current === '/dashboard';
   return current === path || current.startsWith(path + '/');
@@ -74,6 +80,10 @@ function isLinearRoute(pathname: string): boolean {
 
 function isGreptileRoute(pathname: string): boolean {
   return pathname === '/greptile' || pathname.startsWith('/greptile/');
+}
+
+function isSentryRoute(pathname: string): boolean {
+  return pathname === '/sentry' || pathname.startsWith('/sentry/');
 }
 
 function isGitHubRoute(pathname: string): boolean {
@@ -105,6 +115,7 @@ export function AppShell({ children }: AppShellProps) {
   const showLinearSidebar = isLinearRoute(location.pathname);
   const showGitHubSidebar = isGitHubRoute(location.pathname);
   const showGreptileSidebar = isGreptileRoute(location.pathname);
+  const showSentrySidebar = isSentryRoute(location.pathname);
 
   useEffect(() => {
     if (!datePickerOpen) return;
@@ -113,8 +124,8 @@ export function AppShell({ children }: AppShellProps) {
         setDatePickerOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { capture: true });
+    return () => document.removeEventListener('mousedown', handleClickOutside, { capture: true });
   }, [datePickerOpen]);
 
   return (
@@ -136,7 +147,9 @@ export function AppShell({ children }: AppShellProps) {
                     ? showLinearSidebar
                     : path === '/greptile'
                       ? showGreptileSidebar
-                      : isActive(path, location.pathname);
+                      : path === '/sentry'
+                        ? showSentrySidebar
+                        : isActive(path, location.pathname);
             return (
               <Link
                 key={path}
@@ -310,6 +323,14 @@ export function AppShell({ children }: AppShellProps) {
                 </Link>
               );
             })}
+            <Link
+              to={GITHUB_SIDEBAR.synced.path}
+              className={location.pathname === '/github/synced' ? 'active' : ''}
+              aria-current={location.pathname === '/github/synced' ? 'page' : undefined}
+            >
+              <span className="app-shell__sidebar-icon">{GITHUB_SIDEBAR.synced.icon}</span>
+              <span className="app-shell__sidebar-label">{GITHUB_SIDEBAR.synced.label}</span>
+            </Link>
           </aside>
           <main className="app-shell__main">{children}</main>
         </div>
@@ -356,6 +377,26 @@ export function AppShell({ children }: AppShellProps) {
           </aside>
           <main className="app-shell__main">{children}</main>
         </div>
+      ) : showSentrySidebar ? (
+        <div className="app-shell__body">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Sentry section">
+            {SENTRY_SIDEBAR_LINKS.map(({ path, icon, label }) => {
+              const active = path === '/sentry' ? location.pathname === '/sentry' : isActive(path, location.pathname);
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={active ? 'active' : ''}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="app-shell__sidebar-icon">{icon}</span>
+                  <span className="app-shell__sidebar-label">{label}</span>
+                </Link>
+              );
+            })}
+          </aside>
+          <main className="app-shell__main">{children}</main>
+        </div>
       ) : (
         <main className="app-shell__main">{children}</main>
       )}
@@ -370,6 +411,9 @@ interface PeriodSelectorProps {
 
 function PeriodSelector({ preset, onPresetChange }: PeriodSelectorProps) {
   const options: { value: TimePeriodKey; label: string }[] = [
+    { value: '1', label: '1 day' },
+    { value: '2', label: '2 days' },
+    { value: '3', label: '3 days' },
     { value: '7', label: '7 days' },
     { value: '30', label: '30 days' },
     { value: '90', label: '90 days' },

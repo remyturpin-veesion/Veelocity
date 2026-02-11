@@ -101,8 +101,8 @@ export function GitHubRepoMultiSelect({
         setOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { capture: true });
+    return () => document.removeEventListener('mousedown', handleClickOutside, { capture: true });
   }, []);
 
   /** Check if a repo belongs to a subscribed org. */

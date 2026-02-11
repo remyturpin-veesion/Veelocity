@@ -10,6 +10,7 @@ import {
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { TrendChart } from '@/components/TrendChart.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { MetricInfoButton } from '@/components/MetricInfoButton.js';
@@ -287,9 +288,7 @@ export function DoraScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {formatDateRangeDisplay(startDate, endDate)}
-        </p>
+        <PageSummary>Deployment frequency, lead time, change failure rate · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see DORA metrics."
@@ -302,9 +301,7 @@ export function DoraScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {formatDateRangeDisplay(startDate, endDate)}
-        </p>
+        <PageSummary>Deployment frequency, lead time, change failure rate · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         <div className="dashboard__kpi-row">
           <SkeletonCard />
           <SkeletonCard />
@@ -319,6 +316,7 @@ export function DoraScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA</h1>
+        <PageSummary>Deployment frequency, lead time, change failure rate · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Unable to load DORA metrics"
           message="Make sure the backend is running and try again."
@@ -339,9 +337,7 @@ export function DoraScreen() {
   return (
     <div>
       <h1 className="screen-title">DORA</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {formatDateRangeDisplay(startDate, endDate)}
-      </p>
+      <PageSummary>Deployment frequency, lead time, change failure rate · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
 
       <section style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>

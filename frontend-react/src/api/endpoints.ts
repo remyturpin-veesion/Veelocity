@@ -220,8 +220,11 @@ export async function testSentryConnection(): Promise<{ ok: boolean }> {
 
 export async function getSentryOverview(params?: {
   stats_period?: '24h' | '7d';
+  start_date?: string;
+  end_date?: string;
+  repo_ids?: number[] | null;
 }): Promise<SentryOverviewResponse> {
-  return apiGet(prefix + '/sentry/overview', params as Record<string, string>);
+  return apiGet(prefix + '/sentry/overview', params as Record<string, string | number[] | undefined>);
 }
 
 export async function getDevelopers(params?: {
@@ -239,16 +242,44 @@ export async function getDeveloperStats(
   return apiGet(`${prefix}/developers/${encodeURIComponent(login)}`, params as Record<string, string | number>);
 }
 
-export async function getSyncCoverage(): Promise<SyncCoverageResponse> {
-  return apiGet(`${prefix}/sync/coverage`);
+export async function getSyncCoverage(params?: {
+  repo_ids?: number[] | null;
+  start_date?: string;
+  end_date?: string;
+}): Promise<SyncCoverageResponse> {
+  const q: Record<string, string | number | number[] | boolean | undefined> = {};
+  if (params?.repo_ids && params.repo_ids.length > 0) q.repo_ids = params.repo_ids;
+  if (params?.repo_ids && params.repo_ids.length === 0) q.no_repos = true;
+  if (params?.start_date) q.start_date = params.start_date;
+  if (params?.end_date) q.end_date = params.end_date;
+  return apiGet(`${prefix}/sync/coverage`, Object.keys(q).length ? q : undefined);
 }
 
-export async function getDailyCoverage(days = 90): Promise<DailyCoverageResponse> {
-  return apiGet(`${prefix}/sync/coverage/daily`, { days });
+export async function getDailyCoverage(params?: {
+  days?: number;
+  repo_ids?: number[] | null;
+  start_date?: string;
+  end_date?: string;
+}): Promise<DailyCoverageResponse> {
+  const q: Record<string, string | number | number[] | boolean | undefined> = { days: params?.days ?? 90 };
+  if (params?.repo_ids && params.repo_ids.length > 0) q.repo_ids = params.repo_ids;
+  if (params?.repo_ids && params.repo_ids.length === 0) q.no_repos = true;
+  if (params?.start_date) q.start_date = params.start_date;
+  if (params?.end_date) q.end_date = params.end_date;
+  return apiGet(`${prefix}/sync/coverage/daily`, q);
 }
 
-export async function getSyncStatus(): Promise<SyncStatusResponse> {
-  return apiGet(`${prefix}/sync/status`);
+export async function getSyncStatus(params?: {
+  repo_ids?: number[] | null;
+  start_date?: string;
+  end_date?: string;
+}): Promise<SyncStatusResponse> {
+  const q: Record<string, string | number | number[] | boolean | undefined> = {};
+  if (params?.repo_ids && params.repo_ids.length > 0) q.repo_ids = params.repo_ids;
+  if (params?.repo_ids && params.repo_ids.length === 0) q.no_repos = true;
+  if (params?.start_date) q.start_date = params.start_date;
+  if (params?.end_date) q.end_date = params.end_date;
+  return apiGet(`${prefix}/sync/status`, Object.keys(q).length ? q : undefined);
 }
 
 export async function triggerImportRange(params: {

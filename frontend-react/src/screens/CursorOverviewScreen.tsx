@@ -15,6 +15,7 @@ import {
 import { getCursorOverview, getSettings } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 
 export function CursorOverviewScreen() {
@@ -37,9 +38,7 @@ export function CursorOverviewScreen() {
     return (
       <div>
         <h1 className="screen-title">Cursor</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          Team usage and spend from your Cursor workspace
-        </p>
+        <PageSummary>Team usage, spend, and activity · Filtered by date range</PageSummary>
         <EmptyState
           title="Cursor not connected"
           message="Add your Cursor API key in Settings to see team size, spend, and usage here. Create a key in Cursor Dashboard → Settings → Advanced → Admin API Keys."
@@ -127,13 +126,9 @@ export function CursorOverviewScreen() {
   return (
     <div>
       <h1 className="screen-title">Cursor</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        Usage and spend from your Cursor workspace (Admin API). Aligned with{' '}
-        <a href="https://cursor.com/dashboard" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>
-          Cursor Dashboard
-        </a>{' '}
-        Usage tab.
-      </p>
+      <PageSummary>
+        Team usage, spend, and activity · Filtered by date range · Aligned with Cursor Dashboard
+      </PageSummary>
 
       {/* Top-level KPIs: team, spend, DAU */}
       <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', maxWidth: 860 }}>

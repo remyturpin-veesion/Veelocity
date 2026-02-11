@@ -8,6 +8,7 @@ import {
   refreshGreptileStatus,
 } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import type { GreptileManagedRepo, GreptileIndexResult } from '@/types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -273,6 +274,7 @@ export function GreptileIndexingScreen() {
     return (
       <div>
         <h1 className="screen-title">Repository Indexing</h1>
+        <PageSummary>Repository indexing status for Greptile</PageSummary>
         <EmptyState
           title="Greptile not connected"
           message="Add your Greptile API key in Settings to manage repository indexing."
@@ -290,7 +292,10 @@ export function GreptileIndexingScreen() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <h1 className="screen-title" style={{ marginBottom: 0 }}>Repository Indexing</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8 }} />
+      </div>
+      <PageSummary>Repository indexing status for Greptile</PageSummary>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button
             type="button"
             onClick={() => refreshMutation.mutate()}

@@ -31,6 +31,7 @@ import {
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { GlobalFlowChart, type GlobalFlowDataPoint } from '@/components/GlobalFlowChart.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import type { TrendData, Recommendation, GreptileTrendPoint } from '@/types/index.js';
@@ -407,9 +408,7 @@ export function DashboardScreen() {
     return (
       <div>
         <h1 className="screen-title">Dashboard</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {startDate} – {endDate}
-        </p>
+        <PageSummary>DORA KPIs, flow, and recommendations · {startDate} – {endDate} · Filtered by repos</PageSummary>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see dashboard data."
@@ -422,9 +421,7 @@ export function DashboardScreen() {
     return (
       <div>
         <h1 className="screen-title">Dashboard</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {startDate} – {endDate}
-        </p>
+        <PageSummary>DORA KPIs, flow, and recommendations · {startDate} – {endDate} · Filtered by repos</PageSummary>
         <div className="dashboard__kpi-row">
           <SkeletonCard />
           <SkeletonCard />
@@ -439,6 +436,7 @@ export function DashboardScreen() {
     return (
       <div>
         <h1 className="screen-title">Dashboard</h1>
+        <PageSummary>DORA KPIs, flow, and recommendations · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Unable to load metrics"
           message="Make sure the backend is running and try again."
@@ -455,9 +453,7 @@ export function DashboardScreen() {
   return (
     <div>
       <h1 className="screen-title">Dashboard</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {startDate} – {endDate}
-      </p>
+      <PageSummary>DORA KPIs, flow, and recommendations · {startDate} – {endDate} · Filtered by repos</PageSummary>
       <div className="dashboard">
         <div className="dashboard__kpi-row">
           <KpiCard

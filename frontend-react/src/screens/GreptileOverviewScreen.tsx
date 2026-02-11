@@ -13,6 +13,7 @@ import {
 import { getGreptileMetrics, getGreptileRepos, getSettings } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { useFiltersStore } from '@/stores/filters.js';
 import type {
   GreptileRepoMetric,
@@ -169,9 +170,7 @@ export function GreptileOverviewScreen() {
     return (
       <div>
         <h1 className="screen-title">Greptile</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          AI code review coverage and Greptile adoption metrics
-        </p>
+        <PageSummary>Review coverage and AI recommendations · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Greptile not connected"
           message="Add your Greptile API key in Settings to track AI code review coverage. Connect GitHub first to enable cross-referencing."
@@ -196,9 +195,7 @@ export function GreptileOverviewScreen() {
   return (
     <div>
       <h1 className="screen-title">Greptile</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.9375rem' }}>
-        AI code review coverage and adoption metrics.
-      </p>
+      <PageSummary>Review coverage and AI recommendations · Filtered by date range and repos</PageSummary>
 
       {/* Indexing alert banner */}
       {indexingSummary && (

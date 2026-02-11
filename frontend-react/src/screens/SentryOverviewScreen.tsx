@@ -1,26 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getSentryOverview, getSettings, getRepositories } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
-import { useFiltersStore } from '@/stores/filters.js';
-import type { SentryOverviewProject } from '@/types/index.js';
-
-/** Derive Sentry stats period from date range: ≤1 day → 24h, else 7d. */
-function statsPeriodFromRange(startDate: string, endDate: string): '24h' | '7d' {
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-  const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-  return days <= 1 ? '24h' : '7d';
-}
+import { PageSummary } from '@/components/PageSummary.js';
+import { SkeletonCard } from '@/components/SkeletonCard.js';
+import { useFiltersStore, formatDateRangeDisplay, toStartEnd } from '@/stores/filters.js';
+import type { SentryOverviewIssue } from '@/types/index.js';
 
 export function SentryOverviewScreen() {
-  const [projectSearch, setProjectSearch] = useState('');
-  const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
-  const repoIds = getRepoIdsForApi?.() ?? null;
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const { startDate, endDate } = getStartEnd();
-  const statsPeriod = statsPeriodFromRange(startDate, endDate);
+  useFiltersStore((s) => s.repoIds);
+  const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const repoIds = getRepoIdsForApi?.() ?? null;
   const hasRepoFilter = (repoIds?.length ?? 0) > 0;
 
   const { data: settings } = useQuery({
@@ -28,9 +22,12 @@ export function SentryOverviewScreen() {
     queryFn: getSettings,
   });
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['sentry', 'overview', startDate, endDate, statsPeriod],
-    queryFn: () => getSentryOverview({ stats_period: statsPeriod }),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['sentry', 'overview', repoIds ?? null],
+    queryFn: () =>
+      getSentryOverview({
+        repo_ids: Array.isArray(repoIds) ? repoIds : undefined,
+      }),
     enabled: settings?.sentry_configured === true,
   });
 
@@ -42,47 +39,40 @@ export function SentryOverviewScreen() {
 
   const projectsFiltered = useMemo(() => {
     const projects = data?.projects ?? [];
-    if (!hasRepoFilter || !reposData?.items?.length) return projects;
-    const selectedRepos = reposData.items.filter((r) => repoIds!.includes(r.id));
-    const selectedFullNames = new Set(selectedRepos.map((r) => r.full_name));
-    if (selectedFullNames.size === 0) return projects;
-    return projects.filter((p) => {
-      const slug = (p.slug || '').toLowerCase();
-      return Array.from(selectedFullNames).some((fullName) => {
-        const repoPart = fullName.split('/').pop()?.toLowerCase() ?? '';
-        return slug === repoPart || fullName.toLowerCase().endsWith('/' + slug);
-      });
-    });
-  }, [data?.projects, hasRepoFilter, reposData?.items, repoIds]);
+    return projects;
+  }, [data?.projects]);
 
-  const matchingRepoBySlug = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!reposData?.items?.length) return map;
-    for (const r of reposData.items) {
-      const part = r.full_name.split('/').pop()?.toLowerCase() ?? '';
-      if (part && !map.has(part)) map.set(part, r.full_name);
+  /** Flatten all top issues across projects, with project context; sort by count desc. */
+  const topIssuesAcrossProjects = useMemo(() => {
+    const out: Array<{ issue: SentryOverviewIssue; projectSlug: string; projectName: string }> = [];
+    for (const p of projectsFiltered) {
+      for (const iss of p.top_issues ?? []) {
+        out.push({
+          issue: iss,
+          projectSlug: p.slug ?? '',
+          projectName: p.name ?? p.slug ?? '',
+        });
+      }
     }
-    return map;
-  }, [reposData?.items]);
+    out.sort((a, b) => (b.issue.count ?? 0) - (a.issue.count ?? 0));
+    return out;
+  }, [projectsFiltered]);
 
-  const projectsToShow = useMemo(() => {
-    const list = projectsFiltered;
-    const q = projectSearch.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((p) => {
-      const name = (p.name ?? '').toLowerCase();
-      const slug = (p.slug ?? '').toLowerCase();
-      return name.includes(q) || slug.includes(q);
-    });
-  }, [projectsFiltered, projectSearch]);
+  const topIssueEventCount = useMemo(() => {
+    let max = 0;
+    for (const { issue } of topIssuesAcrossProjects) {
+      if ((issue.count ?? 0) > max) max = issue.count ?? 0;
+    }
+    return max;
+  }, [topIssuesAcrossProjects]);
+
+  const totals = data?.org_totals ?? { events_24h: 0, events_7d: 0, open_issues_count: 0 };
 
   if (settings?.sentry_configured !== true) {
     return (
-      <div>
+      <div className="sentry-overview">
         <h1 className="screen-title">Sentry</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          Error and issue metrics from your Sentry organization
-        </p>
+        <PageSummary>Errors and issue metrics from your Sentry organization · Production only</PageSummary>
         <EmptyState
           title="Sentry not connected"
           message="Add your Sentry API token and organization in Settings to see errors, open issues, and project metrics here. Create a token in Sentry → Settings → Account → API → Auth Tokens (scopes: project:read, event:read, org:read)."
@@ -96,179 +86,191 @@ export function SentryOverviewScreen() {
     );
   }
 
-  if (isLoading) return <div className="loading">Loading Sentry overview…</div>;
-  if (error) return <div className="error">{(error as Error).message}</div>;
+  if (isLoading) {
+    return (
+      <div className="sentry-overview">
+        <h1 className="screen-title">Sentry</h1>
+        <PageSummary>Errors and issue metrics from your Sentry organization · Production only</PageSummary>
+        <section className="sentry-overview__section">
+          <h2 className="sentry-overview__section-title">Overview</h2>
+          <div className="sentry-overview__metrics-grid">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </section>
+        <div className="loading">Loading Sentry overview…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="sentry-overview">
+        <h1 className="screen-title">Sentry</h1>
+        <EmptyState
+          title="Unable to load Sentry data"
+          message={(error as Error).message}
+          actionLabel="Retry"
+          onAction={() => refetch()}
+        />
+      </div>
+    );
+  }
 
   const baseUrl = (data?.sentry_base_url ?? '').replace(/\/$/, '');
   const org = data?.org ?? '';
-  const orgTotals = data?.org_totals ?? { events_24h: 0, events_7d: 0, open_issues_count: 0 };
   const openInSentryUrl = org ? `${baseUrl}/organizations/${org}/issues/` : baseUrl || '#';
 
   return (
-    <div>
-      <h1 className="screen-title">Sentry</h1>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        Errors and open issues from your Sentry organization. Data is synced periodically and shown from the Veelocity database.
-      </p>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+    <div className="sentry-overview">
+      <header className="sentry-overview__header">
+        <div>
+          <h1 className="screen-title">Sentry</h1>
+          <PageSummary>
+            Errors, open issues, and project metrics · Fixed 24h & 7d periods (not filtered by date) · Production only
+          </PageSummary>
+        </div>
         {baseUrl && (
           <a
             href={openInSentryUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ marginLeft: 'auto', fontSize: '0.875rem', color: 'var(--link)' }}
+            className="sentry-overview__open-link"
           >
-            Open in Sentry
+            Open in Sentry →
           </a>
         )}
-      </div>
+      </header>
 
-      <section style={{ marginBottom: 32, '--connector-accent': 'var(--metric-purple, #8b5cf6)' } as React.CSSProperties}>
-        <h2 className="data-coverage__connector-name" style={{ marginBottom: 8, fontSize: '1rem' }}>
-          Summary
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 12 }}>
-          Errors and open issues for the selected date range
+      <section className="sentry-overview__section">
+        <h2 className="sentry-overview__section-title">Overview</h2>
+        <p className="sentry-overview__section-desc sentry-overview__section-desc--overview">
+          Error counts use fixed 24h and 7-day windows (independent of the date filter above).
         </p>
-        <div
-          className="dashboard__kpi-row"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', maxWidth: 900 }}
-        >
+        <div className="sentry-overview__metrics-grid">
           <KpiCard
-            title="Errors"
-            value={String(statsPeriod === '24h' ? (orgTotals.events_24h ?? 0) : (orgTotals.events_7d ?? 0))}
+            title="Total errors (24h)"
+            value={formatCompactNumber(totals.events_24h ?? 0)}
+            subtitle="fixed period · last 24 hours"
             icon="⚠"
+            accent="orange"
           />
-          <KpiCard title="Open issues" value={String(orgTotals.open_issues_count ?? 0)} icon="📋" />
+          <KpiCard
+            title="Total errors (7 days)"
+            value={formatCompactNumber(totals.events_7d ?? 0)}
+            subtitle="fixed period · last 7 days"
+            icon="⚠"
+            accent="orange"
+          />
+          <KpiCard
+            title="Open issues"
+            value={String(totals.open_issues_count ?? 0)}
+            subtitle="unresolved issues (current)"
+            icon="📋"
+            accent="purple"
+          />
+          <KpiCard
+            title="Projects"
+            value={String(projectsFiltered.length)}
+            subtitle="tracked projects"
+            icon="📦"
+            accent="primary"
+            to="/sentry/projects"
+          />
+          <KpiCard
+            title="Peak issue events"
+            value={formatCompactNumber(topIssueEventCount)}
+            subtitle={topIssueEventCount > 0 ? 'most frequent single issue (7d)' : 'no issues'}
+            icon="📈"
+            accent="orange"
+          />
         </div>
       </section>
 
-      <section style={{ '--connector-accent': 'var(--metric-purple, #8b5cf6)' } as React.CSSProperties}>
-        <h2 className="data-coverage__connector-name" style={{ marginBottom: 8, fontSize: '1rem' }}>
-          Projects
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: 12 }}>
+      {topIssuesAcrossProjects.length > 0 && (
+        <section className="sentry-overview__section">
+          <h2 className="sentry-overview__section-title">Issues causing problems</h2>
+          <p className="sentry-overview__section-desc">Top unresolved issues by event count (Production only)</p>
+          <div className="sentry-overview__table-wrap">
+            <table className="sentry-overview__table" role="grid">
+              <thead>
+                <tr>
+                  <th>Count</th>
+                  <th>Issue</th>
+                  <th>Project</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topIssuesAcrossProjects.slice(0, 15).map(({ issue, projectSlug, projectName }) => {
+                  const issueUrl =
+                    org && baseUrl ? `${baseUrl}/organizations/${org}/issues/${issue.id}/` : '#';
+                  return (
+                    <tr key={`${projectSlug}-${issue.id}`}>
+                      <td className="sentry-overview__count">{formatCompactNumber(issue.count ?? 0)}</td>
+                      <td>
+                        <a href={issueUrl} target="_blank" rel="noopener noreferrer" className="sentry-overview__issue-link">
+                          {issue.short_id}: {issue.title || '(no title)'}
+                        </a>
+                      </td>
+                      <td className="sentry-overview__project-cell">{projectName || projectSlug}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="sentry-overview__section">
+        <h2 className="sentry-overview__section-title">Projects</h2>
+        <p className="sentry-overview__section-desc">
           {projectsFiltered.length === 0
             ? 'No projects'
             : `${projectsFiltered.length} project${projectsFiltered.length === 1 ? '' : 's'}`}
+          {' · Production environment only'}
         </p>
-        {projectsFiltered.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-            {hasRepoFilter && (repoIds?.length ?? 0) > 0
-              ? 'No Sentry projects match the selected repositories.'
-              : 'No projects in this organization or no data for the selected period.'}
-          </p>
-        ) : (
-          <>
-            <div style={{ marginBottom: 12, maxWidth: 320 }}>
-              <input
-                type="search"
-                placeholder="Search projects by name or slug…"
-                value={projectSearch}
-                onChange={(e) => setProjectSearch(e.target.value)}
-                aria-label="Search projects"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  fontSize: '0.875rem',
-                  border: '1px solid var(--border, #e5e7eb)',
-                  borderRadius: 6,
-                  background: 'var(--bg, #fff)',
-                  color: 'var(--text)',
-                }}
-              />
-            </div>
-            <div className="data-coverage__accordion" style={{ gap: 8 }}>
-              {projectsToShow.map((proj: SentryOverviewProject) => (
-                <ProjectAccordion
-                  key={proj.id}
-                  project={proj}
-                  baseUrl={baseUrl}
-                  org={org}
-                  statsPeriod={statsPeriod}
-                  matchingRepo={hasRepoFilter ? matchingRepoBySlug.get((proj.slug || '').toLowerCase()) : undefined}
-                />
-              ))}
-            </div>
-            {projectsToShow.length === 0 && projectSearch.trim() && (
-              <p style={{ color: 'var(--text-muted)', margin: '12px 0 0' }}>
-                No projects match &quot;{projectSearch.trim()}&quot;.
-              </p>
-            )}
-          </>
-        )}
+        <Link to="/sentry/projects" className="sentry-overview__projects-link">
+          View all projects →
+        </Link>
       </section>
+
+      <footer className="sentry-overview__filters-footer">
+        <span className="sentry-overview__filters-label">Active filters:</span>
+        <span className="sentry-overview__filters-value">
+          Production only
+          {' · '}
+          {formatDateRangeDisplay(startDate, endDate)}
+          {hasRepoFilter ? (
+            reposData?.items?.length ? (
+              <>
+                {' · '}
+                {reposData.items
+                  .filter((r) => repoIds?.includes(r.id))
+                  .map((r) => r.full_name)
+                  .join(', ')}
+              </>
+            ) : (
+              ` · ${repoIds?.length ?? 0} repo(s) selected`
+            )
+          ) : (
+            ' · All repos'
+          )}
+          {' · '}
+          Sentry: fixed 24h & 7d periods
+        </span>
+      </footer>
     </div>
   );
 }
 
-function ProjectAccordion({
-  project,
-  baseUrl,
-  org,
-  statsPeriod,
-  matchingRepo,
-}: {
-  project: SentryOverviewProject;
-  baseUrl: string;
-  org: string;
-  statsPeriod: '24h' | '7d';
-  matchingRepo?: string;
-}) {
-  const projectUrl = org && project.slug ? `${baseUrl}/organizations/${org}/projects/${project.slug}/` : baseUrl;
-  const errorsCount = statsPeriod === '24h' ? (project.events_24h ?? 0) : (project.events_7d ?? 0);
-  const hasIssues = project.top_issues && project.top_issues.length > 0;
-
-  return (
-    <details className="data-coverage__accordion-item">
-      <summary className="data-coverage__accordion-summary">
-        <span className="data-coverage__connector-dot" />
-        <div className="data-coverage__connector-info" style={{ flex: 1, minWidth: 0 }}>
-          <span className="data-coverage__connector-name" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {project.name || project.slug || project.id}
-          </span>
-          <span className="data-coverage__connector-sync">
-            Errors: <strong>{errorsCount}</strong> · Open issues: <strong>{project.open_issues_count ?? 0}</strong>
-            {matchingRepo && ` · Repo: ${matchingRepo}`}
-          </span>
-        </div>
-        <span className="data-coverage__accordion-chevron" aria-hidden />
-      </summary>
-      <div className="data-coverage__accordion-body">
-        <p style={{ margin: '0 0 12px' }}>
-          <a href={projectUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)', fontWeight: 500 }}>
-            Open project in Sentry →
-          </a>
-        </p>
-        {hasIssues ? (
-          <>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: 6 }}>Top unresolved issues</div>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.875rem' }}>
-              {project.top_issues!.slice(0, 5).map((iss) => {
-                const issueUrl =
-                  org && project.slug
-                    ? `${baseUrl}/organizations/${org}/issues/${iss.id}/`
-                    : `${baseUrl}/organizations/${org}/issues/`;
-                return (
-                  <li key={iss.id} style={{ marginBottom: 4 }}>
-                    <a href={issueUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>
-                      {iss.short_id}: {iss.title || '(no title)'}
-                    </a>
-                    {iss.count != null && iss.count > 0 && (
-                      <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>({iss.count} events)</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.875rem' }}>No unresolved issues.</p>
-        )}
-      </div>
-    </details>
-  );
+function formatCompactNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export default SentryOverviewScreen;

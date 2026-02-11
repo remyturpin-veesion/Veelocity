@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type TimePeriodKey = '7' | '30' | '90';
+export type TimePeriodKey = '1' | '2' | '3' | '7' | '30' | '90';
 
 export interface DateRangeState {
   preset: TimePeriodKey | null;
@@ -14,7 +14,14 @@ function getDefaultDateRange(): DateRangeState {
 }
 
 function periodToDays(p: TimePeriodKey): number {
-  return p === '7' ? 7 : p === '30' ? 30 : 90;
+  switch (p) {
+    case '1': return 1;
+    case '2': return 2;
+    case '3': return 3;
+    case '7': return 7;
+    case '30': return 30;
+    case '90': return 90;
+  }
 }
 
 /** Format date range for display (e.g. "Jan 26, 2026 – Feb 3, 2026"). */
@@ -30,7 +37,8 @@ export function toStartEnd(state: DateRangeState): { startDate: string; endDate:
   if (state.preset) {
     const days = periodToDays(state.preset);
     const start = new Date(end);
-    start.setDate(start.getDate() - days);
+    // For 1 day: same calendar day (today). For N days: last N days including today.
+    start.setDate(start.getDate() - (days - 1));
     start.setHours(0, 0, 0, 0);
     return {
       startDate: start.toISOString().slice(0, 10),

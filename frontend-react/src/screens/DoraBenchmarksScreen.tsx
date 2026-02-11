@@ -8,6 +8,7 @@ import {
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { MetricInfoButton } from '@/components/MetricInfoButton.js';
 import type { TrendData } from '@/types/index.js';
@@ -191,9 +192,7 @@ export function DoraBenchmarksScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA Benchmarks</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {formatDateRangeDisplay(startDate, endDate)}
-        </p>
+        <PageSummary>Industry benchmarks vs your metrics · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see benchmark positioning."
@@ -206,9 +205,7 @@ export function DoraBenchmarksScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA Benchmarks</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-          {formatDateRangeDisplay(startDate, endDate)}
-        </p>
+        <PageSummary>Industry benchmarks vs your metrics · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
         <div className="dashboard__kpi-row">
           <SkeletonCard />
           <SkeletonCard />
@@ -223,6 +220,7 @@ export function DoraBenchmarksScreen() {
     return (
       <div>
         <h1 className="screen-title">DORA Benchmarks</h1>
+        <PageSummary>Industry benchmarks vs your metrics · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Unable to load benchmark data"
           message="Make sure the backend is running and try again."
@@ -242,9 +240,7 @@ export function DoraBenchmarksScreen() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
         <h1 className="screen-title">DORA Benchmarks</h1>
       </div>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-        {formatDateRangeDisplay(startDate, endDate)} · Industry tiers based on DORA benchmarks used in the backend
-      </p>
+      <PageSummary>Industry benchmarks vs your metrics · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos</PageSummary>
 
       <section style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>

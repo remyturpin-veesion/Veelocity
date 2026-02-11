@@ -11,6 +11,7 @@ import {
   getReviewerWorkload,
 } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import { SkeletonCard } from '@/components/SkeletonCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 
@@ -118,7 +119,7 @@ export function GitHubOverviewScreen() {
     return (
       <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
-        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
+        <PageSummary>Repositories, PRs, and deployment metrics · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="No repositories selected"
           message="Select at least one repository in the filter above to see GitHub metrics."
@@ -131,7 +132,7 @@ export function GitHubOverviewScreen() {
     return (
       <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
-        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
+        <PageSummary>Repositories, PRs, and deployment metrics · Filtered by date range and repos</PageSummary>
         <div className="loading">Loading repositories…</div>
       </div>
     );
@@ -141,7 +142,7 @@ export function GitHubOverviewScreen() {
     return (
       <div className="github-overview">
         <h1 className="screen-title">GitHub</h1>
-        <p className="github-overview__subtitle">Repositories, PRs, and deployment metrics</p>
+        <PageSummary>Repositories, PRs, and deployment metrics · Filtered by date range and repos</PageSummary>
         <EmptyState
           title="Unable to load repositories"
           message={(repos.error as Error)?.message ?? 'Check Settings and try again.'}
@@ -162,16 +163,14 @@ export function GitHubOverviewScreen() {
     summary?: { total_reviews?: number; unique_reviewers?: number };
   } | undefined;
 
-  const repoUrl = (fullName: string) => `https://github.com/${fullName}`;
-
   return (
     <div className="github-overview">
       <header className="github-overview__header">
         <div>
           <h1 className="screen-title">GitHub</h1>
-          <p className="github-overview__subtitle">
-            {formatDateRangeDisplay(startDate, endDate)} · Repositories, PRs, and deployment metrics
-          </p>
+          <PageSummary>
+            Repositories, PRs, and deployment metrics · {formatDateRangeDisplay(startDate, endDate)} · Filtered by repos
+          </PageSummary>
         </div>
       </header>
 
@@ -283,28 +282,6 @@ export function GitHubOverviewScreen() {
           </div>
         )}
       </section>
-
-      <footer className="github-overview__repos-footer">
-        <span className="github-overview__repos-label">Synced:</span>
-        {reposItems.length === 0 ? (
-          <span className="github-overview__repos-empty">No repositories. Configure in Settings.</span>
-        ) : (
-          <div className="github-overview__repos-row" role="list">
-            {reposItems.map((r) => (
-              <a
-                key={r.id}
-                href={repoUrl(r.full_name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="github-overview__repo-chip"
-                role="listitem"
-              >
-                {r.full_name}
-              </a>
-            ))}
-          </div>
-        )}
-      </footer>
     </div>
   );
 }

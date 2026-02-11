@@ -13,6 +13,8 @@ import {
 } from 'recharts';
 import { getSyncCoverage, getDailyCoverage, getSyncStatus, getGreptileRepos } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { PageSummary } from '@/components/PageSummary.js';
+import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import type { DailyCoverageResponse } from '@/types/index.js';
 
 function formatDateLabel(dateStr: string): string {
@@ -95,9 +97,27 @@ const JOB_LABELS: Record<string, string> = {
 
 export function DataCoverageScreen() {
   const queryClient = useQueryClient();
+  useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.repoIds);
+  const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
+  const { startDate, endDate } = getStartEnd();
+  const repoIds = getRepoIdsForApi();
+  const noReposSelected = hasNoReposSelected();
+
+  const syncParams = useMemo(
+    () => ({
+      repo_ids: noReposSelected ? [] : repoIds ?? undefined,
+      start_date: startDate,
+      end_date: endDate,
+    }),
+    [noReposSelected, repoIds, startDate, endDate]
+  );
+
   const { data: syncStatus } = useQuery({
-    queryKey: ['sync', 'status'],
-    queryFn: () => getSyncStatus(),
+    queryKey: ['sync', 'status', syncParams],
+    queryFn: () => getSyncStatus(syncParams),
     refetchInterval: (query) => {
       const inProgress = query.state.data?.sync_in_progress;
       return inProgress ? 5_000 : 15_000;
@@ -108,8 +128,8 @@ export function DataCoverageScreen() {
   // Poll coverage more often during sync; otherwise every 30s so "Last sync" updates after scheduled jobs
   const coveragePollInterval = syncStatus?.sync_in_progress ? 5_000 : 30_000;
   const { data, isLoading, error, dataUpdatedAt } = useQuery({
-    queryKey: ['sync', 'coverage'],
-    queryFn: () => getSyncCoverage(),
+    queryKey: ['sync', 'coverage', syncParams],
+    queryFn: () => getSyncCoverage(syncParams),
     refetchInterval: coveragePollInterval,
   });
 
@@ -122,9 +142,17 @@ export function DataCoverageScreen() {
     }
   }, [dataUpdatedAt, queryClient]);
 
+  const dailyParams = useMemo(
+    () => ({
+      start_date: startDate,
+      end_date: endDate,
+      repo_ids: noReposSelected ? [] : repoIds ?? undefined,
+    }),
+    [startDate, endDate, noReposSelected, repoIds]
+  );
   const { data: dailyData } = useQuery({
-    queryKey: ['sync', 'coverage', 'daily', 90],
-    queryFn: () => getDailyCoverage(90),
+    queryKey: ['sync', 'coverage', 'daily', dailyParams],
+    queryFn: () => getDailyCoverage(dailyParams),
   });
 
   const chartData = useMemo(
@@ -204,9 +232,9 @@ export function DataCoverageScreen() {
     <div className="data-coverage">
       <header className="data-coverage__header">
         <h1 className="screen-title">Data coverage</h1>
-        <p className="data-coverage__subtitle">
-          Synced data from GitHub, GitHub Actions, Linear, Cursor, Greptile, and Sentry. Trigger sync from Settings or the connector pages.
-        </p>
+        <PageSummary>
+          Sync and data coverage across GitHub, Actions, Linear, Cursor, Greptile, Sentry · Not filtered by date
+        </PageSummary>
       </header>
 
       {syncInProgress && (
@@ -466,7 +494,7 @@ export function DataCoverageScreen() {
                     <div className="data-coverage__repos-inline">
                       <h3 className="data-coverage__subsection-title">Sentry progression</h3>
                       <p className="data-coverage__repos-desc">
-                        Projects, event counts (24h/7d), and unresolved issues synced from your Sentry organization. Configure API token and org in Settings. Sync runs every 5 min.
+                        Projects, event counts (24h/7d), and unresolved issues synced from your Sentry organization (Production environment only). Configure API token and org in Settings. Sync runs every 5 min.
                       </p>
                       <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
                         <Link to="/sentry" style={{ color: 'var(--link)', fontWeight: 500 }}>
@@ -487,7 +515,9 @@ export function DataCoverageScreen() {
 
       {chartData.length > 0 && (
         <section className="data-coverage__chart">
-          <h2 className="data-coverage__section-title">Sync progression (last 90 days)</h2>
+          <h2 className="data-coverage__section-title">
+            Sync progression ({formatDateRangeDisplay(startDate, endDate)})
+          </h2>
           <div className="card data-coverage__chart-card">
             <p className="data-coverage__chart-desc">
               Data synced per day: PRs created, Linear issues, Cursor AI requests, Greptile repos, and Sentry projects.
@@ -556,6 +586,14 @@ export function DataCoverageScreen() {
           </div>
         </section>
       )}
+
+      <footer className="sentry-overview__filters-footer" style={{ marginTop: 24 }}>
+        <span className="sentry-overview__filters-label">Active filters:</span>
+        <span className="sentry-overview__filters-value">
+          {formatDateRangeDisplay(startDate, endDate)}
+          {noReposSelected ? ' · No repos selected' : repoIds && repoIds.length > 0 ? ` · ${repoIds.length} repo(s) selected` : ' · All repos'}
+        </span>
+      </footer>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFiltersStore, formatDateRangeDisplay, TEAM_ID_NONE } from '@/stores/filters.js';
 import { getLinearOverview, getSyncCoverage, getSyncStatus, triggerLinearFullSync } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
+import { PageSummary } from '@/components/PageSummary.js';
 
 function formatTimeAgo(iso: string | null | undefined): string {
   if (!iso) return 'never';
@@ -80,7 +81,7 @@ export function LinearOverviewScreen() {
       <div className="linear-overview__header">
         <div>
           <h1 className="screen-title">Linear</h1>
-          <p className="linear-overview__subtitle">Issues, backlog, and time in state</p>
+          <PageSummary>Issues, backlog, and time in state · Filtered by date range and teams</PageSummary>
         </div>
       </div>
 

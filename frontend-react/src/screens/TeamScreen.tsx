@@ -4,6 +4,7 @@ import { useFiltersStore } from '@/stores/filters.js';
 import { getDevelopers, getDeveloperStats } from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
+import { PageSummary } from '@/components/PageSummary.js';
 import type { Developer } from '@/types/index.js';
 
 function getInitials(login: string): string {
@@ -115,12 +116,12 @@ export function TeamScreen() {
   return (
     <div className="team-page">
       <h1 className="screen-title">Team</h1>
-      <p className="team-page__subtitle">
-        {startDate} – {endDate} · {data?.count ?? 0} developer{(data?.count ?? 0) !== 1 ? 's' : ''}
-      </p>
+      <PageSummary>
+        Per-developer metrics and activity · {startDate} – {endDate} · Filtered by repos and developers
+      </PageSummary>
 
       {/* KPI row */}
-      <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', maxWidth: 760 }}>
+      <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <KpiCard title="Developers" value={String(developers.length)} icon="👥" />
         <KpiCard title="PRs merged" value={String(totalPRs)} icon="🔀" />
         <KpiCard title="Reviews given" value={String(totalReviews)} icon="👀" />
