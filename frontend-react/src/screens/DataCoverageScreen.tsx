@@ -17,6 +17,19 @@ import { PageSummary } from '@/components/PageSummary.js';
 import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
 import type { DailyCoverageResponse } from '@/types/index.js';
 
+/** Fixed date range for data-coverage: last 90 days. */
+function getDataCoverageDateRange(): { startDate: string; endDate: string } {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 89); // 90 days including today
+  start.setHours(0, 0, 0, 0);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
 function formatDateLabel(dateStr: string): string {
   try {
     const d = new Date(dateStr);
@@ -97,12 +110,10 @@ const JOB_LABELS: Record<string, string> = {
 
 export function DataCoverageScreen() {
   const queryClient = useQueryClient();
-  useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
-  const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
-  const { startDate, endDate } = getStartEnd();
+  const { startDate, endDate } = getDataCoverageDateRange();
   const repoIds = getRepoIdsForApi();
   const noReposSelected = hasNoReposSelected();
 
@@ -233,7 +244,7 @@ export function DataCoverageScreen() {
       <header className="data-coverage__header">
         <h1 className="screen-title">Data coverage</h1>
         <PageSummary>
-          Sync and data coverage across GitHub, Actions, Linear, Cursor, Greptile, Sentry · Not filtered by date
+          Sync and data coverage across GitHub, Actions, Linear, Cursor, Greptile, Sentry · Last 90 days (fixed)
         </PageSummary>
       </header>
 
