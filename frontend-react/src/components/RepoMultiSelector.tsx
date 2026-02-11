@@ -17,10 +17,15 @@ export function RepoMultiSelector() {
   const setRepoIds = useFiltersStore((s) => s.setRepoIds);
   const [open, setOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ['repositories'], queryFn: () => getRepositories() });
+  const { data, isLoading } = useQuery({
+    queryKey: ['repositories'],
+    queryFn: () => getRepositories({ all: true }),
+  });
   const repos = (data?.items ?? []) as Repository[];
 
   useEffect(() => {
@@ -35,6 +40,18 @@ export function RepoMultiSelector() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSearchQuery('');
+      searchInputRef.current?.focus();
+    }
+  }, [open]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredRepos = q
+    ? repos.filter((r) => r.full_name.toLowerCase().includes(q))
+    : repos;
 
   const allSelected =
     repos.length > 0 &&
@@ -94,23 +111,35 @@ export function RepoMultiSelector() {
       </button>
       {open && (
         <div className="filter-dropdown-popover" role="listbox" aria-label="Select repositories">
-          <button
-            type="button"
-            role="option"
-            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
-            aria-selected={allSelected}
-            onClick={() => {
-              if (allSelected) {
-                setRepoIds(new Set([REPO_ID_NONE]));
-              } else {
-                setRepoIds([]);
-              }
-            }}
-          >
-            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
-            All
-          </button>
-          {repos.map((r) => {
+          <div className="filter-dropdown-search">
+            <input
+              ref={searchInputRef}
+              type="search"
+              placeholder="Search repos…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label="Search repositories"
+            />
+          </div>
+          <div className="filter-dropdown-popover__scroll">
+            <button
+              type="button"
+              role="option"
+              className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
+              aria-selected={allSelected}
+              onClick={() => {
+                if (allSelected) {
+                  setRepoIds(new Set([REPO_ID_NONE]));
+                } else {
+                  setRepoIds([]);
+                }
+              }}
+            >
+              <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
+              All
+            </button>
+            {filteredRepos.map((r) => {
             const selected =
               !repoIds.has(REPO_ID_NONE) && (repoIds.size === 0 || repoIds.has(r.id));
             return (
@@ -146,6 +175,12 @@ export function RepoMultiSelector() {
               </div>
             );
           })}
+            {filteredRepos.length === 0 && q && (
+              <div className="filter-dropdown-option" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                No repos match &quot;{q}&quot;
+              </div>
+            )}
+          </div>
         </div>
       )}
       {selectedRepos.length > 0 && !allSelected && (

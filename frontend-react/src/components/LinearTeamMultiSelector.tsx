@@ -22,7 +22,9 @@ export function LinearTeamMultiSelector() {
   const teamIds = useFiltersStore((s) => s.teamIds);
   const setTeamIds = useFiltersStore((s) => s.setTeamIds);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['linear', 'teams'],
@@ -39,6 +41,21 @@ export function LinearTeamMultiSelector() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSearchQuery('');
+      searchInputRef.current?.focus();
+    }
+  }, [open]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredTeams = q
+    ? teams.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) || t.key.toLowerCase().includes(q)
+      )
+    : teams;
 
   const allSelected =
     teamIds.size === 0 || (teamIds.size === teams.length && !teamIds.has(TEAM_ID_NONE));
@@ -88,8 +105,20 @@ export function LinearTeamMultiSelector() {
       </button>
       {open && (
         <div className="filter-dropdown-popover" role="listbox" aria-label="Select teams">
-          <div
-            role="option"
+          <div className="filter-dropdown-search">
+            <input
+              ref={searchInputRef}
+              type="search"
+              placeholder="Search teams…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label="Search teams"
+            />
+          </div>
+          <div className="filter-dropdown-popover__scroll">
+            <div
+              role="option"
             aria-selected={allSelected}
             className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
           >
@@ -125,7 +154,7 @@ export function LinearTeamMultiSelector() {
               All
             </button>
           </div>
-          {teams.map((t) => {
+          {filteredTeams.map((t) => {
             const selected =
               !teamIds.has(TEAM_ID_NONE) && (teamIds.size === 0 || teamIds.has(t.id));
             const teamLabel = `${t.name} (${t.key})`;
@@ -163,6 +192,12 @@ export function LinearTeamMultiSelector() {
               </div>
             );
           })}
+            {filteredTeams.length === 0 && q && (
+              <div className="filter-dropdown-option" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                No teams match &quot;{q}&quot;
+              </div>
+            )}
+          </div>
         </div>
       )}
       {!allSelected && selectedTeams.length > 0 ? (

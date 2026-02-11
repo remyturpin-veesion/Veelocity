@@ -58,6 +58,10 @@ export const REPO_ID_NONE = -1;
 /** Sentinel for "no team" filter; backend returns empty when team_ids contains only this. */
 export const TEAM_ID_NONE = -1;
 
+/** Stable empty arrays returned by getters to avoid new references and infinite re-renders when used in selectors. */
+const EMPTY_REPO_IDS: number[] = [];
+const EMPTY_TEAM_IDS: number[] = [];
+
 interface FiltersState {
   dateRange: DateRangeState;
   repoIds: Set<number>;
@@ -146,7 +150,7 @@ export const useFiltersStore = create<FiltersState>()(
         const { repoIds } = get();
         if (repoIds.size === 0) return null;
         const ids = Array.from(repoIds).filter((id) => id !== REPO_ID_NONE);
-        if (ids.length === 0) return []; /* none selected */
+        if (ids.length === 0) return EMPTY_REPO_IDS; /* none selected */
         return ids;
       },
 
@@ -167,7 +171,7 @@ export const useFiltersStore = create<FiltersState>()(
 
       getTeamIdsForApi() {
         const { teamIds } = get();
-        if (teamIds.size === 0) return [];
+        if (teamIds.size === 0) return EMPTY_TEAM_IDS;
         if (teamIds.size === 1 && teamIds.has(TEAM_ID_NONE)) return [TEAM_ID_NONE];
         return Array.from(teamIds).filter((id) => id !== TEAM_ID_NONE);
       },

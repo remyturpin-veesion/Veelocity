@@ -52,6 +52,8 @@ export function LinearTimeInStateScreen() {
 
   const stagesDropdownRef = useRef<HTMLDivElement>(null);
   const [stagesOpen, setStagesOpen] = useState(false);
+  const [stageSearchQuery, setStageSearchQuery] = useState('');
+  const stageSearchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (stagesDropdownRef.current && !stagesDropdownRef.current.contains(e.target as Node)) {
@@ -61,6 +63,13 @@ export function LinearTimeInStateScreen() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (stagesOpen) {
+      setStageSearchQuery('');
+      stageSearchInputRef.current?.focus();
+    }
+  }, [stagesOpen]);
 
   if (isLoading) {
     return (
@@ -112,6 +121,12 @@ export function LinearTimeInStateScreen() {
   const stagesLabel =
     allStagesSelected ? 'All' : `${visibleStages.length} stage${visibleStages.length !== 1 ? 's' : ''}`;
 
+  const stageSearchQ = stageSearchQuery.trim().toLowerCase();
+  const filteredStages =
+    stageSearchQ
+      ? allStages.filter((s) => s.label.toLowerCase().includes(stageSearchQ) || s.id.toLowerCase().includes(stageSearchQ))
+      : allStages;
+
   return (
     <div>
       <div className="screen-title-row"><h1 className="screen-title">Linear time in state</h1><MetricInfoButton metricKey="linear-time-in-state" /></div>
@@ -135,17 +150,29 @@ export function LinearTimeInStateScreen() {
           </button>
           {stagesOpen && (
             <div className="filter-dropdown-popover" role="listbox" aria-label="Select stages" style={{ minWidth: 220 }}>
-              <button
-                type="button"
-                role="option"
-                className={`filter-dropdown-option ${allStagesSelected ? 'filter-dropdown-option--selected' : ''}`}
-                aria-selected={allStagesSelected}
-                onClick={() => setTimeInStateStageIds([])}
-              >
-                <span className="filter-dropdown-option__check" aria-hidden>{allStagesSelected ? '✓' : ''}</span>
-                All
-              </button>
-              {allStages.map((s) => {
+              <div className="filter-dropdown-search">
+                <input
+                  ref={stageSearchInputRef}
+                  type="search"
+                  placeholder="Search stages…"
+                  value={stageSearchQuery}
+                  onChange={(e) => setStageSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  aria-label="Search stages"
+                />
+              </div>
+              <div className="filter-dropdown-popover__scroll">
+                <button
+                  type="button"
+                  role="option"
+                  className={`filter-dropdown-option ${allStagesSelected ? 'filter-dropdown-option--selected' : ''}`}
+                  aria-selected={allStagesSelected}
+                  onClick={() => setTimeInStateStageIds([])}
+                >
+                  <span className="filter-dropdown-option__check" aria-hidden>{allStagesSelected ? '✓' : ''}</span>
+                  All
+                </button>
+                {filteredStages.map((s) => {
                 const selected = allStagesSelected || timeInStateStageIds.has(s.id);
                 return (
                   <div
@@ -181,6 +208,12 @@ export function LinearTimeInStateScreen() {
                   </div>
                 );
               })}
+                {filteredStages.length === 0 && stageSearchQ && (
+                  <div className="filter-dropdown-option" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                    No stages match &quot;{stageSearchQ}&quot;
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

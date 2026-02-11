@@ -38,8 +38,39 @@ export async function healthCheck(): Promise<{ status: string }> {
   return apiGet(`${prefix}/health`);
 }
 
-export async function getRepositories(): Promise<{ items: Repository[] }> {
-  const data = await apiGet<{ items: Repository[] }>(`${prefix}/repositories`);
+type RepositoriesResponse = {
+  items: Repository[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  pages?: number;
+  has_next?: boolean;
+  has_prev?: boolean;
+};
+
+export async function getRepositories(params?: {
+  limit?: number;
+  page?: number;
+  all?: boolean;
+}): Promise<{ items: Repository[] }> {
+  // When all=true, fetch all pages so filter dropdowns show the complete list
+  if (params?.all) {
+    const limit = 100;
+    const allItems: Repository[] = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext) {
+      const data = await apiGet<RepositoriesResponse>(`${prefix}/repositories`, {
+        limit,
+        page,
+      });
+      allItems.push(...(data.items ?? []));
+      hasNext = data.has_next ?? false;
+      page += 1;
+    }
+    return { items: allItems };
+  }
+  const data = await apiGet<RepositoriesResponse>(`${prefix}/repositories`, params);
   return data;
 }
 

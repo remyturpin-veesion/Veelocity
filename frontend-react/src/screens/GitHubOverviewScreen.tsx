@@ -26,7 +26,7 @@ export function GitHubOverviewScreen() {
 
   const repos = useQuery({
     queryKey: ['repositories'],
-    queryFn: () => getRepositories(),
+    queryFn: () => getRepositories({ all: true }),
   });
   const deploymentFreq = useQuery({
     queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds],

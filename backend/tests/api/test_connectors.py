@@ -15,6 +15,10 @@ async def test_connectors_status_no_config(client):
         linear_workspace_name="",
         cursor_api_key=None,
         greptile_api_key=None,
+        sentry_api_token=None,
+        sentry_base_url="https://sentry.tooling.veesion.io",
+        sentry_org="",
+        sentry_project="",
     )
     with patch(
         "app.api.v1.endpoints.connectors.CredentialsService"

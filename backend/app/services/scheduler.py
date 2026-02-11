@@ -318,6 +318,34 @@ async def run_greptile_sync():
         _sync_job_name = None
 
 
+async def run_sentry_sync():
+    """Sentry API sync (projects, event counts, unresolved issues). Runs every 5 min."""
+    global _sync_in_progress, _sync_job_name
+    _sync_in_progress = True
+    _sync_job_name = "sentry_sync"
+    try:
+        async with async_session_maker() as db:
+            creds = await CredentialsService(db).get_credentials()
+            if not creds.sentry_api_token or not (creds.sentry_org or "").strip():
+                return
+            try:
+                from app.services.sync_sentry import sync_sentry
+
+                items = await sync_sentry(
+                    db,
+                    api_token=creds.sentry_api_token,
+                    base_url=creds.sentry_base_url or "",
+                    org_slug=creds.sentry_org or "",
+                )
+                await db.commit()
+                logger.info("Sentry sync: %s projects", items)
+            except Exception as e:
+                logger.error("Sentry sync failed: %s", e)
+    finally:
+        _sync_in_progress = False
+        _sync_job_name = None
+
+
 async def run_full_sync():
     """
     Run full sync for all connectors with pagination.
@@ -394,6 +422,21 @@ async def _run_full_sync_impl():
                 logger.info("Full sync: Greptile %s repos", greptile_items)
             except Exception as e:
                 logger.error("Greptile sync failed: %s", e)
+        if creds.sentry_api_token and (creds.sentry_org or "").strip():
+            try:
+                from app.services.sync_sentry import sync_sentry
+
+                sentry_items = await sync_sentry(
+                    db,
+                    api_token=creds.sentry_api_token,
+                    base_url=creds.sentry_base_url or "",
+                    org_slug=creds.sentry_org or "",
+                )
+                total_items += sentry_items
+                await db.commit()
+                logger.info("Full sync: Sentry %s projects", sentry_items)
+            except Exception as e:
+                logger.error("Sentry sync failed: %s", e)
 
         logger.info(
             f"Full sync complete: {total_items} items (details will be filled gradually)"
@@ -627,6 +670,16 @@ def start_scheduler():
         replace_existing=True,
     )
 
+    # Sentry: every 5 min, first run in 7 min
+    scheduler.add_job(
+        run_sentry_sync,
+        "interval",
+        minutes=5,
+        next_run_time=now + timedelta(minutes=7),
+        id="sentry_sync",
+        replace_existing=True,
+    )
+
     # Propose recommendations every 10 min (first run in 10 min)
     scheduler.add_job(
         run_propose_recommendations,
@@ -639,7 +692,7 @@ def start_scheduler():
 
     scheduler.start()
     logger.info(
-        "Scheduler started: GitHub+Actions every 5min, Linear/Cursor/Greptile every 5min "
+        "Scheduler started: GitHub+Actions every 5min, Linear/Cursor/Greptile/Sentry every 5min "
         "(staggered), fill details every 10min, propose recommendations every 10min"
     )
 

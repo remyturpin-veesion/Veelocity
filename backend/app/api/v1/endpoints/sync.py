@@ -1158,6 +1158,26 @@ async def get_sync_coverage(
                 ),
             )
         )
+    # Add Sentry when configured (may not have a SyncState row yet)
+    sentry_configured = bool(
+        creds.sentry_api_token and (creds.sentry_org or "").strip()
+    )
+    if sentry_configured and not any(
+        c.connector_name == "sentry" for c in connectors
+    ):
+        sentry_state = next(
+            (s for s in sync_states if s.connector_name == "sentry"), None
+        )
+        connectors.append(
+            ConnectorSyncState(
+                connector_name="sentry",
+                display_name="Sentry",
+                last_sync_at=sentry_state.last_sync_at if sentry_state else None,
+                last_full_sync_at=(
+                    sentry_state.last_full_sync_at if sentry_state else None
+                ),
+            )
+        )
 
     # Get all repositories
     repos_result = await db.execute(select(Repository).order_by(Repository.full_name))

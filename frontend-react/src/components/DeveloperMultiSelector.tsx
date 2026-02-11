@@ -18,7 +18,9 @@ export function DeveloperMultiSelector() {
   const developerLogins = useFiltersStore((s) => s.developerLogins);
   const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['developers', startDate, endDate, repoId],
@@ -35,6 +37,18 @@ export function DeveloperMultiSelector() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSearchQuery('');
+      searchInputRef.current?.focus();
+    }
+  }, [open]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredDevelopers = q
+    ? developers.filter((d) => d.login.toLowerCase().includes(q))
+    : developers;
 
   const allSelected =
     developers.length > 0 &&
@@ -85,23 +99,35 @@ export function DeveloperMultiSelector() {
       </button>
       {open && (
         <div className="filter-dropdown-popover" role="listbox" aria-label="Select developers">
-          <button
-            type="button"
-            role="option"
-            className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
-            aria-selected={allSelected}
-            onClick={() => {
-              if (allSelected) {
-                setDeveloperLogins([AUTHOR_LOGIN_NONE]);
-              } else {
-                setDeveloperLogins([]);
-              }
-            }}
-          >
-            <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
-            All
-          </button>
-          {developers.map((d) => {
+          <div className="filter-dropdown-search">
+            <input
+              ref={searchInputRef}
+              type="search"
+              placeholder="Search developers…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label="Search developers"
+            />
+          </div>
+          <div className="filter-dropdown-popover__scroll">
+            <button
+              type="button"
+              role="option"
+              className={`filter-dropdown-option ${allSelected ? 'filter-dropdown-option--selected' : ''}`}
+              aria-selected={allSelected}
+              onClick={() => {
+                if (allSelected) {
+                  setDeveloperLogins([AUTHOR_LOGIN_NONE]);
+                } else {
+                  setDeveloperLogins([]);
+                }
+              }}
+            >
+              <span className="filter-dropdown-option__check" aria-hidden>{allSelected ? '✓' : ''}</span>
+              All
+            </button>
+            {filteredDevelopers.map((d) => {
             const selected =
               !developerLogins.has(AUTHOR_LOGIN_NONE) &&
               (developerLogins.size === 0 || developerLogins.has(d.login));
@@ -119,6 +145,12 @@ export function DeveloperMultiSelector() {
               </button>
             );
           })}
+            {filteredDevelopers.length === 0 && q && (
+              <div className="filter-dropdown-option" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                No developers match &quot;{q}&quot;
+              </div>
+            )}
+          </div>
         </div>
       )}
       {!allSelected && selectedDevelopers.length > 0 && (

@@ -80,6 +80,7 @@ const CONNECTOR_ACCENT: Record<string, string> = {
   linear: 'var(--metric-orange)',
   cursor: 'var(--metric-blue)',
   greptile: 'var(--metric-teal)',
+  sentry: 'var(--metric-purple, #8b5cf6)',
 };
 
 const JOB_LABELS: Record<string, string> = {
@@ -89,6 +90,7 @@ const JOB_LABELS: Record<string, string> = {
   linear_sync: 'Linear sync',
   cursor_sync: 'Cursor sync',
   greptile_sync: 'Greptile sync',
+  sentry_sync: 'Sentry sync',
 };
 
 export function DataCoverageScreen() {
@@ -189,8 +191,11 @@ export function DataCoverageScreen() {
     out.greptile = greptileConnected
       ? (greptileReposData ? greptileProgress.pct : 100)
       : 0;
+    // Sentry: 100% if last sync ran, else 0%
+    const sentryConnector = data?.connectors?.find((c) => c.connector_name === 'sentry');
+    out.sentry = sentryConnector?.last_sync_at ? 100 : 0;
     return out;
-  }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected, greptileReposData, greptileProgress.pct]);
+  }, [allRepos, allLinearTeams, totalWorkflowRuns, cursorConnected, greptileConnected, greptileReposData, greptileProgress.pct, data?.connectors]);
 
   if (isLoading) return <div className="loading">Loading coverage…</div>;
   if (error) return <div className="error">{(error as Error).message}</div>;
@@ -200,7 +205,7 @@ export function DataCoverageScreen() {
       <header className="data-coverage__header">
         <h1 className="screen-title">Data coverage</h1>
         <p className="data-coverage__subtitle">
-          Synced data from GitHub, GitHub Actions, Linear, Cursor, and Greptile. Trigger sync from Settings or the connector pages.
+          Synced data from GitHub, GitHub Actions, Linear, Cursor, Greptile, and Sentry. Trigger sync from Settings or the connector pages.
         </p>
       </header>
 
@@ -270,7 +275,7 @@ export function DataCoverageScreen() {
       </section>
 
       <section className="data-coverage__connectors">
-        <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor, Greptile)</h2>
+        <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor, Greptile, Sentry)</h2>
         <div className="card data-coverage__connectors-card">
           {data?.connectors?.length ? (
             <div className="data-coverage__accordion">
@@ -455,6 +460,19 @@ export function DataCoverageScreen() {
                           </Link>
                         </p>
                       )}
+                    </div>
+                  )}
+                  {c.connector_name === 'sentry' && (
+                    <div className="data-coverage__repos-inline">
+                      <h3 className="data-coverage__subsection-title">Sentry progression</h3>
+                      <p className="data-coverage__repos-desc">
+                        Projects, event counts (24h/7d), and unresolved issues synced from your Sentry organization. Configure API token and org in Settings. Sync runs every 5 min.
+                      </p>
+                      <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
+                        <Link to="/sentry" style={{ color: 'var(--link)', fontWeight: 500 }}>
+                          View Sentry overview →
+                        </Link>
+                      </p>
                     </div>
                   )}
                   </div>
