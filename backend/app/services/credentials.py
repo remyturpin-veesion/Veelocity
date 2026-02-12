@@ -77,7 +77,9 @@ class CredentialsService:
                 dec = decrypt(row.sentry_api_token_encrypted)
                 if dec:
                     sentry_api_token = dec
-            sentry_base_url = (row.sentry_base_url or "").strip() or "https://sentry.tooling.veesion.io"
+            sentry_base_url = (
+                row.sentry_base_url or ""
+            ).strip() or "https://sentry.tooling.veesion.io"
             sentry_org = (row.sentry_org or "").strip()
             sentry_project = (row.sentry_project or "").strip()
         return ResolvedCredentials(
@@ -112,7 +114,13 @@ class CredentialsService:
         Raises ValueError if encryption unavailable and a secret is provided.
         """
         if not encryption_available():
-            if github_token or linear_api_key or cursor_api_key or greptile_api_key or sentry_api_token:
+            if (
+                github_token
+                or linear_api_key
+                or cursor_api_key
+                or greptile_api_key
+                or sentry_api_token
+            ):
                 raise ValueError(
                     "VEELOCITY_ENCRYPTION_KEY is not set; cannot store credentials in DB"
                 )
@@ -150,7 +158,9 @@ class CredentialsService:
                 encrypt(sentry_api_token) if sentry_api_token else None
             )
         if sentry_base_url is not None:
-            row.sentry_base_url = sentry_base_url.strip() or "https://sentry.tooling.veesion.io"
+            row.sentry_base_url = (
+                sentry_base_url.strip() or "https://sentry.tooling.veesion.io"
+            )
         if sentry_org is not None:
             row.sentry_org = sentry_org.strip()
         if sentry_project is not None:

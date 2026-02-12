@@ -43,7 +43,7 @@ export function RepoMultiSelector() {
 
   useEffect(() => {
     if (open) {
-      setSearchQuery('');
+      queueMicrotask(() => setSearchQuery(''));
       searchInputRef.current?.focus();
     }
   }, [open]);

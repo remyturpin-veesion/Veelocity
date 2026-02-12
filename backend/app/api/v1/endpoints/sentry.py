@@ -30,9 +30,12 @@ def _slug_matches_repo(slug: str, full_name: str) -> bool:
 async def sentry_overview(
     db: AsyncSession = Depends(get_db),
     stats_period: str = Query(
-        default="24h", description="Stats period: 24h or 7d (both are stored; ignored when reading from DB)"
+        default="24h",
+        description="Stats period: 24h or 7d (both are stored; ignored when reading from DB)",
     ),
-    repo_ids: list[int] | None = Query(None, description="Filter to Sentry projects matching these repository IDs"),
+    repo_ids: list[int] | None = Query(
+        None, description="Filter to Sentry projects matching these repository IDs"
+    ),
 ):
     """
     Return Sentry org-level totals and per-project metrics (events, open issues, top issues).
@@ -71,7 +74,10 @@ async def sentry_overview(
                 projects = [
                     p
                     for p in all_projects
-                    if any(_slug_matches_repo(p.slug or "", fn) for fn in selected_full_names)
+                    if any(
+                        _slug_matches_repo(p.slug or "", fn)
+                        for fn in selected_full_names
+                    )
                 ]
             else:
                 projects = []
@@ -130,7 +136,9 @@ async def sentry_projects(db: AsyncSession = Depends(get_db)):
         )
     org = (creds.sentry_org or "").strip()
     result = await db.execute(
-        select(SentryProject).where(SentryProject.org_slug == org).order_by(SentryProject.slug)
+        select(SentryProject)
+        .where(SentryProject.org_slug == org)
+        .order_by(SentryProject.slug)
     )
     projects = result.scalars().all()
     return {

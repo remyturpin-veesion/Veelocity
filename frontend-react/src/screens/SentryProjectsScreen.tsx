@@ -56,7 +56,7 @@ export function SentryProjectsScreen() {
         return slug === repoPart || fullName.toLowerCase().endsWith('/' + slug);
       });
     });
-  }, [data?.projects, hasRepoFilter, reposData?.items, repoIds]);
+  }, [data, hasRepoFilter, reposData, repoIds]);
 
   const matchingRepoBySlug = useMemo(() => {
     const map = new Map<string, string>();
@@ -66,7 +66,7 @@ export function SentryProjectsScreen() {
       if (part && !map.has(part)) map.set(part, r.full_name);
     }
     return map;
-  }, [reposData?.items]);
+  }, [reposData]);
 
   const projectsToShow = useMemo(() => {
     const list = projectsFiltered;

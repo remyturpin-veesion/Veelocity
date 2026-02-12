@@ -66,7 +66,7 @@ export function LinearTimeInStateScreen() {
 
   useEffect(() => {
     if (stagesOpen) {
-      setStageSearchQuery('');
+      queueMicrotask(() => setStageSearchQuery(''));
       stageSearchInputRef.current?.focus();
     }
   }, [stagesOpen]);

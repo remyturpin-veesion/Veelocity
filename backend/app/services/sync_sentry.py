@@ -72,9 +72,7 @@ async def sync_sentry(
             for period in ("24h", "7d"):
                 try:
                     r_stats = await client.get(
-                        "/api/0/organizations/{org}/stats-summary/".format(
-                            org=org
-                        ),
+                        "/api/0/organizations/{org}/stats-summary/".format(org=org),
                         params={
                             "statsPeriod": period,
                             "field": "sum(quantity)",
@@ -96,21 +94,17 @@ async def sync_sentry(
                                 pid = str(proj.get("id", ""))
                                 total = 0
                                 for stat in proj.get("stats") or []:
-                                    if isinstance(
-                                        stat, dict
-                                    ) and stat.get("category") == "error":
-                                        total = (
-                                            (stat.get("totals") or {}).get(
-                                                "sum(quantity)", 0
-                                            )
-                                            or 0
-                                        )
+                                    if (
+                                        isinstance(stat, dict)
+                                        and stat.get("category") == "error"
+                                    ):
+                                        total = (stat.get("totals") or {}).get(
+                                            "sum(quantity)", 0
+                                        ) or 0
                                         break
                                 target[pid] = total
                 except Exception as e:
-                    logger.debug(
-                        "Sentry stats-summary (%s) skipped: %s", period, e
-                    )
+                    logger.debug("Sentry stats-summary (%s) skipped: %s", period, e)
 
             for p in projects_raw[:_MAX_PROJECTS]:
                 pid = str(p.get("id", ""))
@@ -178,26 +172,21 @@ async def sync_sentry(
                             )
                         )
                         for iss in issues_raw:
-                            count_val = iss.get("count") or iss.get(
-                                "numComments"
-                            )
+                            count_val = iss.get("count") or iss.get("numComments")
                             if isinstance(count_val, str):
                                 try:
                                     count_val = int(count_val)
                                 except ValueError:
                                     count_val = 0
                             count_val = count_val or 0
-                            title = (
-                                (iss.get("metadata") or {}).get("title")
-                                or (iss.get("title") or "").strip()
-                            )
+                            title = (iss.get("metadata") or {}).get("title") or (
+                                iss.get("title") or ""
+                            ).strip()
                             db.add(
                                 SentryIssue(
                                     project_id=project_id,
                                     sentry_issue_id=str(iss.get("id", "")),
-                                    short_id=(
-                                        (iss.get("shortId") or "").strip()[:32]
-                                    ),
+                                    short_id=((iss.get("shortId") or "").strip()[:32]),
                                     title=title[:65535] if title else "",
                                     count=count_val,
                                     last_seen=(

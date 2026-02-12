@@ -44,7 +44,7 @@ export function LinearTeamMultiSelector() {
 
   useEffect(() => {
     if (open) {
-      setSearchQuery('');
+      queueMicrotask(() => setSearchQuery(''));
       searchInputRef.current?.focus();
     }
   }, [open]);

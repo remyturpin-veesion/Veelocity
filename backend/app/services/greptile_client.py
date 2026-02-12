@@ -107,7 +107,9 @@ async def get_repository(
                 resp = await client.get(f"/repositories/{encoded_id}")
                 if resp.status_code == 200:
                     return 200, resp.json()
-                log_level = logging.DEBUG if resp.status_code == 404 else logging.WARNING
+                log_level = (
+                    logging.DEBUG if resp.status_code == 404 else logging.WARNING
+                )
                 logger.log(
                     log_level,
                     "Greptile get_repository %s: HTTP %s — %s (github_token=%s)",
@@ -117,7 +119,10 @@ async def get_repository(
                     "present" if github_token else "missing",
                 )
                 if return_error:
-                    return resp.status_code, {"_error": resp.status_code, "_body": resp.text[:300]}
+                    return resp.status_code, {
+                        "_error": resp.status_code,
+                        "_body": resp.text[:300],
+                    }
                 return resp.status_code, None
         except Exception as e:
             logger.debug("Greptile get repository %s failed: %s", rid, e)
@@ -132,7 +137,10 @@ async def get_repository(
     if status == 404 and result is not None:
         fallback_id = _repository_id_with_lowercase_repo(repository_id)
         if fallback_id:
-            logger.info("Greptile get_repository: retrying with lowercase repo id %s", fallback_id)
+            logger.info(
+                "Greptile get_repository: retrying with lowercase repo id %s",
+                fallback_id,
+            )
             _, fallback_result = await _get(fallback_id)
             if fallback_result is not None and "_error" not in fallback_result:
                 return fallback_result
@@ -164,6 +172,7 @@ async def index_repository(
     On 404 or 'not found' error, retries once with repository name in lowercase (Greptile may expect lowercase).
     Returns the API response dict on success, None on failure.
     """
+
     async def _post(repo_name: str) -> tuple[int | None, dict[str, Any] | None]:
         try:
             async with httpx.AsyncClient(
@@ -201,7 +210,10 @@ async def index_repository(
                     resp.status_code,
                     resp.text[:300],
                 )
-                return resp.status_code, {"_error": resp.status_code, "_body": resp.text[:300]}
+                return resp.status_code, {
+                    "_error": resp.status_code,
+                    "_body": resp.text[:300],
+                }
         except Exception as e:
             logger.exception("Greptile index_repository failed: %s", e)
             return None, {"_error": "exception", "_body": str(e)}
@@ -214,7 +226,10 @@ async def index_repository(
     if repo_lower != repository and result is not None and "_error" in result:
         body = (result.get("_body") or "")[:500]
         if _is_not_found_error(result.get("_error") or 0, body):
-            logger.info("Greptile index_repository: retrying with lowercase repository %s", repo_lower)
+            logger.info(
+                "Greptile index_repository: retrying with lowercase repository %s",
+                repo_lower,
+            )
             _, fallback_result = await _post(repo_lower)
             if fallback_result is not None and "_error" not in fallback_result:
                 return fallback_result

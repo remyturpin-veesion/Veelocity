@@ -302,7 +302,9 @@ class GreptileMetricsService:
             if status in ("failed", "error"):
                 error_count += 1
             elif status == "not_found":
-                not_found_count += 1  # not an error; repo not in Greptile, can re-index later
+                not_found_count += (
+                    1  # not an error; repo not in Greptile, can re-index later
+                )
             else:
                 indexed_count += 1
 
@@ -496,7 +498,9 @@ class GreptileMetricsService:
                 if status in ("failed", "error"):
                     index_status = "error"
                 elif status == "not_found":
-                    index_status = "not_found"  # not an error; can filter and re-index later
+                    index_status = (
+                        "not_found"  # not an error; can filter and re-index later
+                    )
                 else:
                     latest_sha = latest_commit_map.get(repo_id)
                     if (

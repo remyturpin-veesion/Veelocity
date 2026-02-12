@@ -43,7 +43,9 @@ class IndexAllRequest(BaseModel):
     """Trigger indexing for all configured GitHub repos (or a subset)."""
 
     reload: bool = False  # re-index already indexed repos
-    repos: list[str] | None = None  # optional subset (owner/repo); None = all configured
+    repos: list[str] | None = (
+        None  # optional subset (owner/repo); None = all configured
+    )
 
 
 class RefreshRequest(BaseModel):
@@ -207,7 +209,6 @@ async def greptile_metrics(
     return await service.get_metrics(start_dt, end_dt, repo_ids, granularity)
 
 
-
 # ---------------------------------------------------------------------------
 # Repository management endpoints (semi-manual)
 # ---------------------------------------------------------------------------
@@ -224,9 +225,7 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
     creds = await service.get_credentials()
 
     # Fetch all GitHub repos from DB
-    gh_result = await db.execute(
-        select(Repository).order_by(Repository.full_name)
-    )
+    gh_result = await db.execute(select(Repository).order_by(Repository.full_name))
     gh_repos = gh_result.scalars().all()
 
     # Fetch all Greptile repos from DB
@@ -275,38 +274,43 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
         seen_names.add(key)
         gr = gr_by_name.get(key)
         index_status = _derive_index_status(gr, repo.id in greptile_reviewed_repo_ids)
-        combined.append({
-            "repository": name,
-            "github_repo_id": repo.id,
-            "default_branch": repo.default_branch or "main",
-            "greptile_status": gr.status if gr else None,
-            "index_status": index_status,
-            "greptile_branch": gr.branch if gr else None,
-            "files_processed": gr.files_processed if gr else None,
-            "num_files": gr.num_files if gr else None,
-            "sha": gr.sha if gr else None,
-            "synced_at": gr.synced_at.isoformat() if gr and gr.synced_at else None,
-            "is_indexed": gr is not None and gr.status in ("completed", "submitted"),
-        })
+        combined.append(
+            {
+                "repository": name,
+                "github_repo_id": repo.id,
+                "default_branch": repo.default_branch or "main",
+                "greptile_status": gr.status if gr else None,
+                "index_status": index_status,
+                "greptile_branch": gr.branch if gr else None,
+                "files_processed": gr.files_processed if gr else None,
+                "num_files": gr.num_files if gr else None,
+                "sha": gr.sha if gr else None,
+                "synced_at": gr.synced_at.isoformat() if gr and gr.synced_at else None,
+                "is_indexed": gr is not None
+                and gr.status in ("completed", "submitted"),
+            }
+        )
 
     # Add Greptile repos not found in GitHub (extra indexed repos)
     for gr in gr_repos:
         key = (gr.repository or "").lower().strip()
         if key and key not in seen_names:
             index_status = _derive_index_status(gr, False)
-            combined.append({
-                "repository": gr.repository or "",
-                "github_repo_id": None,
-                "default_branch": gr.branch or "main",
-                "greptile_status": gr.status,
-                "index_status": index_status,
-                "greptile_branch": gr.branch,
-                "files_processed": gr.files_processed,
-                "num_files": gr.num_files,
-                "sha": gr.sha,
-                "synced_at": gr.synced_at.isoformat() if gr.synced_at else None,
-                "is_indexed": gr.status in ("completed", "submitted"),
-            })
+            combined.append(
+                {
+                    "repository": gr.repository or "",
+                    "github_repo_id": None,
+                    "default_branch": gr.branch or "main",
+                    "greptile_status": gr.status,
+                    "index_status": index_status,
+                    "greptile_branch": gr.branch,
+                    "files_processed": gr.files_processed,
+                    "num_files": gr.num_files,
+                    "sha": gr.sha,
+                    "synced_at": gr.synced_at.isoformat() if gr.synced_at else None,
+                    "is_indexed": gr.status in ("completed", "submitted"),
+                }
+            )
 
     return {
         "repos": combined,
@@ -448,7 +452,9 @@ async def greptile_index_repo(
     )
 
     if result is None:
-        raise HTTPException(status_code=502, detail="Greptile API returned no response.")
+        raise HTTPException(
+            status_code=502, detail="Greptile API returned no response."
+        )
 
     is_error = isinstance(result, dict) and "_error" in result
     if is_error:
@@ -560,12 +566,14 @@ async def greptile_index_all(
         else:
             status = "submitted"
             message = result.get("message", "ok")
-        results.append({
-            "repository": repo_name,
-            "branch": branch,
-            "status": status,
-            "message": message,
-        })
+        results.append(
+            {
+                "repository": repo_name,
+                "branch": branch,
+                "status": status,
+                "message": message,
+            }
+        )
 
     submitted = sum(1 for r in results if r["status"] == "submitted")
     errors = sum(1 for r in results if r["status"] == "error")
@@ -662,7 +670,9 @@ async def greptile_refresh_status(
             from app.services.sync_greptile import _normalize_repo
 
             info = _normalize_repo(info_raw)
-            greptile_repo_id = info.get("greptile_repo_id") or f"github:{used_branch}:{repo_name}"
+            greptile_repo_id = (
+                info.get("greptile_repo_id") or f"github:{used_branch}:{repo_name}"
+            )
 
             stmt = pg_insert(GreptileRepository).values(
                 greptile_repo_id=greptile_repo_id,
@@ -692,13 +702,15 @@ async def greptile_refresh_status(
             )
             await db.execute(stmt)
             updated += 1
-            results.append({
-                "repository": repo_name,
-                "status": info.get("status", ""),
-                "files_processed": info.get("files_processed"),
-                "num_files": info.get("num_files"),
-                "refreshed": True,
-            })
+            results.append(
+                {
+                    "repository": repo_name,
+                    "status": info.get("status", ""),
+                    "files_processed": info.get("files_processed"),
+                    "num_files": info.get("num_files"),
+                    "refreshed": True,
+                }
+            )
         else:
             # 404 (and lowercase retry): repo not in Greptile — store as not_found so list shows it as non-error
             greptile_repo_id = f"github:{used_branch}:{repo_name}"
@@ -719,13 +731,15 @@ async def greptile_refresh_status(
             )
             await db.execute(stmt)
             updated += 1
-            results.append({
-                "repository": repo_name,
-                "status": "not_found",
-                "files_processed": None,
-                "num_files": None,
-                "refreshed": True,
-            })
+            results.append(
+                {
+                    "repository": repo_name,
+                    "status": "not_found",
+                    "files_processed": None,
+                    "num_files": None,
+                    "refreshed": True,
+                }
+            )
 
     await db.commit()
     return {

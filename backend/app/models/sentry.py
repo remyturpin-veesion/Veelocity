@@ -12,10 +12,16 @@ class SentryProject(Base):
     """Sentry project with event counts and open-issues count. Upserted on each sync."""
 
     __tablename__ = "sentry_projects"
-    __table_args__ = (UniqueConstraint("org_slug", "sentry_project_id", name="uq_sentry_project_org_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "org_slug", "sentry_project_id", name="uq_sentry_project_org_id"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    sentry_project_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sentry_project_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
     org_slug: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(512), default="")

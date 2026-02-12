@@ -128,7 +128,7 @@ export function GreptileIndexingScreen() {
   // Keep filter in sync with URL when navigating with ?status=...
   useEffect(() => {
     if (statusFromUrl && STATUS_CONFIG[statusFromUrl]) {
-      setStatusFilter(new Set([statusFromUrl]));
+      queueMicrotask(() => setStatusFilter(new Set([statusFromUrl])));
     }
   }, [statusFromUrl]);
 
@@ -294,7 +294,7 @@ export function GreptileIndexingScreen() {
       return sortAsc ? cmp : -cmp;
     });
     return rows;
-  }, [reposData?.repos, sortKey, sortAsc, repoSearch, statusFilter]);
+  }, [reposData, sortKey, sortAsc, repoSearch, statusFilter]);
 
   const repoStats = useMemo(() => {
     if (!reposData?.repos) return { indexed: 0, active: 0, processing: 0, notIndexed: 0, notFound: 0, failed: 0, stale: 0, total: 0 };
@@ -309,7 +309,7 @@ export function GreptileIndexingScreen() {
       stale: repos.filter((r) => r.index_status === 'stale').length,
       total: repos.length,
     };
-  }, [reposData?.repos]);
+  }, [reposData]);
 
   function handleSort(key: RepoSortKey) {
     if (sortKey === key) {
@@ -525,7 +525,6 @@ function ErrorDetailsContent({
   const isSuccessLike = SUCCESS_LIKE_STATUSES.has(statusLower);
   const isNotFound = data.status === 'not_found';
 
-  const useErrorStyle = !isNotFound && !isSuccessLike;
   const useInfoStyle = isSuccessLike && !data.error_message;
 
   const style = isNotFound

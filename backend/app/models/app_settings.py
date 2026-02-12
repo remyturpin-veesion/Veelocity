@@ -21,7 +21,9 @@ class AppSettings(Base):
     cursor_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     greptile_api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     sentry_api_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sentry_base_url: Mapped[str] = mapped_column(String(500), default="https://sentry.tooling.veesion.io")
+    sentry_base_url: Mapped[str] = mapped_column(
+        String(500), default="https://sentry.tooling.veesion.io"
+    )
     sentry_org: Mapped[str] = mapped_column(String(255), default="")
     sentry_project: Mapped[str] = mapped_column(String(255), default="")
     updated_at: Mapped[datetime] = mapped_column(

@@ -301,10 +301,18 @@ async def trigger_fill_details(
 @router.get("/status")
 async def get_sync_status(
     db: AsyncSession = Depends(get_db),
-    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
-    no_repos: bool = Query(False, description="If true, return empty data (no repos selected)"),
-    start_date: str | None = Query(None, description="Start date YYYY-MM-DD (filter PRs by created_at)"),
-    end_date: str | None = Query(None, description="End date YYYY-MM-DD (filter PRs by created_at)"),
+    repo_ids: list[int] | None = Query(
+        None, description="Filter to these repository IDs"
+    ),
+    no_repos: bool = Query(
+        False, description="If true, return empty data (no repos selected)"
+    ),
+    start_date: str | None = Query(
+        None, description="Start date YYYY-MM-DD (filter PRs by created_at)"
+    ),
+    end_date: str | None = Query(
+        None, description="End date YYYY-MM-DD (filter PRs by created_at)"
+    ),
 ) -> dict:
     """
     Get sync status: how many PRs still need details, and Linear teams progression.
@@ -339,7 +347,9 @@ async def get_sync_status(
                 from datetime import datetime as dt
 
                 end_dt = dt.strptime(end_date, "%Y-%m-%d")
-                end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                end_dt = end_dt.replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
                 pr_filter.append(PullRequest.created_at <= end_dt)
             except ValueError:
                 pass
@@ -352,7 +362,9 @@ async def get_sync_status(
         total_prs_result = await db.execute(count_query)
         total_prs = total_prs_result.scalar() or 0
 
-        details_filter = list(count_filter) + [PullRequest.details_synced_at.isnot(None)]
+        details_filter = list(count_filter) + [
+            PullRequest.details_synced_at.isnot(None)
+        ]
         details_query = select(func.count(PullRequest.id)).where(*details_filter)
         prs_with_details_result = await db.execute(details_query)
         prs_with_details = prs_with_details_result.scalar() or 0
@@ -1039,10 +1051,18 @@ class DailyCoverageResponse(BaseModel):
 async def get_daily_coverage(
     db: AsyncSession = Depends(get_db),
     days: int = Query(90, ge=7, le=365),
-    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
-    no_repos: bool = Query(False, description="If true, return empty GitHub data (no repos selected)"),
-    start_date: str | None = Query(None, description="Start date YYYY-MM-DD (overrides days)"),
-    end_date: str | None = Query(None, description="End date YYYY-MM-DD (overrides days)"),
+    repo_ids: list[int] | None = Query(
+        None, description="Filter to these repository IDs"
+    ),
+    no_repos: bool = Query(
+        False, description="If true, return empty GitHub data (no repos selected)"
+    ),
+    start_date: str | None = Query(
+        None, description="Start date YYYY-MM-DD (overrides days)"
+    ),
+    end_date: str | None = Query(
+        None, description="End date YYYY-MM-DD (overrides days)"
+    ),
 ) -> DailyCoverageResponse:
     """Get count of imported data per day per category (GitHub PRs, workflow runs, Linear issues)."""
     if start_date and end_date:
@@ -1144,9 +1164,7 @@ async def get_daily_coverage(
     # Sentry: projects synced per day (by synced_at date)
     sentry_date = cast(SentryProject.synced_at, Date)
     sentry_by_day = await db.execute(
-        select(
-            sentry_date.label("day"), func.count(SentryProject.id).label("count")
-        )
+        select(sentry_date.label("day"), func.count(SentryProject.id).label("count"))
         .where(sentry_date >= start)
         .where(sentry_date <= end)
         .group_by(sentry_date)
@@ -1155,7 +1173,9 @@ async def get_daily_coverage(
     sentry_rows = sentry_by_day.all()
     # Use ISO date string for keys to avoid type mismatch (PostgreSQL may return different date repr)
     sentry_map = {
-        (row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day)[:10]): row.count
+        (
+            row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day)[:10]
+        ): row.count
         for row in sentry_rows
     }
     sentry_list = [
@@ -1178,8 +1198,12 @@ async def get_daily_coverage(
 @router.get("/coverage", response_model=SyncCoverageResponse)
 async def get_sync_coverage(
     db: AsyncSession = Depends(get_db),
-    repo_ids: list[int] | None = Query(None, description="Filter to these repository IDs"),
-    no_repos: bool = Query(False, description="If true, return empty data (no repos selected)"),
+    repo_ids: list[int] | None = Query(
+        None, description="Filter to these repository IDs"
+    ),
+    no_repos: bool = Query(
+        False, description="If true, return empty data (no repos selected)"
+    ),
     start_date: str | None = Query(None, description="Start date YYYY-MM-DD"),
     end_date: str | None = Query(None, description="End date YYYY-MM-DD"),
 ) -> SyncCoverageResponse:
@@ -1241,9 +1265,7 @@ async def get_sync_coverage(
     sentry_configured = bool(
         creds.sentry_api_token and (creds.sentry_org or "").strip()
     )
-    if sentry_configured and not any(
-        c.connector_name == "sentry" for c in connectors
-    ):
+    if sentry_configured and not any(c.connector_name == "sentry" for c in connectors):
         sentry_state = next(
             (s for s in sync_states if s.connector_name == "sentry"), None
         )
