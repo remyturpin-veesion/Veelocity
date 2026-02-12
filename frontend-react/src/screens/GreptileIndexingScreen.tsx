@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getGreptileRepos,
+  getGreptileRepoDetails,
   getSettings,
   indexAllGreptileRepos,
   indexGreptileRepo,
@@ -9,7 +11,7 @@ import {
 } from '@/api/endpoints.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { PageSummary } from '@/components/PageSummary.js';
-import type { GreptileManagedRepo, GreptileIndexResult } from '@/types/index.js';
+import type { GreptileManagedRepo, GreptileIndexResult, GreptileRepoDetailsResponse } from '@/types/index.js';
 
 // ---------------------------------------------------------------------------
 // Per-repo feedback
@@ -31,6 +33,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; priority: nu
   processing: { label: 'Processing', color: 'var(--metric-blue)', priority: 3 },
   stale: { label: 'Stale', color: 'var(--metric-orange)', priority: 2 },
   error: { label: 'Error', color: 'var(--metric-orange)', priority: 1 },
+  not_found: { label: 'Not found', color: 'var(--text-muted)', priority: 0 },
   not_indexed: { label: 'Not indexed', color: 'var(--text-muted)', priority: 0 },
 };
 
@@ -110,11 +113,24 @@ export function GreptileIndexingScreen() {
     },
   });
 
+  // URL: ?status=not_found (or other status) to open with filter applied
+  const [searchParams] = useSearchParams();
+  const statusFromUrl = searchParams.get('status');
+
   // Sorting & search
   const [sortKey, setSortKey] = useState<RepoSortKey>('index_status');
   const [sortAsc, setSortAsc] = useState(true);
   const [repoSearch, setRepoSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(() =>
+    statusFromUrl && STATUS_CONFIG[statusFromUrl] ? new Set([statusFromUrl]) : new Set()
+  );
+
+  // Keep filter in sync with URL when navigating with ?status=...
+  useEffect(() => {
+    if (statusFromUrl && STATUS_CONFIG[statusFromUrl]) {
+      setStatusFilter(new Set([statusFromUrl]));
+    }
+  }, [statusFromUrl]);
 
   // Indexing tracking
   const [indexingRepos, setIndexingRepos] = useState<Set<string>>(new Set());
@@ -122,6 +138,9 @@ export function GreptileIndexingScreen() {
   // Per-repo feedback (success / error toasts)
   const [repoFeedback, setRepoFeedback] = useState<Record<string, RepoFeedback>>({});
   const feedbackTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Error details fetched on demand for failed repos
+  const [errorDetails, setErrorDetails] = useState<Record<string, { loading?: boolean; error?: string; data?: GreptileRepoDetailsResponse }>>({});
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -179,6 +198,11 @@ export function GreptileIndexingScreen() {
                 type: 'error',
                 message: `Indexing failed: ${detail}`,
               });
+            } else if (data.status === 'not_found') {
+              setFeedbackForRepo(repo.repository, {
+                type: 'success',
+                message: data.message || 'Repo not in Greptile. Use Index to add it.',
+              });
             } else {
               setFeedbackForRepo(repo.repository, {
                 type: 'success',
@@ -211,6 +235,32 @@ export function GreptileIndexingScreen() {
     },
     [indexAllMutation]
   );
+
+  const handleFetchErrorDetails = useCallback((repo: GreptileManagedRepo) => {
+    const key = repo.repository;
+    setErrorDetails((prev) => {
+      if (prev[key]?.data != null || prev[key]?.loading) return prev;
+      return { ...prev, [key]: { loading: true } };
+    });
+    getGreptileRepoDetails({
+      repository: repo.repository,
+      branch: repo.greptile_branch || repo.default_branch || undefined,
+    })
+      .then((data) => {
+        setErrorDetails((prev) => ({ ...prev, [key]: { data } }));
+      })
+      .catch((err: Error) => {
+        setErrorDetails((prev) => ({ ...prev, [key]: { error: err.message } }));
+      });
+  }, []);
+
+  const clearErrorDetails = useCallback((repo: string) => {
+    setErrorDetails((prev) => {
+      const next = { ...prev };
+      delete next[repo];
+      return next;
+    });
+  }, []);
 
   const sortedRepos = useMemo(() => {
     if (!reposData?.repos) return [];
@@ -247,13 +297,14 @@ export function GreptileIndexingScreen() {
   }, [reposData?.repos, sortKey, sortAsc, repoSearch, statusFilter]);
 
   const repoStats = useMemo(() => {
-    if (!reposData?.repos) return { indexed: 0, active: 0, processing: 0, notIndexed: 0, failed: 0, stale: 0, total: 0 };
+    if (!reposData?.repos) return { indexed: 0, active: 0, processing: 0, notIndexed: 0, notFound: 0, failed: 0, stale: 0, total: 0 };
     const repos = reposData.repos;
     return {
       indexed: repos.filter((r) => r.index_status === 'indexed').length,
       processing: repos.filter((r) => r.index_status === 'processing').length,
       active: repos.filter((r) => r.index_status === 'active').length,
       notIndexed: repos.filter((r) => r.index_status === 'not_indexed').length,
+      notFound: repos.filter((r) => r.index_status === 'not_found').length,
       failed: repos.filter((r) => r.index_status === 'error').length,
       stale: repos.filter((r) => r.index_status === 'stale').length,
       total: repos.length,
@@ -313,7 +364,7 @@ export function GreptileIndexingScreen() {
           </a>
         </div>
         <p className="greptile-indexing__intro-box-desc">
-          Manage which repositories are indexed in Greptile for AI code review. Status and progress reflect the <strong>last sync</strong> with Greptile (not live). Use <strong>Refresh status</strong> to fetch the latest; progress may only appear once indexing completes.
+          Manage which repositories are indexed in Greptile for AI code review. Status and progress reflect the <strong>last sync</strong> with Greptile (not live). Use <strong>Refresh status</strong> to fetch the latest; progress may only appear once indexing completes. <strong>Processing</strong> means Greptile reported the repo as queued or in progress as of that last sync — if it stays that way, click Refresh status to update.
         </p>
       </div>
 
@@ -323,18 +374,19 @@ export function GreptileIndexingScreen() {
           {repoStats.active > 0 && <StatBadge label="Active" count={repoStats.active} color="var(--metric-blue)" />}
           {repoStats.processing > 0 && <StatBadge label="Processing" count={repoStats.processing} color="var(--metric-blue)" />}
           <StatBadge label="Not indexed" count={repoStats.notIndexed} color="var(--text-muted)" />
+          {repoStats.notFound > 0 && <StatBadge label="Not found" count={repoStats.notFound} color="var(--text-muted)" />}
           {repoStats.stale > 0 && <StatBadge label="Stale" count={repoStats.stale} color="var(--metric-orange)" />}
           {repoStats.failed > 0 && <StatBadge label="Error" count={repoStats.failed} color="var(--metric-orange)" />}
         </div>
         <div className="greptile-indexing__summary-actions">
-          {repoStats.notIndexed > 0 && (
+          {(repoStats.notIndexed > 0 || repoStats.notFound > 0) && (
             <button
               type="button"
               className="greptile-indexing__btn greptile-indexing__btn--primary"
               onClick={() => handleIndexAll(false)}
               disabled={indexAllMutation.isPending}
             >
-              {indexAllMutation.isPending ? 'Indexing…' : `Index all (${repoStats.notIndexed} missing)`}
+              {indexAllMutation.isPending ? 'Indexing…' : `Index all (${repoStats.notIndexed + repoStats.notFound} missing)`}
             </button>
           )}
           <button
@@ -404,6 +456,9 @@ export function GreptileIndexingScreen() {
                     onIndex={(reload) => handleIndexRepo(repo, reload)}
                     feedback={repoFeedback[repo.repository] ?? null}
                     onDismissFeedback={() => clearFeedbackForRepo(repo.repository)}
+                    errorDetails={errorDetails[repo.repository]}
+                    onFetchErrorDetails={() => handleFetchErrorDetails(repo)}
+                    onClearErrorDetails={() => clearErrorDetails(repo.repository)}
                   />
                 ))}
                 {sortedRepos.length === 0 && (
@@ -442,12 +497,104 @@ function StatBadge({ label, count, color }: { label: string; count: number; colo
   );
 }
 
+/** Live API statuses that indicate success; if we see these but the list shows Error, the list is likely stale. */
+const SUCCESS_LIKE_STATUSES = new Set(['completed', 'indexed', 'submitted']);
+
+function ErrorDetailsContent({
+  errorDetails,
+  onRefreshHint,
+}: {
+  errorDetails?: { loading?: boolean; error?: string; data?: GreptileRepoDetailsResponse };
+  onRefreshHint?: boolean;
+}) {
+  if (!errorDetails) return null;
+  if (errorDetails.loading) {
+    return <span>Fetching error details…</span>;
+  }
+  if (errorDetails.error) {
+    return (
+      <span>
+        Could not load details: {errorDetails.error}
+      </span>
+    );
+  }
+  const data = errorDetails.data;
+  if (!data) return null;
+
+  const statusLower = (data.status ?? '').toLowerCase();
+  const isSuccessLike = SUCCESS_LIKE_STATUSES.has(statusLower);
+  const isNotFound = data.status === 'not_found';
+
+  const useErrorStyle = !isNotFound && !isSuccessLike;
+  const useInfoStyle = isSuccessLike && !data.error_message;
+
+  const style = isNotFound
+    ? {
+        background: 'color-mix(in srgb, var(--text-muted) 8%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--text-muted) 25%, transparent)',
+        color: 'var(--text-muted)',
+      }
+    : useInfoStyle
+      ? {
+          background: 'color-mix(in srgb, var(--metric-blue) 8%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--metric-blue) 25%, transparent)',
+          color: 'var(--metric-blue)',
+        }
+      : {
+          background: 'rgba(239, 68, 68, 0.06)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          color: 'var(--metric-orange)',
+        };
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        borderRadius: 6,
+        fontSize: '0.75rem',
+        ...style,
+      }}
+    >
+      {isNotFound && (
+        <span>{data.message ?? 'Repo not present in Greptile. Use Index to add it.'}</span>
+      )}
+      {!isNotFound && data.error_message && (
+        <div>
+          <strong>Error from Greptile:</strong>
+          <pre style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.6875rem' }}>
+            {data.error_message}
+          </pre>
+        </div>
+      )}
+      {!isNotFound && !data.error_message && data.message && (
+        <span>{data.message}</span>
+      )}
+      {!isNotFound && !data.error_message && !data.message && isSuccessLike && (
+        <span>
+          Greptile currently reports status: <strong>{data.status ?? 'unknown'}</strong>. The list above may be from an
+          earlier sync.
+          {onRefreshHint && (
+            <> Use <strong>Refresh status</strong> to update.</>
+          )}
+        </span>
+      )}
+      {!isNotFound && !data.error_message && !data.message && !isSuccessLike && (
+        <span>Status: {data.status ?? 'unknown'} (no message returned)</span>
+      )}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string | null }) {
   const config = getStatusConfig(status);
   const title =
     status === 'processing'
-      ? 'Queued or in progress (as of last sync). Use Refresh status to update.'
-      : undefined;
+      ? 'Queued or in progress as of last sync. Click Refresh status to get the latest.'
+      : status === 'error'
+        ? 'Indexing failed. Use "View error details" in the row to see why.'
+        : status === 'not_found'
+          ? 'Repo not present in Greptile (checked via API). Use Index to add it.'
+          : undefined;
   return (
     <span
       className="greptile-indexing__status-badge"
@@ -523,22 +670,31 @@ function RepoRow({
   onIndex,
   feedback,
   onDismissFeedback,
+  errorDetails,
+  onFetchErrorDetails,
+  onClearErrorDetails,
 }: {
   repo: GreptileManagedRepo;
   isIndexing: boolean;
   onIndex: (reload: boolean) => void;
   feedback: RepoFeedback | null;
   onDismissFeedback: () => void;
+  errorDetails?: { loading?: boolean; error?: string; data?: GreptileRepoDetailsResponse };
+  onFetchErrorDetails: () => void;
+  onClearErrorDetails: () => void;
 }) {
   const isProcessing = repo.index_status === 'processing';
   const isCompleted = repo.index_status === 'indexed';
   const isFailed = repo.index_status === 'error';
+  const isNotFound = repo.index_status === 'not_found';
   const isNotIndexed = repo.index_status === 'not_indexed';
   const isActive = repo.index_status === 'active';
+  const hasErrorDetails = errorDetails?.data != null || errorDetails?.error != null;
+  const showErrorRow = isFailed && (errorDetails?.loading || hasErrorDetails);
 
   return (
     <>
-      <tr style={{ borderBottom: feedback ? 'none' : undefined }}>
+      <tr style={{ borderBottom: feedback || showErrorRow ? 'none' : undefined }}>
         <td>
           <div style={{ fontWeight: 500 }}>{repo.repository}</div>
           <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 2 }}>
@@ -547,6 +703,11 @@ function RepoRow({
         </td>
         <td>
           <StatusBadge status={repo.index_status} />
+          {isFailed && repo.greptile_status && (
+            <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginLeft: 6 }}>
+              ({repo.greptile_status})
+            </span>
+          )}
         </td>
         <td>
           <ProgressBar
@@ -563,8 +724,8 @@ function RepoRow({
           {fmtTimeAgo(repo.synced_at)}
         </td>
         <td style={{ textAlign: 'right' }}>
-          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-            {(isNotIndexed || isFailed || isActive) && (
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {(isNotIndexed || isNotFound || isFailed || isActive) && (
               <ActionButton label="Index" onClick={() => onIndex(false)} disabled={isIndexing} variant="primary" />
             )}
             {isProcessing && (
@@ -575,10 +736,41 @@ function RepoRow({
             {(isCompleted || isFailed) && (
               <ActionButton label="Re-index" onClick={() => onIndex(true)} disabled={isIndexing} variant="secondary" />
             )}
+            {isNotFound && (
+              <ActionButton label="Re-index" onClick={() => onIndex(true)} disabled={isIndexing} variant="secondary" />
+            )}
+            {isFailed && (
+              <button
+                type="button"
+                onClick={() => (hasErrorDetails ? onClearErrorDetails() : onFetchErrorDetails())}
+                disabled={errorDetails?.loading}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '0.6875rem',
+                  fontWeight: 500,
+                  borderRadius: 5,
+                  border: '1px solid var(--surface-border)',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  cursor: errorDetails?.loading ? 'wait' : 'pointer',
+                  opacity: errorDetails?.loading ? 0.6 : 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {errorDetails?.loading ? 'Loading…' : hasErrorDetails ? 'Hide details' : 'View error details'}
+              </button>
+            )}
             {isIndexing && <Spinner />}
           </div>
         </td>
       </tr>
+      {showErrorRow && (
+        <tr className="greptile-indexing__table-feedback-row">
+          <td colSpan={5} style={{ padding: '0 16px 12px', verticalAlign: 'top', borderBottom: '1px solid var(--surface-border)' }}>
+            <ErrorDetailsContent errorDetails={errorDetails} onRefreshHint={true} />
+          </td>
+        </tr>
+      )}
       {feedback && (
         <tr className="greptile-indexing__table-feedback-row">
           <td colSpan={5} style={{ padding: '0 16px 12px', verticalAlign: 'top', borderBottom: '1px solid var(--surface-border)' }}>

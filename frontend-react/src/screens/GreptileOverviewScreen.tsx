@@ -153,15 +153,16 @@ export function GreptileOverviewScreen() {
     [data?.trend]
   );
 
-  // Indexing summary
+  // Indexing summary (not_found is not an error — filter/re-index on indexing page)
   const indexingSummary = useMemo(() => {
     if (!reposData?.repos) return null;
     const repos = reposData.repos;
     const notIndexed = repos.filter((r) => r.index_status === 'not_indexed').length;
+    const notFound = repos.filter((r) => r.index_status === 'not_found').length;
     const failed = repos.filter((r) => r.index_status === 'error').length;
     const processing = repos.filter((r) => r.index_status === 'processing').length;
-    if (notIndexed === 0 && failed === 0 && processing === 0) return null;
-    return { notIndexed, failed, processing };
+    if (notIndexed === 0 && notFound === 0 && failed === 0 && processing === 0) return null;
+    return { notIndexed, notFound, failed, processing };
   }, [reposData?.repos]);
 
   // ---- Empty / not-configured states ----
@@ -217,11 +218,20 @@ export function GreptileOverviewScreen() {
             {indexingSummary.notIndexed > 0 && (
               <span><strong>{indexingSummary.notIndexed}</strong> repos not indexed</span>
             )}
-            {indexingSummary.notIndexed > 0 && indexingSummary.failed > 0 && <span> &middot; </span>}
+            {indexingSummary.notIndexed > 0 && indexingSummary.notFound > 0 && <span> &middot; </span>}
+            {indexingSummary.notFound > 0 && (
+              <span>
+                <strong>{indexingSummary.notFound}</strong>{' '}
+                <Link to="/greptile/indexing?status=not_found" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                  not found in Greptile
+                </Link>
+              </span>
+            )}
+            {(indexingSummary.notIndexed > 0 || indexingSummary.notFound > 0) && indexingSummary.failed > 0 && <span> &middot; </span>}
             {indexingSummary.failed > 0 && (
               <span><strong>{indexingSummary.failed}</strong> failed</span>
             )}
-            {(indexingSummary.notIndexed > 0 || indexingSummary.failed > 0) && indexingSummary.processing > 0 && <span> &middot; </span>}
+            {(indexingSummary.notIndexed > 0 || indexingSummary.notFound > 0 || indexingSummary.failed > 0) && indexingSummary.processing > 0 && <span> &middot; </span>}
             {indexingSummary.processing > 0 && (
               <span><strong>{indexingSummary.processing}</strong> processing</span>
             )}

@@ -316,6 +316,94 @@ async def greptile_repos(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/repos/details")
+async def greptile_repo_details(
+    repository: str = Query(..., description="Repo full name, e.g. owner/repo"),
+    branch: str | None = Query(None, description="Branch (default from DB or main)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Fetch current status and error details for one repo from the Greptile API.
+    Use this to show why a repo is in error state (message/body from API).
+    """
+    service = CredentialsService(db)
+    creds = await service.get_credentials()
+    if not creds.greptile_api_key:
+        raise HTTPException(status_code=403, detail="No Greptile API key configured.")
+
+    used_branch = branch
+    if not used_branch:
+        branch_q = await db.execute(
+            select(Repository.default_branch).where(
+                func.lower(Repository.full_name) == repository.lower()
+            )
+        )
+        used_branch = branch_q.scalar() or "main"
+        gr_q = await db.execute(
+            select(GreptileRepository.branch).where(
+                func.lower(GreptileRepository.repository) == repository.lower()
+            )
+        )
+        gr_branch = gr_q.scalar()
+        if gr_branch:
+            used_branch = gr_branch
+
+    repo_id = f"github:{used_branch}:{repository}"
+    data = await get_repository(
+        creds.greptile_api_key,
+        repo_id,
+        github_token=creds.github_token,
+        return_error=True,
+    )
+
+    if data is None:
+        return {
+            "repository": repository,
+            "branch": used_branch,
+            "found": False,
+            "status": None,
+            "error_message": None,
+            "message": "No response from Greptile API.",
+        }
+
+    is_error = isinstance(data, dict) and "_error" in data
+    if is_error:
+        err_code = data.get("_error")
+        # 404 = repo not in Greptile (normal, not an error)
+        if err_code == 404:
+            return {
+                "repository": repository,
+                "branch": used_branch,
+                "found": False,
+                "status": "not_found",
+                "error_message": None,
+                "message": "Repo not present in Greptile. Use Index to add it.",
+            }
+        body = (data.get("_body") or "")[:500]
+        return {
+            "repository": repository,
+            "branch": used_branch,
+            "found": False,
+            "status": "error",
+            "error_code": err_code,
+            "error_message": body or f"HTTP {err_code}",
+        }
+
+    # Success response from Greptile
+    status = data.get("status") or ""
+    message = data.get("message") or ""
+    return {
+        "repository": repository,
+        "branch": used_branch,
+        "found": True,
+        "status": status,
+        "error_message": None,
+        "message": message or None,
+        "files_processed": data.get("filesProcessed", data.get("files_processed")),
+        "num_files": data.get("numFiles", data.get("num_files")),
+    }
+
+
 def _derive_index_status(
     gr: GreptileRepository | None,
     has_bot_reviews: bool,
@@ -326,6 +414,8 @@ def _derive_index_status(
     status = (gr.status or "").lower()
     if status in ("failed", "error"):
         return "error"
+    if status == "not_found":
+        return "not_found"  # Repo not in Greptile (checked via API), not an error
     if status in ("submitted", "processing", "cloning"):
         return "processing"
     if status == "completed":
@@ -362,11 +452,19 @@ async def greptile_index_repo(
 
     is_error = isinstance(result, dict) and "_error" in result
     if is_error:
+        err_code = result.get("_error")
+        if err_code == 404:
+            return {
+                "status": "not_found",
+                "repository": body.repository,
+                "branch": body.branch,
+                "message": "Repo not in Greptile. Use Index to add it.",
+            }
         return {
             "status": "error",
             "repository": body.repository,
             "branch": body.branch,
-            "error_code": result.get("_error"),
+            "error_code": err_code,
             "error_detail": result.get("_body", ""),
         }
 
@@ -453,22 +551,28 @@ async def greptile_index_all(
             reload=body.reload,
         )
         is_error = isinstance(result, dict) and "_error" in result
+        if is_error and result.get("_error") == 404:
+            status = "not_found"
+            message = "Repo not in Greptile. Use Index to add it."
+        elif is_error or result is None:
+            status = "error"
+            message = (result.get("_body", "") if result else "no response") or "error"
+        else:
+            status = "submitted"
+            message = result.get("message", "ok")
         results.append({
             "repository": repo_name,
             "branch": branch,
-            "status": "error" if is_error or result is None else "submitted",
-            "message": (
-                result.get("_body", "") if is_error else result.get("message", "ok")
-            )
-            if result
-            else "no response",
+            "status": status,
+            "message": message,
         })
 
     submitted = sum(1 for r in results if r["status"] == "submitted")
+    errors = sum(1 for r in results if r["status"] == "error")
     return {
         "total": len(results),
         "submitted": submitted,
-        "errors": len(results) - submitted,
+        "errors": errors,
         "results": results,
     }
 
@@ -596,12 +700,31 @@ async def greptile_refresh_status(
                 "refreshed": True,
             })
         else:
+            # 404 (and lowercase retry): repo not in Greptile — store as not_found so list shows it as non-error
+            greptile_repo_id = f"github:{used_branch}:{repo_name}"
+            stmt = pg_insert(GreptileRepository).values(
+                greptile_repo_id=greptile_repo_id,
+                repository=repo_name[:512],
+                remote="github",
+                branch=used_branch[:255],
+                status="not_found",
+                synced_at=now,
+            )
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["greptile_repo_id"],
+                set_={
+                    GreptileRepository.status: "not_found",
+                    GreptileRepository.synced_at: now,
+                },
+            )
+            await db.execute(stmt)
+            updated += 1
             results.append({
                 "repository": repo_name,
-                "status": None,
+                "status": "not_found",
                 "files_processed": None,
                 "num_files": None,
-                "refreshed": False,
+                "refreshed": True,
             })
 
     await db.commit()

@@ -210,6 +210,8 @@ export interface GreptileIndexHealth {
   indexed_repos: number;
   total_github_repos: number;
   error_repos: number;
+  /** Repos checked via API and not present in Greptile (not an error; can re-index). */
+  not_found_repos?: number;
   stale_repos: number;
   total_files_processed: number;
   total_files: number;
@@ -274,7 +276,7 @@ export interface GreptileReposResponse {
 }
 
 export interface GreptileIndexResult {
-  status: 'submitted' | 'error';
+  status: 'submitted' | 'error' | 'not_found';
   repository: string;
   branch: string;
   reload?: boolean;
@@ -291,7 +293,7 @@ export interface GreptileIndexAllResult {
   results: Array<{
     repository: string;
     branch: string;
-    status: 'submitted' | 'error';
+    status: 'submitted' | 'error' | 'not_found';
     message: string;
   }>;
 }
@@ -306,6 +308,19 @@ export interface GreptileRefreshResult {
     num_files: number | null;
     refreshed: boolean;
   }>;
+}
+
+/** Result of fetching one repo's current status/error from Greptile API. */
+export interface GreptileRepoDetailsResponse {
+  repository: string;
+  branch: string;
+  found: boolean;
+  status: string | null;
+  error_code?: number | string;
+  error_message: string | null;
+  message?: string | null;
+  files_processed?: number | null;
+  num_files?: number | null;
 }
 
 export interface CursorStatusResponse {

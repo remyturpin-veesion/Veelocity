@@ -289,6 +289,7 @@ class GreptileMetricsService:
         indexed_count = 0
         stale_count = 0
         error_count = 0
+        not_found_count = 0
         total_files_processed = 0
         total_files = 0
 
@@ -300,6 +301,8 @@ class GreptileMetricsService:
             status = (greptile_repo.status or "").lower()
             if status in ("failed", "error"):
                 error_count += 1
+            elif status == "not_found":
+                not_found_count += 1  # not an error; repo not in Greptile, can re-index later
             else:
                 indexed_count += 1
 
@@ -318,6 +321,7 @@ class GreptileMetricsService:
             "indexed_repos": indexed_count,
             "total_github_repos": len(github_repos),
             "error_repos": error_count,
+            "not_found_repos": not_found_count,
             "stale_repos": stale_count,
             "total_files_processed": total_files_processed,
             "total_files": total_files,
@@ -491,6 +495,8 @@ class GreptileMetricsService:
                 status = (greptile_repo.status or "").lower()
                 if status in ("failed", "error"):
                     index_status = "error"
+                elif status == "not_found":
+                    index_status = "not_found"  # not an error; can filter and re-index later
                 else:
                     latest_sha = latest_commit_map.get(repo_id)
                     if (
@@ -521,13 +527,14 @@ class GreptileMetricsService:
                 }
             )
 
-        # Sort: repos with issues first (not_indexed, error), then by coverage ascending
+        # Sort: repos with issues first (error, not_indexed, not_found), then by coverage ascending
         status_priority = {
             "error": 0,
             "not_indexed": 1,
-            "active": 2,
-            "stale": 3,
-            "indexed": 4,
+            "not_found": 2,
+            "active": 3,
+            "stale": 4,
+            "indexed": 5,
         }
         per_repo.sort(
             key=lambda r: (

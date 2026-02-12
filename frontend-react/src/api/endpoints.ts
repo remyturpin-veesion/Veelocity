@@ -14,6 +14,7 @@ import type {
   GitHubReposSearchResponse,
   GreptileIndexAllResult,
   GreptileIndexResult,
+  GreptileRepoDetailsResponse,
   GreptileMetricsResponse,
   GreptileOverviewResponse,
   GreptileRefreshResult,
@@ -170,6 +171,16 @@ export async function refreshGreptileStatus(repos?: string[]): Promise<GreptileR
   return apiPost(prefix + '/greptile/repos/refresh', repos ? { repos } : undefined, {
     timeoutMs: GREPTILE_INDEX_TIMEOUT_MS,
   }) as Promise<GreptileRefreshResult>;
+}
+
+export async function getGreptileRepoDetails(params: {
+  repository: string;
+  branch?: string;
+}): Promise<GreptileRepoDetailsResponse> {
+  const q: Record<string, string> = { repository: params.repository };
+  if (params.branch) q.branch = params.branch;
+  const query = new URLSearchParams(q).toString();
+  return apiGet(prefix + '/greptile/repos/details?' + query) as Promise<GreptileRepoDetailsResponse>;
 }
 
 export async function getGitHubOrgs(): Promise<GitHubOrgsResponse> {
