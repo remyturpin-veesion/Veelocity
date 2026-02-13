@@ -153,7 +153,7 @@ export function GreptileOverviewScreen() {
     [data?.trend]
   );
 
-  // Indexing summary (not_found is not an error — filter/re-index on indexing page)
+  // Indexing summary (not_found = repo not in Greptile; view status on indexing page)
   const indexingSummary = useMemo(() => {
     if (!reposData?.repos) return null;
     const repos = reposData.repos;
@@ -249,7 +249,7 @@ export function GreptileOverviewScreen() {
               whiteSpace: 'nowrap',
             }}
           >
-            Manage indexing
+            View indexing status
           </Link>
         </div>
       )}
@@ -273,7 +273,7 @@ export function GreptileOverviewScreen() {
         <KpiCard
           title="Stale indexes"
           value={String(ih.stale_repos)}
-          subtitle={ih.stale_repos === 0 ? 'all up to date' : 'repos need re-index'}
+          subtitle={ih.stale_repos === 0 ? 'all up to date' : 'repos may need re-index in Greptile'}
           accent={ih.stale_repos === 0 ? 'green' : 'orange'}
           to={ih.stale_repos > 0 ? '/greptile/indexing' : undefined}
         />

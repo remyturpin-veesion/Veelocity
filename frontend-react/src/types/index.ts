@@ -210,7 +210,7 @@ export interface GreptileIndexHealth {
   indexed_repos: number;
   total_github_repos: number;
   error_repos: number;
-  /** Repos checked via API and not present in Greptile (not an error; can re-index). */
+  /** Repos checked via API and not present in Greptile (index via Greptile app to add). */
   not_found_repos?: number;
   stale_repos: number;
   total_files_processed: number;
@@ -273,29 +273,6 @@ export interface GreptileReposResponse {
   total_github_repos: number;
   total_greptile_repos: number;
   greptile_configured: boolean;
-}
-
-export interface GreptileIndexResult {
-  status: 'submitted' | 'error' | 'not_found';
-  repository: string;
-  branch: string;
-  reload?: boolean;
-  message?: string;
-  status_endpoint?: string;
-  error_code?: number | string;
-  error_detail?: string;
-}
-
-export interface GreptileIndexAllResult {
-  total: number;
-  submitted: number;
-  errors: number;
-  results: Array<{
-    repository: string;
-    branch: string;
-    status: 'submitted' | 'error' | 'not_found';
-    message: string;
-  }>;
 }
 
 export interface GreptileRefreshResult {

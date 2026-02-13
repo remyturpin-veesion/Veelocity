@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.greptile import GreptileRepository
 from app.services.credentials import CredentialsService
 from app.services.greptile_client import get_repository, list_repositories
+
+# Statuses that mean "indexing in progress"; we re-fetch by ID to get fresh status
+_IN_PROGRESS_STATUSES = frozenset({"submitted", "processing", "cloning"})
 from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
@@ -176,6 +179,27 @@ async def sync_greptile(db: AsyncSession, api_key: str) -> int:
             continue
         seen_repos.add(repo_key)
         unique_repos.append(info)
+
+    # Re-fetch repos that are still "in progress" via GET /repositories/{id} so we get
+    # fresh status (completed/failed). The list endpoint often returns stale status.
+    for info in unique_repos:
+        status = (info.get("status") or "").lower().strip()
+        if status not in _IN_PROGRESS_STATUSES:
+            continue
+        rid = info.get("greptile_repo_id")
+        if not rid:
+            continue
+        fresh = await get_repository(api_key, rid, github_token=github_token)
+        if fresh:
+            fresh_info = _normalize_repo(fresh)
+            fresh_info["greptile_repo_id"] = fresh_info.get("greptile_repo_id") or rid
+            info.clear()
+            info.update(fresh_info)
+            logger.debug(
+                "Greptile: refreshed in-progress repo %s -> status %s",
+                rid,
+                fresh_info.get("status", ""),
+            )
 
     for info in unique_repos:
         greptile_repo_id = info.get("greptile_repo_id")

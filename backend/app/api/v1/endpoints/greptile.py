@@ -14,7 +14,6 @@ from app.models.greptile import GreptileRepository
 from app.services.credentials import CredentialsService
 from app.services.greptile_client import (
     get_repository,
-    index_repository,
     list_repositories,
     validate_api_key,
 )
@@ -28,24 +27,6 @@ router = APIRouter(prefix="/greptile", tags=["greptile"])
 # ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
-
-
-class IndexRepoRequest(BaseModel):
-    """Trigger indexing of a single repository."""
-
-    repository: str  # owner/repo
-    branch: str = "main"
-    remote: str = "github"
-    reload: bool = False
-
-
-class IndexAllRequest(BaseModel):
-    """Trigger indexing for all configured GitHub repos (or a subset)."""
-
-    reload: bool = False  # re-index already indexed repos
-    repos: list[str] | None = (
-        None  # optional subset (owner/repo); None = all configured
-    )
 
 
 class RefreshRequest(BaseModel):
@@ -426,163 +407,6 @@ def _derive_index_status(
         return "indexed"
     # Fallback for unexpected statuses
     return status or "not_indexed"
-
-
-@router.post("/repos/index")
-async def greptile_index_repo(
-    body: IndexRepoRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Trigger indexing of a single repository in Greptile.
-    Set reload=true to force re-indexing even if already indexed.
-    """
-    service = CredentialsService(db)
-    creds = await service.get_credentials()
-    if not creds.greptile_api_key:
-        raise HTTPException(status_code=403, detail="No Greptile API key configured.")
-
-    result = await index_repository(
-        api_key=creds.greptile_api_key,
-        remote=body.remote,
-        repository=body.repository,
-        branch=body.branch,
-        github_token=creds.github_token,
-        reload=body.reload,
-    )
-
-    if result is None:
-        raise HTTPException(
-            status_code=502, detail="Greptile API returned no response."
-        )
-
-    is_error = isinstance(result, dict) and "_error" in result
-    if is_error:
-        err_code = result.get("_error")
-        if err_code == 404:
-            return {
-                "status": "not_found",
-                "repository": body.repository,
-                "branch": body.branch,
-                "message": "Repo not in Greptile. Use Index to add it.",
-            }
-        return {
-            "status": "error",
-            "repository": body.repository,
-            "branch": body.branch,
-            "error_code": err_code,
-            "error_detail": result.get("_body", ""),
-        }
-
-    # Persist "submitted" status in the DB so the indexing screen reflects it
-    # immediately instead of waiting for the next background sync.
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-    greptile_repo_id = f"{body.remote}:{body.branch}:{body.repository}"
-    now = datetime.utcnow()
-    stmt = pg_insert(GreptileRepository).values(
-        greptile_repo_id=greptile_repo_id,
-        repository=body.repository[:512],
-        remote=body.remote[:255],
-        branch=body.branch[:255],
-        status="submitted",
-        synced_at=now,
-    )
-    stmt = stmt.on_conflict_do_update(
-        index_elements=[GreptileRepository.greptile_repo_id],
-        set_={
-            "status": "submitted",
-            "synced_at": now,
-        },
-    )
-    await db.execute(stmt)
-    await db.commit()
-
-    return {
-        "status": "submitted",
-        "repository": body.repository,
-        "branch": body.branch,
-        "reload": body.reload,
-        "message": result.get("message", "Indexing started"),
-        "status_endpoint": result.get("statusEndpoint"),
-    }
-
-
-@router.post("/repos/index-all")
-async def greptile_index_all(
-    body: IndexAllRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Trigger indexing for all configured GitHub repos (or a subset).
-    Returns per-repo results.
-    """
-    service = CredentialsService(db)
-    creds = await service.get_credentials()
-    if not creds.greptile_api_key:
-        raise HTTPException(status_code=403, detail="No Greptile API key configured.")
-
-    # Determine target repos
-    if body.repos:
-        target_repos = body.repos
-    else:
-        # All GitHub repos from DB
-        gh_result = await db.execute(
-            select(Repository.full_name, Repository.default_branch)
-        )
-        target_repos_raw = gh_result.all()
-        target_repos = [r[0] for r in target_repos_raw if r[0]]
-
-    # Determine default branches from DB
-    branch_map: dict[str, str] = {}
-    if target_repos:
-        for name in target_repos:
-            branch_result = await db.execute(
-                select(Repository.default_branch).where(
-                    func.lower(Repository.full_name) == name.lower()
-                )
-            )
-            row = branch_result.scalar()
-            branch_map[name.lower()] = row or "main"
-
-    results: list[dict] = []
-    for repo_name in target_repos:
-        branch = branch_map.get(repo_name.lower(), "main")
-        result = await index_repository(
-            api_key=creds.greptile_api_key,
-            remote="github",
-            repository=repo_name,
-            branch=branch,
-            github_token=creds.github_token,
-            reload=body.reload,
-        )
-        is_error = isinstance(result, dict) and "_error" in result
-        if is_error and result.get("_error") == 404:
-            status = "not_found"
-            message = "Repo not in Greptile. Use Index to add it."
-        elif is_error or result is None:
-            status = "error"
-            message = (result.get("_body", "") if result else "no response") or "error"
-        else:
-            status = "submitted"
-            message = result.get("message", "ok")
-        results.append(
-            {
-                "repository": repo_name,
-                "branch": branch,
-                "status": status,
-                "message": message,
-            }
-        )
-
-    submitted = sum(1 for r in results if r["status"] == "submitted")
-    errors = sum(1 for r in results if r["status"] == "error")
-    return {
-        "total": len(results),
-        "submitted": submitted,
-        "errors": errors,
-        "results": results,
-    }
 
 
 @router.post("/repos/refresh")

@@ -495,7 +495,7 @@ export function DataCoverageScreen() {
                       {greptileConnected && (
                         <p className="data-coverage__repos-desc" style={{ marginTop: 8 }}>
                           <Link to="/greptile/indexing" style={{ color: 'var(--link)', fontWeight: 500 }}>
-                            Manage indexing →
+                            View indexing status →
                           </Link>
                         </p>
                       )}

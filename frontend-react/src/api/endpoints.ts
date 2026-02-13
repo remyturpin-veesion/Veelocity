@@ -12,8 +12,6 @@ import type {
   DeveloperStats,
   GitHubOrgsResponse,
   GitHubReposSearchResponse,
-  GreptileIndexAllResult,
-  GreptileIndexResult,
   GreptileRepoDetailsResponse,
   GreptileMetricsResponse,
   GreptileOverviewResponse,
@@ -143,33 +141,11 @@ export async function getGreptileRepos(): Promise<GreptileReposResponse> {
   return apiGet(prefix + '/greptile/repos');
 }
 
-const GREPTILE_INDEX_TIMEOUT_MS = 60_000;
-
-export async function indexGreptileRepo(params: {
-  repository: string;
-  branch?: string;
-  remote?: string;
-  reload?: boolean;
-}): Promise<GreptileIndexResult> {
-  return apiPost(prefix + '/greptile/repos/index', params as Record<string, unknown>, {
-    timeoutMs: GREPTILE_INDEX_TIMEOUT_MS,
-  }) as Promise<GreptileIndexResult>;
-}
-
-const GREPTILE_INDEX_ALL_TIMEOUT_MS = 5 * 60_000;
-
-export async function indexAllGreptileRepos(params?: {
-  reload?: boolean;
-  repos?: string[];
-}): Promise<GreptileIndexAllResult> {
-  return apiPost(prefix + '/greptile/repos/index-all', params as Record<string, unknown>, {
-    timeoutMs: GREPTILE_INDEX_ALL_TIMEOUT_MS,
-  }) as Promise<GreptileIndexAllResult>;
-}
+const GREPTILE_REFRESH_TIMEOUT_MS = 60_000;
 
 export async function refreshGreptileStatus(repos?: string[]): Promise<GreptileRefreshResult> {
   return apiPost(prefix + '/greptile/repos/refresh', repos ? { repos } : undefined, {
-    timeoutMs: GREPTILE_INDEX_TIMEOUT_MS,
+    timeoutMs: GREPTILE_REFRESH_TIMEOUT_MS,
   }) as Promise<GreptileRefreshResult>;
 }
 
