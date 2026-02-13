@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.greptile import GreptileRepository
 from app.services.credentials import CredentialsService
 from app.services.greptile_client import get_repository, list_repositories
+from app.services.sync_state import SyncStateService
 
 # Statuses that mean "indexing in progress"; we re-fetch by ID to get fresh status
 _IN_PROGRESS_STATUSES = frozenset({"submitted", "processing", "cloning"})
-from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
 
