@@ -31,7 +31,7 @@ class RateLimiter:
         github_pause_threshold: Pause completely when GitHub remaining < this
     """
 
-    max_calls_per_sync: int = 500
+    max_calls_per_sync: int = 1200
     max_calls_per_hour: int = 4000  # Leave buffer below GitHub's 5000
     delay_between_calls: float = 0.1  # 100ms between calls
     warn_threshold: float = 0.8  # Warn at 80%

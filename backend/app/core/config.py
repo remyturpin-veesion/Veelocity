@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     oauth_frontend_redirect_url: str = "http://localhost:5173"
 
     # Rate limiting for API calls
-    rate_limit_max_per_sync: int = 500  # Max API calls per sync session
+    rate_limit_max_per_sync: int = 1200  # Max API calls per sync (increase if you have many repos)
     rate_limit_max_per_hour: int = 4000  # Max API calls per hour (GitHub limit is 5000)
     rate_limit_delay_ms: int = 100  # Delay between API calls in milliseconds
 

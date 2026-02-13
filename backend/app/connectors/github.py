@@ -18,6 +18,7 @@ class GitHubConnector(BaseConnector):
     def __init__(self, token: str, repos: list[str]):
         self._token = token
         self._repos = repos
+        self._rate_limit_logged = False  # Only log once per sync when sync limit is hit
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
@@ -117,7 +118,14 @@ class GitHubConnector(BaseConnector):
                     params=params,
                 )
             except RateLimitExceeded as e:
-                logger.warning(f"Rate limit hit while fetching PRs: {e}")
+                if not self._rate_limit_logged:
+                    self._rate_limit_logged = True
+                    logger.warning(
+                        "Rate limit hit while fetching PRs: %s (further repos skipped this sync)",
+                        e,
+                    )
+                else:
+                    logger.debug("Rate limit already hit, skipping PRs for %s", repo_full_name)
                 break
             if response.status_code != 200:
                 break
@@ -304,8 +312,9 @@ class GitHubConnector(BaseConnector):
         items_synced = 0
         errors = []
 
-        # Reset rate limiter for new sync session
+        # Reset rate limiter and log flag for new sync session
         self._rate_limiter.reset()
+        self._rate_limit_logged = False
 
         from app.services.sync import SyncService
 
@@ -342,8 +351,9 @@ class GitHubConnector(BaseConnector):
         items_synced = 0
         errors = []
 
-        # Reset rate limiter for new sync session
+        # Reset rate limiter and log flag for new sync session
         self._rate_limiter.reset()
+        self._rate_limit_logged = False
 
         from app.services.sync import SyncService
 
