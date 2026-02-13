@@ -118,23 +118,32 @@ async def auth_github_callback(
                 },
             )
         if resp.status_code != 200:
+            # Do not log response body (may contain tokens); log status only.
             logger.warning(
-                "GitHub token exchange failed: %s %s", resp.status_code, resp.text
+                "GitHub token exchange failed: status=%s", resp.status_code
             )
             return RedirectResponse(url=redirect_fail)
 
         try:
             data = resp.json()
         except Exception as e:
-            logger.warning("GitHub token response not JSON: %s - %s", resp.text, e)
+            logger.warning(
+                "GitHub token response not JSON: length=%s - %s",
+                len(resp.text),
+                e,
+            )
             return RedirectResponse(url=redirect_fail)
 
         access_token = data.get("access_token")
         if not access_token:
-            # GitHub may return 200 with error in body (e.g. redirect_uri_mismatch)
+            # GitHub may return 200 with error in body (e.g. redirect_uri_mismatch).
+            # Log only error fields; never log full response (could contain token).
             err = data.get("error", "unknown")
+            err_desc = data.get("error_description", "")
             logger.warning(
-                "GitHub response missing access_token: error=%s %s", err, data
+                "GitHub response missing access_token: error=%s error_description=%s",
+                err,
+                err_desc,
             )
             return RedirectResponse(url=redirect_fail)
 
