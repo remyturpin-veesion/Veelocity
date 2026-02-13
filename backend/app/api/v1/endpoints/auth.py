@@ -119,9 +119,7 @@ async def auth_github_callback(
             )
         if resp.status_code != 200:
             # Do not log response body (may contain tokens); log status only.
-            logger.warning(
-                "GitHub token exchange failed: status=%s", resp.status_code
-            )
+            logger.warning("GitHub token exchange failed: status=%s", resp.status_code)
             return RedirectResponse(url=redirect_fail)
 
         try:

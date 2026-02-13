@@ -125,7 +125,9 @@ class GitHubConnector(BaseConnector):
                         e,
                     )
                 else:
-                    logger.debug("Rate limit already hit, skipping PRs for %s", repo_full_name)
+                    logger.debug(
+                        "Rate limit already hit, skipping PRs for %s", repo_full_name
+                    )
                 break
             if response.status_code != 200:
                 break
