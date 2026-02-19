@@ -121,7 +121,7 @@ export function TeamScreen() {
       </PageSummary>
 
       {/* KPI row */}
-      <div className="dashboard__kpi-row" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="dashboard__kpi-row" data-tour="team-list" style={{ marginBottom: 24, gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <KpiCard title="Developers" value={String(developers.length)} icon="👥" />
         <KpiCard title="PRs merged" value={String(totalPRs)} icon="🔀" />
         <KpiCard title="Reviews given" value={String(totalReviews)} icon="👀" />

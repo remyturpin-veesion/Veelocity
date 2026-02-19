@@ -150,6 +150,34 @@ export interface SentryOverviewResponse {
   projects: SentryOverviewProject[];
 }
 
+export interface SentryWeekSnapshot {
+  events_24h: number;
+  events_7d: number;
+  open_issues_count: number;
+  snapshot_date: string;
+}
+
+export interface SentryProjectTrend {
+  id: string;
+  slug: string;
+  name: string;
+  current: {
+    events_24h: number;
+    events_7d: number;
+    open_issues_count: number;
+    synced_at: string | null;
+  };
+  weeks: (SentryWeekSnapshot | null)[];
+  trend_direction: 'improving' | 'degrading' | 'stable' | 'insufficient_data';
+  trend_pct: number | null;
+}
+
+export interface SentryTrendsResponse {
+  sentry_base_url: string;
+  org: string;
+  projects: SentryProjectTrend[];
+}
+
 export interface SettingsResponse {
   github_configured: boolean;
   github_has_token?: boolean;

@@ -1,8 +1,8 @@
 """Sentry data stored from periodic sync (projects, issues, event counts)."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -59,3 +59,24 @@ class SentryIssue(Base):
         "SentryProject",
         back_populates="issues",
     )
+
+
+class SentryProjectSnapshot(Base):
+    """Daily snapshot of Sentry project metrics. One row per project per day, upserted on sync."""
+
+    __tablename__ = "sentry_project_snapshots"
+    __table_args__ = (
+        UniqueConstraint("project_id", "snapshot_date", name="uq_sentry_snapshot_project_date"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("sentry_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    events_24h: Mapped[int] = mapped_column(Integer, default=0)
+    events_7d: Mapped[int] = mapped_column(Integer, default=0)
+    open_issues_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

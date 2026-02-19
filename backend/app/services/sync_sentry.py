@@ -11,7 +11,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.sentry import SentryIssue, SentryProject
+from app.models.sentry import SentryIssue, SentryProject, SentryProjectSnapshot
 from app.services.sync_state import SyncStateService
 
 logger = logging.getLogger(__name__)
@@ -200,6 +200,27 @@ async def sync_sentry(
                     .where(SentryProject.id == project_id)
                     .values(open_issues_count=open_count)
                 )
+
+                # Save daily snapshot for trend tracking
+                snap_stmt = pg_insert(SentryProjectSnapshot).values(
+                    project_id=project_id,
+                    snapshot_date=now.date(),
+                    events_24h=events_24h,
+                    events_7d=events_7d,
+                    open_issues_count=open_count,
+                    created_at=now,
+                )
+                snap_stmt = snap_stmt.on_conflict_do_update(
+                    constraint="uq_sentry_snapshot_project_date",
+                    set_={
+                        "events_24h": snap_stmt.excluded.events_24h,
+                        "events_7d": snap_stmt.excluded.events_7d,
+                        "open_issues_count": snap_stmt.excluded.open_issues_count,
+                        "created_at": snap_stmt.excluded.created_at,
+                    },
+                )
+                await db.execute(snap_stmt)
+
                 projects_synced += 1
             # End for each project
 

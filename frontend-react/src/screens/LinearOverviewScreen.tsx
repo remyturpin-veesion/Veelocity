@@ -102,7 +102,7 @@ export function LinearOverviewScreen() {
         </div>
       </div>
 
-      <div className="linear-overview__cards">
+      <div className="linear-overview__cards" data-tour="linear-kpis">
         <KpiCard
           title="Issues completed"
           value={String(issuesCompleted)}

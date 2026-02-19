@@ -3,6 +3,31 @@ import { persist } from 'zustand/middleware';
 
 export type TimePeriodKey = '1' | '2' | '3' | '7' | '30' | '90';
 
+// Sprint configuration: Sprint 1 started 2025-04-30, each sprint is 21 days.
+export const SPRINT_ANCHOR_DATE = '2025-04-30';
+export const SPRINT_LENGTH_DAYS = 21;
+
+/** Returns the sprint number for a given date (1-based). */
+export function getSprintNumber(date: Date): number {
+  const anchor = new Date(SPRINT_ANCHOR_DATE + 'T00:00:00');
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffMs = d.getTime() - anchor.getTime();
+  if (diffMs < 0) return 1;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24 * SPRINT_LENGTH_DAYS)) + 1;
+}
+
+/** Returns start/end dates (YYYY-MM-DD) for sprint N. */
+export function getSprintDates(sprintNumber: number): { startDate: string; endDate: string } {
+  const anchor = new Date(SPRINT_ANCHOR_DATE + 'T00:00:00');
+  const start = new Date(anchor);
+  start.setDate(anchor.getDate() + (sprintNumber - 1) * SPRINT_LENGTH_DAYS);
+  const end = new Date(start);
+  end.setDate(start.getDate() + SPRINT_LENGTH_DAYS - 1);
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { startDate: fmt(start), endDate: fmt(end) };
+}
+
 export interface DateRangeState {
   preset: TimePeriodKey | null;
   customStart: string | null;
@@ -76,6 +101,7 @@ interface FiltersState {
   developerLogins: Set<string>;
   teamIds: Set<number>;
   timeInStateStageIds: Set<string>;
+  activeSprint: number | null;
 
   setDateRangePreset: (preset: TimePeriodKey) => void;
   setDateRangeCustom: (start: string, end: string) => void;
@@ -83,6 +109,7 @@ interface FiltersState {
   setDeveloperLogins: (logins: Set<string> | string[]) => void;
   setTeamIds: (ids: Set<number> | number[]) => void;
   setTimeInStateStageIds: (ids: Set<string> | string[]) => void;
+  setActiveSprint: (n: number | null) => void;
 
   /** Empty set = no filter (0 values). Size 1 = that repo. Size > 1 = all repos (null). */
   getRepoIdForApi: () => number | null;
@@ -109,6 +136,7 @@ export const useFiltersStore = create<FiltersState>()(
       developerLogins: new Set(),
       teamIds: new Set(),
       timeInStateStageIds: new Set(),
+      activeSprint: null,
 
       setDateRangePreset(preset) {
         set({
@@ -142,6 +170,10 @@ export const useFiltersStore = create<FiltersState>()(
         set({
           timeInStateStageIds: ids instanceof Set ? ids : new Set(ids),
         });
+      },
+
+      setActiveSprint(n) {
+        set({ activeSprint: n });
       },
 
       getRepoIdForApi() {
@@ -204,6 +236,7 @@ export const useFiltersStore = create<FiltersState>()(
         developerLogins: Array.from(s.developerLogins),
         teamIds: Array.from(s.teamIds),
         timeInStateStageIds: Array.from(s.timeInStateStageIds),
+        activeSprint: s.activeSprint,
       }),
       merge: (persisted, current) => {
         const p = persisted as {
@@ -212,6 +245,7 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins?: string[];
           teamIds?: number[];
           timeInStateStageIds?: string[];
+          activeSprint?: number | null;
         };
         return {
           ...current,
@@ -220,6 +254,7 @@ export const useFiltersStore = create<FiltersState>()(
           developerLogins: p.developerLogins ? new Set(p.developerLogins) : current.developerLogins,
           teamIds: p.teamIds ? new Set(p.teamIds) : current.teamIds,
           timeInStateStageIds: p.timeInStateStageIds ? new Set(p.timeInStateStageIds) : current.timeInStateStageIds,
+          activeSprint: p.activeSprint ?? current.activeSprint,
         };
       },
     }

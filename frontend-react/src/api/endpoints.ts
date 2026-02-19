@@ -25,6 +25,7 @@ import type {
   RecommendationsResponse,
   Repository,
   SentryOverviewResponse,
+  SentryTrendsResponse,
   SettingsResponse,
   SyncCoverageResponse,
   SyncStatusResponse,
@@ -212,6 +213,10 @@ export async function getSentryOverview(params?: {
   repo_ids?: number[] | null;
 }): Promise<SentryOverviewResponse> {
   return apiGet(prefix + '/sentry/overview', params as Record<string, string | number[] | undefined>);
+}
+
+export async function getSentryTrends(): Promise<SentryTrendsResponse> {
+  return apiGet(prefix + '/sentry/trends');
 }
 
 export async function getDevelopers(params?: {
@@ -536,6 +541,29 @@ export async function getLinearOverview(params?: {
   return apiGet(`${prefix}/metrics/linear/overview`, params as Record<string, string | number | boolean | number[]>);
 }
 
+export interface LinearCompletedIssue {
+  id: number;
+  identifier: string;
+  title: string;
+  url: string | null;
+  assignee_name: string | null;
+  project_name: string | null;
+  labels: string[];
+  team_name: string;
+  completed_at: string | null;
+  lead_time_hours: number | null;
+}
+
+export interface LinearIssuesCompletedResponse {
+  period: string;
+  start_date: string;
+  end_date: string;
+  data: Array<{ period: string; count: number }>;
+  total: number;
+  average: number;
+  issues: LinearCompletedIssue[];
+}
+
 export async function getLinearIssuesCompleted(params?: {
   start_date?: string;
   end_date?: string;
@@ -543,7 +571,7 @@ export async function getLinearIssuesCompleted(params?: {
   team_ids?: number[];
   no_teams?: boolean;
   assignee_name?: string;
-}): Promise<unknown> {
+}): Promise<LinearIssuesCompletedResponse> {
   return apiGet(`${prefix}/metrics/linear/issues-completed`, {
     ...params,
     period: params?.period ?? 'week',

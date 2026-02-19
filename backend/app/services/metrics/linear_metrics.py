@@ -85,26 +85,81 @@ class LinearMetricsService:
     ) -> dict:
         """
         Count of issues with completed_at in the period, grouped by period.
+        Also returns list of individual completed issues with details.
         """
-        query = select(LinearIssue.completed_at).where(
+        ids = self._team_filter(team_id, team_ids)
+        matching = (
+            await self._get_matching_assignee_names(assignee_name)
+            if assignee_name
+            else None
+        )
+
+        # Query for time-series aggregation (dates only)
+        dates_query = select(LinearIssue.completed_at).where(
             and_(
                 LinearIssue.completed_at >= start_date,
                 LinearIssue.completed_at <= end_date,
                 LinearIssue.completed_at.isnot(None),
             )
         )
-        ids = self._team_filter(team_id, team_ids)
         if ids is not None:
-            query = query.where(LinearIssue.team_id.in_(ids))
-        matching = (
-            await self._get_matching_assignee_names(assignee_name)
-            if assignee_name
-            else None
-        )
-        query = self._assignee_filter_sync(query, matching)
+            dates_query = dates_query.where(LinearIssue.team_id.in_(ids))
+        dates_query = self._assignee_filter_sync(dates_query, matching)
 
-        result = await self._db.execute(query)
-        dates = [row[0] for row in result.all() if row[0]]
+        dates_result = await self._db.execute(dates_query)
+        dates = [row[0] for row in dates_result.all() if row[0]]
+
+        # Query for issue list with details
+        issues_query = (
+            select(
+                LinearIssue.id,
+                LinearIssue.identifier,
+                LinearIssue.title,
+                LinearIssue.url,
+                LinearIssue.assignee_name,
+                LinearIssue.project_name,
+                LinearIssue.labels,
+                LinearIssue.created_at,
+                LinearIssue.completed_at,
+                LinearTeam.name.label("team_name"),
+            )
+            .join(LinearTeam, LinearIssue.team_id == LinearTeam.id)
+            .where(
+                and_(
+                    LinearIssue.completed_at >= start_date,
+                    LinearIssue.completed_at <= end_date,
+                    LinearIssue.completed_at.isnot(None),
+                )
+            )
+            .order_by(LinearIssue.completed_at.desc())
+        )
+        if ids is not None:
+            issues_query = issues_query.where(LinearIssue.team_id.in_(ids))
+        issues_query = self._assignee_filter_sync(issues_query, matching)
+
+        issues_result = await self._db.execute(issues_query)
+        issues_rows = issues_result.all()
+
+        issues_list = []
+        for row in issues_rows:
+            lead_time_hours: float | None = None
+            if row.created_at and row.completed_at:
+                delta = row.completed_at - row.created_at
+                lead_time_hours = round(delta.total_seconds() / 3600, 1)
+            issues_list.append(
+                {
+                    "id": row.id,
+                    "identifier": row.identifier,
+                    "title": row.title,
+                    "url": row.url,
+                    "assignee_name": row.assignee_name,
+                    "project_name": row.project_name,
+                    "labels": [l.strip() for l in row.labels.split(",") if l.strip()] if row.labels else [],
+                    "team_name": row.team_name,
+                    "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+                    "lead_time_hours": lead_time_hours,
+                }
+            )
 
         grouped = self._group_by_period(dates, period)
         total = len(dates)
@@ -118,6 +173,7 @@ class LinearMetricsService:
             "data": grouped,
             "total": total,
             "average": round(average, 2),
+            "issues": issues_list,
         }
 
     async def get_backlog(

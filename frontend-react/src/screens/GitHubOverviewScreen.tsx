@@ -194,7 +194,7 @@ export function GitHubOverviewScreen() {
           }}
         />
       ) : (
-        <div className="github-overview__metrics-grid">
+        <div className="github-overview__metrics-grid" data-tour="github-kpis">
           <KpiCard
             title="Deployment frequency"
             value={String(deploymentFreqData?.total ?? '—')}

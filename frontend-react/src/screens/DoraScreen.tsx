@@ -344,7 +344,7 @@ export function DoraScreen() {
           <h2 className="dashboard-section-title" style={{ margin: 0 }}>Overview</h2>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Core DORA signals</span>
         </div>
-        <div className="dashboard__kpi-row">
+        <div className="dashboard__kpi-row" data-tour="dora-kpis">
         <KpiCard
           title="Deployment frequency"
           value={depFreqWeeklyData?.average != null ? `${depFreqWeeklyData.average.toFixed(1)} /week` : '—'}

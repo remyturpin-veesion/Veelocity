@@ -287,7 +287,7 @@ export function DataCoverageScreen() {
         </div>
       )}
 
-      <section className="data-coverage__totals">
+      <section className="data-coverage__totals" data-tour="data-coverage-totals">
         <h2 className="data-coverage__section-title">Totals</h2>
         <div className="data-coverage__kpi-row">
           <KpiCard
@@ -313,7 +313,7 @@ export function DataCoverageScreen() {
         </div>
       </section>
 
-      <section className="data-coverage__connectors">
+      <section className="data-coverage__connectors" data-tour="data-coverage-connectors">
         <h2 className="data-coverage__section-title">Connectors (GitHub, GitHub Actions, Linear, Cursor, Greptile, Sentry)</h2>
         <div className="card data-coverage__connectors-card">
           {data?.connectors?.length ? (

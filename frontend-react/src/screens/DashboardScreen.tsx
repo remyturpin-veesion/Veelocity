@@ -455,7 +455,7 @@ export function DashboardScreen() {
       <h1 className="screen-title">Dashboard</h1>
       <PageSummary>DORA KPIs, flow, and recommendations · {startDate} – {endDate} · Filtered by repos</PageSummary>
       <div className="dashboard">
-        <div className="dashboard__kpi-row">
+        <div className="dashboard__kpi-row" data-tour="dashboard-kpis">
           <KpiCard
             title="Lead time"
             value={
@@ -531,7 +531,7 @@ export function DashboardScreen() {
           />
         </div>
 
-        <div className="dashboard__middle">
+        <div className="dashboard__middle" data-tour="dashboard-flow-chart">
           <div className="card">
             <GlobalFlowChart
               data={fluxChartData}
@@ -539,7 +539,7 @@ export function DashboardScreen() {
               height={280}
             />
           </div>
-          <div className="card">
+          <div className="card" data-tour="dashboard-quick-overview">
             <h3 className="dashboard-section-title">Quick overview</h3>
             <div className="dashboard-quick-overview__row">
               <span style={{ color: 'var(--text-muted)' }}>PRs in queue</span>

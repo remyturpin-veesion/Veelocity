@@ -19,6 +19,7 @@ const GreptileIndexingScreen = lazy(() => import('@/screens/GreptileIndexingScre
 const GreptileRecommendationsScreen = lazy(() => import('@/screens/GreptileRecommendationsScreen.js').then((m) => ({ default: m.GreptileRecommendationsScreen })));
 const SentryOverviewScreen = lazy(() => import('@/screens/SentryOverviewScreen.js').then((m) => ({ default: m.SentryOverviewScreen })));
 const SentryProjectsScreen = lazy(() => import('@/screens/SentryProjectsScreen.js').then((m) => ({ default: m.SentryProjectsScreen })));
+const SentryTrendsScreen = lazy(() => import('@/screens/SentryTrendsScreen.js').then((m) => ({ default: m.SentryTrendsScreen })));
 const DataCoverageScreen = lazy(() => import('@/screens/DataCoverageScreen.js').then((m) => ({ default: m.DataCoverageScreen })));
 const PRDetailScreen = lazy(() => import('@/screens/PRDetailScreen.js').then((m) => ({ default: m.PRDetailScreen })));
 const RecommendationsScreen = lazy(() => import('@/screens/RecommendationsScreen.js').then((m) => ({ default: m.RecommendationsScreen })));
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'greptile/recommendations', element: <GreptileRecommendationsScreen /> },
       { path: 'sentry', element: <SentryOverviewScreen /> },
       { path: 'sentry/projects', element: <SentryProjectsScreen /> },
+      { path: 'sentry/trends', element: <SentryTrendsScreen /> },
       { path: 'data-coverage', element: <DataCoverageScreen /> },
       { path: 'metrics/deployment-frequency', element: <DeploymentFrequencyScreen /> },
       { path: 'metrics/lead-time', element: <LeadTimeScreen /> },

@@ -1,10 +1,12 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell.js';
+import { GuidedTour } from '@/tour/index.js';
 
 export function ShellLayout() {
   return (
     <AppShell>
+      <GuidedTour />
       <Suspense
         fallback={
           <div

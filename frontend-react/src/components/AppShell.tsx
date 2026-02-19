@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useThemeStore } from '@/stores/theme.js';
-import { useFiltersStore, formatDateRangeDisplay } from '@/stores/filters.js';
+import { useTourStore } from '@/stores/tour.js';
+import { useFiltersStore, formatDateRangeDisplay, getSprintNumber, getSprintDates } from '@/stores/filters.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
@@ -63,6 +64,7 @@ const GREPTILE_SIDEBAR_LINKS = [
 const SENTRY_SIDEBAR_LINKS = [
   { path: '/sentry', icon: '⊞', label: 'Overview' },
   { path: '/sentry/projects', icon: '📦', label: 'Projects' },
+  { path: '/sentry/trends', icon: '📈', label: 'Trends' },
 ] as const;
 
 function isActive(path: string, current: string): boolean {
@@ -104,13 +106,19 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const hasCompletedTour = useTourStore((s) => s.hasCompletedTour);
+  const startTour = useTourStore((s) => s.startTour);
   const dateRange = useFiltersStore((s) => s.dateRange);
   const setDateRangePreset = useFiltersStore((s) => s.setDateRangePreset);
   const setDateRangeCustom = useFiltersStore((s) => s.setDateRangeCustom);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const activeSprint = useFiltersStore((s) => s.activeSprint);
+  const setActiveSprint = useFiltersStore((s) => s.setActiveSprint);
   const { startDate, endDate } = getStartEnd();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const [sprintPickerOpen, setSprintPickerOpen] = useState(false);
+  const sprintPickerRef = useRef<HTMLDivElement>(null);
   const showDoraSidebar = isDoraRoute(location.pathname);
   const showLinearSidebar = isLinearRoute(location.pathname);
   const showGitHubSidebar = isGitHubRoute(location.pathname);
@@ -128,6 +136,23 @@ export function AppShell({ children }: AppShellProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside, { capture: true });
   }, [datePickerOpen]);
 
+  useEffect(() => {
+    if (!sprintPickerOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (sprintPickerRef.current && !sprintPickerRef.current.contains(e.target as Node)) {
+        setSprintPickerOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside, { capture: true });
+    return () => document.removeEventListener('mousedown', handleClickOutside, { capture: true });
+  }, [sprintPickerOpen]);
+
+  useEffect(() => {
+    if (hasCompletedTour) return;
+    const timer = setTimeout(() => startTour(), 600);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="app-shell">
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -136,7 +161,7 @@ export function AppShell({ children }: AppShellProps) {
         <Link to="/" className="app-shell__logo" aria-label="Veelocity home">
           <img src="/Veelocity.png" alt="Veelocity" className="app-shell__logo-img" />
         </Link>
-        <nav className="app-shell__nav">
+        <nav className="app-shell__nav" data-tour="nav-tabs">
           {TABS.map(({ path, label }) => {
             const active =
               path === '/dora'
@@ -165,6 +190,16 @@ export function AppShell({ children }: AppShellProps) {
         <button
           type="button"
           className="app-shell__icon-btn"
+          onClick={() => startTour()}
+          title="Guided tour"
+          aria-label="Start guided tour"
+          data-tour="tour-button"
+        >
+          🧭
+        </button>
+        <button
+          type="button"
+          className="app-shell__icon-btn"
           onClick={toggleTheme}
           title={theme === 'light' ? 'Dark mode' : 'Light mode'}
           aria-label="Toggle theme"
@@ -177,12 +212,13 @@ export function AppShell({ children }: AppShellProps) {
           onClick={() => setSettingsOpen(true)}
           title="Settings"
           aria-label="Settings"
+          data-tour="settings-button"
         >
           ⚙️
         </button>
       </header>
       {location.pathname !== '/data-coverage' && (
-        <div className="app-shell__filters">
+        <div className="app-shell__filters" data-tour="global-filters">
           <div className="app-shell__filters-inner">
             <div className="app-shell__filters-left">
               {!showLinearSidebar && (
@@ -198,12 +234,58 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               )}
             </div>
-            <div className="app-shell__date-range-wrap app-shell__date-range-wrap--right" ref={datePickerRef}>
+            <div className="app-shell__filters-right">
+            <div className="app-shell__date-range-wrap" ref={sprintPickerRef}>
+              <button
+                type="button"
+                className={`app-shell__date-pill${activeSprint !== null ? ' app-shell__date-pill--sprint-active' : ''}`}
+                title="Choose sprint"
+                onClick={() => {
+                  setSprintPickerOpen((o) => !o);
+                  setDatePickerOpen(false);
+                }}
+                aria-expanded={sprintPickerOpen}
+                aria-haspopup="dialog"
+              >
+                {activeSprint !== null ? `Sprint ${activeSprint}` : 'Sprint'} ▾
+              </button>
+              {sprintPickerOpen && (
+                <div className="app-shell__date-popover app-shell__sprint-popover" role="dialog" aria-label="Sprint">
+                  <SprintPickerList
+                    activeSprint={activeSprint}
+                    onSelect={(n) => {
+                      const { startDate: s, endDate: e } = getSprintDates(n);
+                      setDateRangeCustom(s, e);
+                      setActiveSprint(n);
+                      setSprintPickerOpen(false);
+                    }}
+                  />
+                  {activeSprint !== null && (
+                    <div className="app-shell__sprint-clear">
+                      <button
+                        type="button"
+                        className="app-shell__sprint-clear-btn"
+                        onClick={() => {
+                          setActiveSprint(null);
+                          setSprintPickerOpen(false);
+                        }}
+                      >
+                        Clear sprint
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="app-shell__date-range-wrap" ref={datePickerRef}>
               <button
                 type="button"
                 className="app-shell__date-pill"
                 title="Choose date range"
-                onClick={() => setDatePickerOpen((o) => !o)}
+                onClick={() => {
+                  setDatePickerOpen((o) => !o);
+                  setSprintPickerOpen(false);
+                }}
                 aria-expanded={datePickerOpen}
                 aria-haspopup="dialog"
               >
@@ -215,6 +297,7 @@ export function AppShell({ children }: AppShellProps) {
                     preset={dateRange.preset}
                     onPresetChange={(p) => {
                       setDateRangePreset(p);
+                      setActiveSprint(null);
                       setDatePickerOpen(false);
                     }}
                   />
@@ -230,6 +313,7 @@ export function AppShell({ children }: AppShellProps) {
                             const start = e.target.value;
                             const end = dateRange.customEnd ?? endDate;
                             setDateRangeCustom(start, end && start <= end ? end : start);
+                            setActiveSprint(null);
                           }}
                         />
                       </label>
@@ -242,6 +326,7 @@ export function AppShell({ children }: AppShellProps) {
                             const end = e.target.value;
                             const start = dateRange.customStart ?? startDate;
                             setDateRangeCustom(start && start <= end ? start : end, end);
+                            setActiveSprint(null);
                           }}
                         />
                       </label>
@@ -250,13 +335,14 @@ export function AppShell({ children }: AppShellProps) {
                 </div>
               )}
             </div>
+            </div>
           </div>
         </div>
       )}
       </div>
       {showDoraSidebar ? (
         <div className="app-shell__body">
-          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="DORA section">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="DORA section" data-tour="dora-sidebar">
             {DORA_SIDEBAR_LINKS.map(({ path, icon, label }) => {
               const active = path === '/dora'
                 ? location.pathname === '/dora'
@@ -278,7 +364,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       ) : showGitHubSidebar ? (
         <div className="app-shell__body">
-          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="GitHub section">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="GitHub section" data-tour="github-sidebar">
             <Link
               to="/github"
               className={isActive('/github', location.pathname) && location.pathname === '/github' ? 'active' : ''}
@@ -340,7 +426,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       ) : showLinearSidebar ? (
         <div className="app-shell__body">
-          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Linear section">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Linear section" data-tour="linear-sidebar">
             {LINEAR_SIDEBAR_LINKS.map(({ path, icon, title }) => {
               const active = isActive(path, location.pathname);
               return (
@@ -434,6 +520,41 @@ function PeriodSelector({ preset, onPresetChange }: PeriodSelectorProps) {
           {label}
         </button>
       ))}
+    </div>
+  );
+}
+
+interface SprintPickerListProps {
+  activeSprint: number | null;
+  onSelect: (n: number) => void;
+}
+
+function SprintPickerList({ activeSprint, onSelect }: SprintPickerListProps) {
+  const currentSprint = getSprintNumber(new Date());
+  const sprints: number[] = [];
+  for (let n = Math.max(1, currentSprint - 4); n <= currentSprint + 1; n++) {
+    sprints.push(n);
+  }
+  return (
+    <div className="sprint-picker-list">
+      {sprints.map((n) => {
+        const { startDate, endDate } = getSprintDates(n);
+        return (
+          <button
+            key={n}
+            type="button"
+            className={[
+              'sprint-picker-item',
+              n === activeSprint ? 'sprint-picker-item--selected' : '',
+              n === currentSprint ? 'sprint-picker-item--current' : '',
+            ].filter(Boolean).join(' ')}
+            onClick={() => onSelect(n)}
+          >
+            <span className="sprint-picker-item__name">Sprint {n}</span>
+            <span className="sprint-picker-item__dates">{formatDateRangeDisplay(startDate, endDate)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

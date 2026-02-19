@@ -144,6 +144,14 @@ class LinearConnector(BaseConnector):
                         team {
                             id
                         }
+                        project {
+                            name
+                        }
+                        labels {
+                            nodes {
+                                name
+                            }
+                        }
                         url
                         createdAt
                         startedAt
@@ -187,6 +195,12 @@ class LinearConnector(BaseConnector):
                             else None
                         ),
                         "team_linear_id": issue.get("team", {}).get("id"),
+                        "project_name": (issue.get("project") or {}).get("name"),
+                        "labels": ",".join(
+                            n["name"]
+                            for n in ((issue.get("labels") or {}).get("nodes") or [])
+                            if n.get("name")
+                        ),  # "" when no labels (NULL = not yet backfilled)
                         "url": issue.get("url"),
                         "created_at": issue.get("createdAt"),
                         "started_at": issue.get("startedAt"),
@@ -204,6 +218,72 @@ class LinearConnector(BaseConnector):
                 break
 
         return issues
+
+    async def fetch_issues_by_ids(self, linear_ids: list[str]) -> list[dict]:
+        """Fetch specific issues by their Linear IDs (for backfill operations)."""
+        if not linear_ids:
+            return []
+        query = """
+        query($filter: IssueFilter, $first: Int!) {
+            issues(filter: $filter, first: $first, includeArchived: true) {
+                nodes {
+                    id
+                    identifier
+                    title
+                    description
+                    priority
+                    state { name }
+                    assignee { name }
+                    team { id }
+                    project { name }
+                    labels { nodes { name } }
+                    url
+                    createdAt
+                    startedAt
+                    completedAt
+                    canceledAt
+                }
+            }
+        }
+        """
+        response = await self._client.post(
+            self.BASE_URL,
+            json={
+                "query": query,
+                "variables": {
+                    "filter": {"id": {"in": linear_ids}},
+                    "first": len(linear_ids),
+                },
+            },
+        )
+        if response.status_code != 200:
+            return []
+        data = response.json()
+        nodes = (data.get("data") or {}).get("issues", {}).get("nodes", [])
+        return [
+            {
+                "linear_id": issue["id"],
+                "identifier": issue["identifier"],
+                "title": issue["title"],
+                "description": issue.get("description"),
+                "priority": issue.get("priority", 0),
+                "state": (issue.get("state") or {}).get("name", "Unknown"),
+                "assignee_name": (issue.get("assignee") or {}).get("name"),
+                "team_linear_id": (issue.get("team") or {}).get("id"),
+                "project_name": (issue.get("project") or {}).get("name"),
+                "labels": ",".join(
+                    n["name"]
+                    for n in ((issue.get("labels") or {}).get("nodes") or [])
+                    if n.get("name")
+                ),
+                "url": issue.get("url"),
+                "created_at": issue.get("createdAt"),
+                "started_at": issue.get("startedAt"),
+                "completed_at": issue.get("completedAt"),
+                "canceled_at": issue.get("canceledAt"),
+            }
+            for issue in nodes
+        ]
 
     async def fetch_issue_history(self, issue_linear_id: str) -> list[dict]:
         """

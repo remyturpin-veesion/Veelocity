@@ -55,6 +55,7 @@ class SyncLinearService:
         count += await self._upsert_issues(issues, team_map)
 
         count += await self._sync_state_transitions(limit=80)
+        count += await self._backfill_null_labels(batch_size=500)
 
         await self._sync_state.update_last_full_sync(self._connector.name)
         await self._db.commit()
@@ -105,6 +106,7 @@ class SyncLinearService:
         count += await self._upsert_issues(issues, team_map)
 
         count += await self._sync_state_transitions(limit=30)
+        count += await self._backfill_null_labels(batch_size=200)
 
         await self._sync_state.update_last_sync(self._connector.name)
         await self._db.commit()
@@ -226,6 +228,8 @@ class SyncLinearService:
                 "priority": data.get("priority", 0),
                 "assignee_name": data.get("assignee_name"),
                 "url": data.get("url"),
+                "project_name": data.get("project_name"),
+                "labels": data.get("labels"),
                 "created_at": _parse_datetime(data.get("created_at")),
                 "started_at": _parse_datetime(data.get("started_at")),
                 "completed_at": _parse_datetime(data.get("completed_at")),
@@ -241,6 +245,51 @@ class SyncLinearService:
             count += 1
 
         await self._db.flush()
+        return count
+
+    async def _backfill_null_labels(self, batch_size: int = 200) -> int:
+        """
+        Backfill labels and project_name for issues synced before those columns existed.
+
+        NULL labels means "never synced since migration". After fetching, the value
+        becomes either "" (no labels) or "label1,label2", so the same issue won't
+        be re-fetched on subsequent syncs.
+        """
+        q = (
+            select(LinearIssue.id, LinearIssue.linear_id)
+            .where(LinearIssue.labels.is_(None))
+            .limit(batch_size)
+        )
+        result = await self._db.execute(q)
+        rows = result.all()
+        if not rows:
+            return 0
+
+        linear_ids = [row.linear_id for row in rows]
+        logger.info("Linear backfill: fetching labels/project for %d issues", len(linear_ids))
+
+        issues_data = await self._connector.fetch_issues_by_ids(linear_ids)
+        fetched_map = {d["linear_id"]: d for d in issues_data}
+
+        count = 0
+        for row in rows:
+            data = fetched_map.get(row.linear_id)
+            res = await self._db.execute(
+                select(LinearIssue).where(LinearIssue.id == row.id)
+            )
+            issue = res.scalar_one_or_none()
+            if issue is None:
+                continue
+            if data is not None:
+                issue.labels = data.get("labels", "")
+                issue.project_name = data.get("project_name")
+            else:
+                # Issue no longer exists in Linear; mark as synced with empty labels
+                issue.labels = ""
+            count += 1
+
+        await self._db.flush()
+        logger.info("Linear backfill: updated %d issues", count)
         return count
 
     async def _build_team_map(self) -> dict[str, int]:
