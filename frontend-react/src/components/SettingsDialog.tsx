@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSettings, getGitHubOAuthStatus, updateSettings, testSentryConnection } from '@/api/endpoints.js';
 import { baseUrl } from '@/api/client.js';
 import { GitHubRepoMultiSelect } from '@/components/GitHubRepoMultiSelect.js';
@@ -38,6 +38,47 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [sentryTestLoading, setSentryTestLoading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [githubOAuthEnabled, setGithubOAuthEnabled] = useState(false);
+  const [dialogPosition, setDialogPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; dialogX: number; dialogY: number } | null>(null);
+  const setDraggingRef = useRef(setIsDragging);
+  setDraggingRef.current = setIsDragging;
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0 || !dialogRef.current) return;
+    const rect = dialogRef.current.getBoundingClientRect();
+    setDialogPosition({ x: rect.left, y: rect.top });
+    setIsDragging(true);
+    dragStartRef.current = { mouseX: e.clientX, mouseY: e.clientY, dialogX: rect.left, dialogY: rect.top };
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setDialogPosition(null);
+      setIsDragging(false);
+      dragStartRef.current = null;
+      return;
+    }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current) return;
+      const { mouseX, mouseY, dialogX, dialogY } = dragStartRef.current;
+      const newX = dialogX + (e.clientX - mouseX);
+      const newY = dialogY + (e.clientY - mouseY);
+      setDialogPosition({ x: newX, y: newY });
+      dragStartRef.current = { mouseX: e.clientX, mouseY: e.clientY, dialogX: newX, dialogY: newY };
+    };
+    const onMouseUp = () => {
+      dragStartRef.current = null;
+      setDraggingRef.current(false);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -245,20 +286,33 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={dialogRef}
         className="card"
         style={{
-          maxWidth: 520,
-          width: '90%',
+          maxWidth: 720,
+          width: '95%',
           maxHeight: '90vh',
           overflow: 'auto',
           background: 'var(--surface)',
-          position: 'relative',
+          position: dialogPosition !== null ? ('fixed' as const) : 'relative',
+          ...(dialogPosition !== null && { left: dialogPosition.x, top: dialogPosition.y }),
           zIndex: 1,
           paddingBottom: 24,
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 20px', fontSize: '1.25rem', fontWeight: 600 }}>Settings</h2>
+        <h2
+          style={{
+            margin: '0 0 20px',
+            fontSize: '1.25rem',
+            fontWeight: 600,
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+          }}
+          onMouseDown={handleDragStart}
+        >
+          Settings
+        </h2>
         {loading && <div className="loading">Loading…</div>}
         {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
         {!loading && (

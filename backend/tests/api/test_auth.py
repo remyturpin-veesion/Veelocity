@@ -145,3 +145,61 @@ async def test_me_without_token_returns_401(client_no_auth: AsyncClient):
     """GET /api/v1/auth/me returns 401 without Authorization header."""
     response = await client_no_auth.get("/api/v1/auth/me")
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_change_password_success(client: AsyncClient):
+    """POST /api/v1/auth/change-password updates password and returns 200."""
+    with patch("app.api.v1.endpoints.auth.change_password", new_callable=AsyncMock) as mock_change:
+        mock_user = User(
+            id=1,
+            email="test@example.com",
+            password_hash="newhash",
+            created_at=datetime.utcnow(),
+            is_active=True,
+        )
+        mock_change.return_value = mock_user
+        response = await client.post(
+            "/api/v1/auth/change-password",
+            headers={"Authorization": "Bearer any"},
+            json={
+                "current_password": "oldpass123",
+                "new_password": "newpass123",
+                "new_password_confirm": "newpass123",
+            },
+        )
+    assert response.status_code == 200
+    assert response.json().get("message") == "Password updated"
+
+
+@pytest.mark.asyncio
+async def test_change_password_wrong_current_returns_400(client: AsyncClient):
+    """Change password with wrong current password returns 400."""
+    with patch("app.api.v1.endpoints.auth.change_password", new_callable=AsyncMock) as mock_change:
+        mock_change.return_value = None
+        response = await client.post(
+            "/api/v1/auth/change-password",
+            headers={"Authorization": "Bearer any"},
+            json={
+                "current_password": "wrong",
+                "new_password": "newpass123",
+                "new_password_confirm": "newpass123",
+            },
+        )
+    assert response.status_code == 400
+    assert "incorrect" in response.json().get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_change_password_mismatch_returns_422(client: AsyncClient):
+    """New password and confirmation mismatch returns 422 (validation error)."""
+    response = await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": "Bearer any"},
+        json={
+            "current_password": "oldpass",
+            "new_password": "newpass123",
+            "new_password_confirm": "different123",
+        },
+    )
+    assert response.status_code == 422

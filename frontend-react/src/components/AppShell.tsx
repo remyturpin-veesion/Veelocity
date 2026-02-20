@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.js';
 import { useThemeStore } from '@/stores/theme.js';
 import { useTourStore } from '@/stores/tour.js';
@@ -11,8 +11,16 @@ import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
 import { UserManagementDialog } from '@/components/UserManagementDialog.js';
-import { getDevelopers } from '@/api/endpoints.js';
+import {
+  getDevelopers,
+  getDeveloperTeams,
+  createDeveloperTeam,
+  updateDeveloperTeam,
+  deleteDeveloperTeam,
+} from '@/api/endpoints.js';
 import type { TimePeriodKey } from '@/stores/filters.js';
+
+const DEVELOPER_TEAMS_QUERY_KEY = ['developer-teams'];
 
 const TABS = [
   { path: '/', label: 'Dashboard' },
@@ -570,7 +578,8 @@ export function AppShell({ children }: AppShellProps) {
 // ─── Dev Team Select (top filter bar) ───────────────────────────────────────
 
 function DevTeamSelect() {
-  const teams = useDeveloperTeamsStore((s) => s.teams);
+  const { data } = useQuery({ queryKey: DEVELOPER_TEAMS_QUERY_KEY, queryFn: getDeveloperTeams });
+  const teams = data?.teams ?? [];
   const activeTeamId = useDeveloperTeamsStore((s) => s.activeTeamId);
   const setActiveTeamId = useDeveloperTeamsStore((s) => s.setActiveTeamId);
   const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
@@ -614,14 +623,32 @@ function DevTeamSelect() {
 // ─── Team Sidebar ────────────────────────────────────────────────────────────
 
 function TeamSidebar({ currentPath }: { currentPath: string }) {
-  const teams = useDeveloperTeamsStore((s) => s.teams);
+  const queryClient = useQueryClient();
+  const { data: teamsData } = useQuery({
+    queryKey: DEVELOPER_TEAMS_QUERY_KEY,
+    queryFn: getDeveloperTeams,
+  });
+  const teams = teamsData?.teams ?? [];
   const activeTeamId = useDeveloperTeamsStore((s) => s.activeTeamId);
-  const addTeam = useDeveloperTeamsStore((s) => s.addTeam);
-  const deleteTeam = useDeveloperTeamsStore((s) => s.deleteTeam);
   const setActiveTeamId = useDeveloperTeamsStore((s) => s.setActiveTeamId);
   const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const { startDate, endDate } = getStartEnd();
+
+  const createMutation = useMutation({
+    mutationFn: ({ name, members }: { name: string; members: string[] }) =>
+      createDeveloperTeam(name, members),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: DEVELOPER_TEAMS_QUERY_KEY }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, name, members }: { id: string; name: string; members: string[] }) =>
+      updateDeveloperTeam(id, name, members),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: DEVELOPER_TEAMS_QUERY_KEY }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteDeveloperTeam(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: DEVELOPER_TEAMS_QUERY_KEY }),
+  });
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -629,13 +656,12 @@ function TeamSidebar({ currentPath }: { currentPath: string }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editMembers, setEditMembers] = useState<Set<string>>(new Set());
-  const updateTeam = useDeveloperTeamsStore((s) => s.updateTeam);
 
-  const { data } = useQuery({
+  const { data: devsData } = useQuery({
     queryKey: ['developers', startDate, endDate, null],
     queryFn: () => getDevelopers({ start_date: startDate, end_date: endDate }),
   });
-  const allDevs = data?.developers ?? [];
+  const allDevs = devsData?.developers ?? [];
 
   const selectTeam = (team: DeveloperTeam) => {
     if (activeTeamId === team.id) {
@@ -649,10 +675,10 @@ function TeamSidebar({ currentPath }: { currentPath: string }) {
 
   const handleCreate = () => {
     if (!newName.trim() || selectedMembers.size === 0) return;
-    addTeam(newName.trim(), Array.from(selectedMembers));
-    setNewName('');
-    setSelectedMembers(new Set());
-    setCreating(false);
+    createMutation.mutate(
+      { name: newName.trim(), members: Array.from(selectedMembers) },
+      { onSuccess: () => { setNewName(''); setSelectedMembers(new Set()); setCreating(false); } }
+    );
   };
 
   const startEdit = (team: DeveloperTeam) => {
@@ -664,11 +690,24 @@ function TeamSidebar({ currentPath }: { currentPath: string }) {
 
   const handleUpdate = () => {
     if (!editId || !editName.trim() || editMembers.size === 0) return;
-    updateTeam(editId, editName.trim(), Array.from(editMembers));
-    if (activeTeamId === editId) {
-      setDeveloperLogins(new Set(editMembers));
+    const members = Array.from(editMembers);
+    updateMutation.mutate(
+      { id: editId, name: editName.trim(), members },
+      {
+        onSuccess: () => {
+          if (activeTeamId === editId) setDeveloperLogins(new Set(editMembers));
+          setEditId(null);
+        },
+      }
+    );
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id);
+    if (activeTeamId === id) {
+      setActiveTeamId(null);
+      setDeveloperLogins(new Set());
     }
-    setEditId(null);
   };
 
   const toggleMember = (login: string, members: Set<string>, setMembers: (s: Set<string>) => void) => {
@@ -753,7 +792,7 @@ function TeamSidebar({ currentPath }: { currentPath: string }) {
               </button>
               <button
                 className="team-sidebar__action-btn team-sidebar__action-btn--delete"
-                onClick={() => deleteTeam(team.id)}
+                onClick={() => handleDelete(team.id)}
                 aria-label={`Delete ${team.name}`}
                 title="Delete"
               >

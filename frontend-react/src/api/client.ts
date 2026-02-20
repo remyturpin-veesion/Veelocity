@@ -123,4 +123,19 @@ export async function apiPatch<T>(path: string, data?: Record<string, unknown>):
   return res.json() as Promise<T>;
 }
 
+export async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(buildUrl(path), {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error('Unauthorized');
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
 export { baseUrl };

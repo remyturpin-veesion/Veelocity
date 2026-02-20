@@ -72,3 +72,21 @@ async def set_user_active(db: AsyncSession, user_id: int, is_active: bool) -> Us
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def change_password(
+    db: AsyncSession, user_id: int, current_password: str, new_password: str
+) -> User | None:
+    """
+    Update password for the given user. Verifies current password first.
+    Returns the user on success, None if user not found or current password wrong.
+    """
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        return None
+    if not verify_password(current_password, user.password_hash):
+        return None
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+    await db.refresh(user)
+    return user

@@ -1,4 +1,5 @@
 import {
+  apiDelete,
   apiGet,
   apiPatch,
   apiPost,
@@ -74,6 +75,18 @@ export async function login(email: string, password: string): Promise<TokenRespo
 
 export async function getMe(): Promise<AuthUser> {
   return apiGet<AuthUser>(`${prefix}/auth/me`);
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  newPasswordConfirm: string
+): Promise<{ message: string }> {
+  return apiPost<{ message: string }>(`${prefix}/auth/change-password`, {
+    current_password: currentPassword,
+    new_password: newPassword,
+    new_password_confirm: newPasswordConfirm,
+  });
 }
 
 // User management (list, set active)
@@ -327,6 +340,36 @@ export async function triggerImportRange(params: {
   connector?: string;
 }): Promise<unknown> {
   return apiPost(`${prefix}/sync/import-range`, params as Record<string, unknown>);
+}
+
+// Developer teams (persistent for all users)
+export interface DeveloperTeamResponse {
+  id: string;
+  name: string;
+  members: string[];
+}
+
+export async function getDeveloperTeams(): Promise<{ teams: DeveloperTeamResponse[] }> {
+  return apiGet(`${prefix}/teams`);
+}
+
+export async function createDeveloperTeam(
+  name: string,
+  members: string[]
+): Promise<DeveloperTeamResponse> {
+  return apiPost<DeveloperTeamResponse>(`${prefix}/teams`, { name, members });
+}
+
+export async function updateDeveloperTeam(
+  id: string,
+  name: string,
+  members: string[]
+): Promise<DeveloperTeamResponse> {
+  return apiPut<DeveloperTeamResponse>(`${prefix}/teams/${id}`, { name, members });
+}
+
+export async function deleteDeveloperTeam(id: string): Promise<void> {
+  return apiDelete(`${prefix}/teams/${id}`);
 }
 
 export async function getLinearTeams(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<unknown>> {

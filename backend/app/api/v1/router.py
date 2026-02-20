@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     sentry,
     settings,
     sync,
+    teams,
     users,
 )
 from app.core.deps import get_current_user
@@ -32,6 +33,7 @@ api_router.include_router(linear.router, dependencies=[Depends(get_current_user)
 api_router.include_router(metrics.router, dependencies=[Depends(get_current_user)])
 api_router.include_router(repositories.router, dependencies=[Depends(get_current_user)])
 api_router.include_router(developers.router, dependencies=[Depends(get_current_user)])
+api_router.include_router(teams.router, dependencies=[Depends(get_current_user)])
 api_router.include_router(settings.router, dependencies=[Depends(get_current_user)])
 api_router.include_router(sentry.router, dependencies=[Depends(get_current_user)])
 api_router.include_router(cursor.router, dependencies=[Depends(get_current_user)])
