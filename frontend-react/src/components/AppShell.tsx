@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useThemeStore } from '@/stores/theme.js';
 import { useTourStore } from '@/stores/tour.js';
 import { useFiltersStore, formatDateRangeDisplay, getSprintNumber, getSprintDates } from '@/stores/filters.js';
+import { useDeveloperTeamsStore } from '@/stores/developerTeams.js';
+import type { DeveloperTeam } from '@/stores/developerTeams.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
+import { getDevelopers } from '@/api/endpoints.js';
 import type { TimePeriodKey } from '@/stores/filters.js';
 
 const TABS = [
@@ -97,6 +101,10 @@ function isGitHubRoute(pathname: string): boolean {
   );
 }
 
+function isTeamRoute(pathname: string): boolean {
+  return pathname === '/team' || pathname.startsWith('/team/');
+}
+
 interface AppShellProps {
   children: React.ReactNode;
 }
@@ -124,6 +132,7 @@ export function AppShell({ children }: AppShellProps) {
   const showGitHubSidebar = isGitHubRoute(location.pathname);
   const showGreptileSidebar = isGreptileRoute(location.pathname);
   const showSentrySidebar = isSentryRoute(location.pathname);
+  const showTeamSidebar = isTeamRoute(location.pathname);
 
   useEffect(() => {
     if (!datePickerOpen) return;
@@ -233,6 +242,7 @@ export function AppShell({ children }: AppShellProps) {
                   <LinearTeamMultiSelector />
                 </div>
               )}
+              {!showLinearSidebar && <DevTeamSelect />}
             </div>
             <div className="app-shell__filters-right">
             <div className="app-shell__date-range-wrap" ref={sprintPickerRef}>
@@ -487,10 +497,266 @@ export function AppShell({ children }: AppShellProps) {
           </aside>
           <main className="app-shell__main">{children}</main>
         </div>
+      ) : showTeamSidebar ? (
+        <div className="app-shell__body">
+          <aside className="app-shell__sidebar app-shell__sidebar--with-labels" aria-label="Team section">
+            <TeamSidebar currentPath={location.pathname} />
+          </aside>
+          <main className="app-shell__main">{children}</main>
+        </div>
       ) : (
         <main className="app-shell__main">{children}</main>
       )}
     </div>
+  );
+}
+
+// ─── Dev Team Select (top filter bar) ───────────────────────────────────────
+
+function DevTeamSelect() {
+  const teams = useDeveloperTeamsStore((s) => s.teams);
+  const activeTeamId = useDeveloperTeamsStore((s) => s.activeTeamId);
+  const setActiveTeamId = useDeveloperTeamsStore((s) => s.setActiveTeamId);
+  const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
+
+  if (teams.length === 0) return null;
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === '') {
+      setActiveTeamId(null);
+      setDeveloperLogins(new Set());
+    } else {
+      const team = teams.find((t) => t.id === val);
+      if (team) {
+        setActiveTeamId(team.id);
+        setDeveloperLogins(new Set(team.members));
+      }
+    }
+  };
+
+  return (
+    <div className="app-shell__filter-row">
+      <span className="app-shell__filter-label">Dev team</span>
+      <select
+        className="dev-team-select"
+        value={activeTeamId ?? ''}
+        onChange={handleChange}
+        aria-label="Filter by developer team"
+      >
+        <option value="">All devs</option>
+        {teams.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ─── Team Sidebar ────────────────────────────────────────────────────────────
+
+function TeamSidebar({ currentPath }: { currentPath: string }) {
+  const teams = useDeveloperTeamsStore((s) => s.teams);
+  const activeTeamId = useDeveloperTeamsStore((s) => s.activeTeamId);
+  const addTeam = useDeveloperTeamsStore((s) => s.addTeam);
+  const deleteTeam = useDeveloperTeamsStore((s) => s.deleteTeam);
+  const setActiveTeamId = useDeveloperTeamsStore((s) => s.setActiveTeamId);
+  const setDeveloperLogins = useFiltersStore((s) => s.setDeveloperLogins);
+  const getStartEnd = useFiltersStore((s) => s.getStartEnd);
+  const { startDate, endDate } = getStartEnd();
+
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editMembers, setEditMembers] = useState<Set<string>>(new Set());
+  const updateTeam = useDeveloperTeamsStore((s) => s.updateTeam);
+
+  const { data } = useQuery({
+    queryKey: ['developers', startDate, endDate, null],
+    queryFn: () => getDevelopers({ start_date: startDate, end_date: endDate }),
+  });
+  const allDevs = data?.developers ?? [];
+
+  const selectTeam = (team: DeveloperTeam) => {
+    if (activeTeamId === team.id) {
+      setActiveTeamId(null);
+      setDeveloperLogins(new Set());
+    } else {
+      setActiveTeamId(team.id);
+      setDeveloperLogins(new Set(team.members));
+    }
+  };
+
+  const handleCreate = () => {
+    if (!newName.trim() || selectedMembers.size === 0) return;
+    addTeam(newName.trim(), Array.from(selectedMembers));
+    setNewName('');
+    setSelectedMembers(new Set());
+    setCreating(false);
+  };
+
+  const startEdit = (team: DeveloperTeam) => {
+    setEditId(team.id);
+    setEditName(team.name);
+    setEditMembers(new Set(team.members));
+    setCreating(false);
+  };
+
+  const handleUpdate = () => {
+    if (!editId || !editName.trim() || editMembers.size === 0) return;
+    updateTeam(editId, editName.trim(), Array.from(editMembers));
+    if (activeTeamId === editId) {
+      setDeveloperLogins(new Set(editMembers));
+    }
+    setEditId(null);
+  };
+
+  const toggleMember = (login: string, members: Set<string>, setMembers: (s: Set<string>) => void) => {
+    const next = new Set(members);
+    if (next.has(login)) next.delete(login);
+    else next.add(login);
+    setMembers(next);
+  };
+
+  const overviewActive = currentPath === '/team';
+
+  return (
+    <>
+      <Link
+        to="/team"
+        className={overviewActive ? 'active' : ''}
+        aria-current={overviewActive ? 'page' : undefined}
+      >
+        <span className="app-shell__sidebar-icon">👥</span>
+        <span className="app-shell__sidebar-label">Overview</span>
+      </Link>
+
+      <span className="app-shell__sidebar-section">Teams</span>
+
+      {teams.map((team) => {
+        const isActive = activeTeamId === team.id;
+        const isEditing = editId === team.id;
+
+        if (isEditing) {
+          return (
+            <div key={team.id} className="team-sidebar__form">
+              <input
+                className="team-sidebar__input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Team name"
+                autoFocus
+              />
+              <div className="team-sidebar__members-list">
+                {allDevs.map((d) => (
+                  <label key={d.login} className="team-sidebar__member-row">
+                    <input
+                      type="checkbox"
+                      checked={editMembers.has(d.login)}
+                      onChange={() => toggleMember(d.login, editMembers, setEditMembers)}
+                    />
+                    <span>{d.login}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="team-sidebar__form-actions">
+                <button className="team-sidebar__save-btn" onClick={handleUpdate} disabled={!editName.trim() || editMembers.size === 0}>
+                  Save
+                </button>
+                <button className="team-sidebar__cancel-btn" onClick={() => setEditId(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={team.id} className={`team-sidebar__team-item${isActive ? ' team-sidebar__team-item--active' : ''}`}>
+            <button
+              className="team-sidebar__team-btn"
+              onClick={() => selectTeam(team)}
+              title={`${team.members.length} member${team.members.length !== 1 ? 's' : ''}`}
+            >
+              <span className="app-shell__sidebar-icon">🏷</span>
+              <span className="app-shell__sidebar-label">{team.name}</span>
+              <span className="team-sidebar__member-count">{team.members.length}</span>
+            </button>
+            <div className="team-sidebar__team-actions">
+              <button
+                className="team-sidebar__action-btn"
+                onClick={() => startEdit(team)}
+                aria-label={`Edit ${team.name}`}
+                title="Edit"
+              >
+                ✎
+              </button>
+              <button
+                className="team-sidebar__action-btn team-sidebar__action-btn--delete"
+                onClick={() => deleteTeam(team.id)}
+                aria-label={`Delete ${team.name}`}
+                title="Delete"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {!creating && !editId && (
+        <button className="team-sidebar__new-btn" onClick={() => setCreating(true)}>
+          <span className="app-shell__sidebar-icon">+</span>
+          <span className="app-shell__sidebar-label">New team</span>
+        </button>
+      )}
+
+      {creating && (
+        <div className="team-sidebar__form">
+          <input
+            className="team-sidebar__input"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Team name"
+            autoFocus
+          />
+          <div className="team-sidebar__members-list">
+            {allDevs.length === 0 && (
+              <span className="team-sidebar__empty">No developers found</span>
+            )}
+            {allDevs.map((d) => (
+              <label key={d.login} className="team-sidebar__member-row">
+                <input
+                  type="checkbox"
+                  checked={selectedMembers.has(d.login)}
+                  onChange={() => toggleMember(d.login, selectedMembers, setSelectedMembers)}
+                />
+                <span>{d.login}</span>
+              </label>
+            ))}
+          </div>
+          <div className="team-sidebar__form-actions">
+            <button
+              className="team-sidebar__save-btn"
+              onClick={handleCreate}
+              disabled={!newName.trim() || selectedMembers.size === 0}
+            >
+              Save
+            </button>
+            <button
+              className="team-sidebar__cancel-btn"
+              onClick={() => { setCreating(false); setNewName(''); setSelectedMembers(new Set()); }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
