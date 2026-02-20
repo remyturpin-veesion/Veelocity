@@ -14,9 +14,9 @@ _backend_root = Path(__file__).resolve().parent.parent
 if str(_backend_root) not in sys.path:
     sys.path.insert(0, str(_backend_root))
 
-from sqlalchemy import text
+from sqlalchemy import text  # noqa: E402
 
-from app.core.database import async_session_maker
+from app.core.database import async_session_maker  # noqa: E402
 
 
 def main() -> None:

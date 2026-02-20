@@ -12,10 +12,10 @@ _backend_root = Path(__file__).resolve().parent.parent
 if str(_backend_root) not in sys.path:
     sys.path.insert(0, str(_backend_root))
 
-from sqlalchemy import select
+from sqlalchemy import select  # noqa: E402
 
-from app.core.database import async_session_maker
-from app.models.user import User
+from app.core.database import async_session_maker  # noqa: E402
+from app.models.user import User  # noqa: E402
 
 
 async def main(email: str) -> None:

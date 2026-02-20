@@ -22,6 +22,7 @@ def _mock_user():
         email="test@example.com",
         password_hash="",
         created_at=datetime.utcnow(),
+        is_active=True,
     )
 
 
@@ -52,6 +53,7 @@ async def test_register_returns_token_and_user(client: AsyncClient):
             email="newuser@example.com",
             password_hash="hash",
             created_at=datetime.utcnow(),
+            is_active=True,
         )
         mock_register.return_value = mock_user
         response = await client.post(
@@ -88,6 +90,7 @@ async def test_login_returns_token(client: AsyncClient):
             email="login@example.com",
             password_hash="hash",
             created_at=datetime.utcnow(),
+            is_active=True,
         )
         mock_auth.return_value = mock_user
         response = await client.post(
