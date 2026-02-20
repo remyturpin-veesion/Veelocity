@@ -3409,6 +3409,28 @@ button {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--surface-border);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+}
+
+.settings-section--collapsed .settings-section__header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-section__chevron {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.settings-section--collapsed .settings-section__chevron {
+  transform: rotate(-90deg);
 }
 
 .settings-section__icon {

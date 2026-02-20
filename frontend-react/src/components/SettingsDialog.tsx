@@ -3,6 +3,17 @@ import { getSettings, getGitHubOAuthStatus, updateSettings, testSentryConnection
 import { baseUrl } from '@/api/client.js';
 import { GitHubRepoMultiSelect } from '@/components/GitHubRepoMultiSelect.js';
 
+const SETTINGS_CATEGORY_IDS = ['github', 'cursor', 'greptile', 'sentry', 'linear'] as const;
+type SettingsCategoryId = (typeof SETTINGS_CATEGORY_IDS)[number];
+
+const defaultExpanded: Record<SettingsCategoryId, boolean> = {
+  github: false,
+  cursor: false,
+  greptile: false,
+  sentry: false,
+  linear: false,
+};
+
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
@@ -38,9 +49,15 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [sentryTestLoading, setSentryTestLoading] = useState(false);
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [githubOAuthEnabled, setGithubOAuthEnabled] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<SettingsCategoryId, boolean>>(defaultExpanded);
   const [dialogPosition, setDialogPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  const expandAll = () => setExpandedSections({ github: true, cursor: true, greptile: true, sentry: true, linear: true });
+  const collapseAll = () => setExpandedSections({ ...defaultExpanded });
+  const toggleSection = (id: SettingsCategoryId) =>
+    setExpandedSections((prev) => ({ ...prev, [id]: !prev[id] }));
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; dialogX: number; dialogY: number } | null>(null);
   const setDraggingRef = useRef(setIsDragging);
   setDraggingRef.current = setIsDragging;
@@ -301,28 +318,76 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          style={{
-            margin: '0 0 20px',
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            cursor: isDragging ? 'grabbing' : 'grab',
-            userSelect: 'none',
-          }}
-          onMouseDown={handleDragStart}
-        >
-          Settings
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              cursor: isDragging ? 'grabbing' : 'grab',
+              userSelect: 'none',
+            }}
+            onMouseDown={handleDragStart}
+          >
+            Settings
+          </h2>
+          {!loading && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={expandAll}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--surface-border)',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  fontWeight: 500,
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                onClick={collapseAll}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--surface-border)',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  fontWeight: 500,
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Collapse all
+              </button>
+            </div>
+          )}
+        </div>
         {loading && <div className="loading">Loading…</div>}
         {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
         {!loading && (
           <>
-            <section className="settings-section settings-section--github" aria-labelledby="settings-github-title">
-              <div className="settings-section__header">
+            <section
+              className={`settings-section settings-section--github${!expandedSections.github ? ' settings-section--collapsed' : ''}`}
+              aria-labelledby="settings-github-title"
+            >
+              <div
+                className="settings-section__header"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleSection('github')}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggleSection('github'))}
+                aria-expanded={expandedSections.github}
+              >
                 <div className="settings-section__icon" aria-hidden>G</div>
                 <div className="settings-section__title-wrap">
                   <h3 id="settings-github-title" className="settings-section__title">GitHub</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
                     <span
                       style={{
                         fontSize: '0.75rem',
@@ -380,7 +445,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     )}
                   </div>
                 </div>
+                <span className="settings-section__chevron" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
               </div>
+              {expandedSections.github && (
               <div className="settings-section__body">
                 {githubOAuthEnabled ? (
                   <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -410,10 +479,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </p>
                 )}
               </div>
+              )}
             </section>
 
-            <section className="settings-section settings-section--cursor" aria-labelledby="settings-cursor-title">
-              <div className="settings-section__header">
+            <section
+              className={`settings-section settings-section--cursor${!expandedSections.cursor ? ' settings-section--collapsed' : ''}`}
+              aria-labelledby="settings-cursor-title"
+            >
+              <div
+                className="settings-section__header"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleSection('cursor')}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggleSection('cursor'))}
+                aria-expanded={expandedSections.cursor}
+              >
                 <div className="settings-section__icon" aria-hidden>C</div>
                 <div className="settings-section__title-wrap">
                   <h3 id="settings-cursor-title" className="settings-section__title">Cursor</h3>
@@ -433,7 +513,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {cursorConfigured ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
+                <span className="settings-section__chevron" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
               </div>
+              {expandedSections.cursor && (
               <div className="settings-section__body">
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                   Connect your Cursor team via Admin API key to see team size, usage, and spend on the dashboard. Create a key in{' '}
@@ -486,10 +570,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   )}
                 </div>
               </div>
+              )}
             </section>
 
-            <section className="settings-section settings-section--greptile" aria-labelledby="settings-greptile-title">
-              <div className="settings-section__header">
+            <section
+              className={`settings-section settings-section--greptile${!expandedSections.greptile ? ' settings-section--collapsed' : ''}`}
+              aria-labelledby="settings-greptile-title"
+            >
+              <div
+                className="settings-section__header"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleSection('greptile')}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggleSection('greptile'))}
+                aria-expanded={expandedSections.greptile}
+              >
                 <div className="settings-section__icon" aria-hidden>G</div>
                 <div className="settings-section__title-wrap">
                   <h3 id="settings-greptile-title" className="settings-section__title">Greptile</h3>
@@ -509,7 +604,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {greptileConfigured ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
+                <span className="settings-section__chevron" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
               </div>
+              {expandedSections.greptile && (
               <div className="settings-section__body">
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                   Connect Greptile to see indexed repositories and codebase metrics on the dashboard. Get your API key at{' '}
@@ -561,10 +660,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   )}
                 </div>
               </div>
+              )}
             </section>
 
-            <section className="settings-section settings-section--sentry" aria-labelledby="settings-sentry-title">
-              <div className="settings-section__header">
+            <section
+              className={`settings-section settings-section--sentry${!expandedSections.sentry ? ' settings-section--collapsed' : ''}`}
+              aria-labelledby="settings-sentry-title"
+            >
+              <div
+                className="settings-section__header"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleSection('sentry')}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggleSection('sentry'))}
+                aria-expanded={expandedSections.sentry}
+              >
                 <div className="settings-section__icon" aria-hidden>S</div>
                 <div className="settings-section__title-wrap">
                   <h3 id="settings-sentry-title" className="settings-section__title">Sentry</h3>
@@ -584,7 +694,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {sentryConfigured ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
+                <span className="settings-section__chevron" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
               </div>
+              {expandedSections.sentry && (
               <div className="settings-section__body">
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                   Connect Sentry to link to your project and test the API. Create an auth token in Sentry → Settings → Account → API → Auth Tokens (scopes: project:read, event:read, org:read).
@@ -712,10 +826,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   )}
                 </div>
               </div>
+              )}
             </section>
 
-            <section className="settings-section settings-section--linear" aria-labelledby="settings-linear-title">
-              <div className="settings-section__header">
+            <section
+              className={`settings-section settings-section--linear${!expandedSections.linear ? ' settings-section--collapsed' : ''}`}
+              aria-labelledby="settings-linear-title"
+            >
+              <div
+                className="settings-section__header"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleSection('linear')}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggleSection('linear'))}
+                aria-expanded={expandedSections.linear}
+              >
                 <div className="settings-section__icon" aria-hidden>L</div>
                 <div className="settings-section__title-wrap">
                   <h3 id="settings-linear-title" className="settings-section__title">Linear</h3>
@@ -735,7 +860,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {linearConfigured ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
+                <span className="settings-section__chevron" aria-hidden>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
               </div>
+              {expandedSections.linear && (
               <div className="settings-section__body">
                 <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '0.875rem' }}>Linear API key</label>
                 <input
@@ -770,6 +899,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   }}
                 />
               </div>
+              )}
             </section>
 
             <footer className="settings-dialog__footer">

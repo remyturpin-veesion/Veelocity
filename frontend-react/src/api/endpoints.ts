@@ -45,6 +45,7 @@ export interface AuthUser {
   id: number;
   email: string;
   is_active?: boolean;
+  last_login_at?: string | null;
 }
 
 export interface TokenResponse {
@@ -96,6 +97,18 @@ export async function getUsers(): Promise<AuthUser[]> {
 
 export async function setUserActive(userId: number, isActive: boolean): Promise<AuthUser> {
   return apiPatch<AuthUser>(`${prefix}/users/${userId}`, { is_active: isActive });
+}
+
+export async function createUser(
+  email: string,
+  password: string,
+  isActive: boolean
+): Promise<AuthUser> {
+  return apiPost<AuthUser>(`${prefix}/users`, { email, password, is_active: isActive });
+}
+
+export async function deleteUser(userId: number): Promise<void> {
+  return apiDelete(`${prefix}/users/${userId}`);
 }
 
 type RepositoriesResponse = {

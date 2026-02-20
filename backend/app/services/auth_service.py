@@ -45,6 +45,25 @@ async def register_user(db: AsyncSession, email: str, password: str) -> User:
     return user
 
 
+async def create_user(
+    db: AsyncSession, email: str, password: str, is_active: bool
+) -> User:
+    """Create a new user (admin). Raises ValueError if email already exists."""
+    email_normalized = email.strip().lower()
+    existing = await get_user_by_email(db, email_normalized)
+    if existing:
+        raise ValueError("A user with this email already exists")
+    user = User(
+        email=email_normalized,
+        password_hash=hash_password(password),
+        is_active=is_active,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def authenticate_user(
     db: AsyncSession, email: str, password: str
 ) -> User | None:
@@ -61,6 +80,27 @@ async def list_users(db: AsyncSession) -> list[User]:
     """List all users (for management)."""
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     return list(result.scalars().all())
+
+
+async def record_last_login(db: AsyncSession, user_id: int) -> None:
+    """Set last_login_at to now for the given user (e.g. on successful login)."""
+    from datetime import datetime
+
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        return
+    user.last_login_at = datetime.utcnow()
+    await db.commit()
+
+
+async def delete_user(db: AsyncSession, user_id: int) -> bool:
+    """Hard-delete a user by id. Returns True if deleted, False if not found."""
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        return False
+    await db.delete(user)
+    await db.commit()
+    return True
 
 
 async def set_user_active(db: AsyncSession, user_id: int, is_active: bool) -> User | None:

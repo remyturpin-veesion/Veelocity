@@ -23,7 +23,12 @@ from app.schemas.auth import (
     UserOut,
 )
 from app.models.user import User
-from app.services.auth_service import authenticate_user, change_password, register_user
+from app.services.auth_service import (
+    authenticate_user,
+    change_password,
+    record_last_login,
+    register_user,
+)
 from app.services.credentials import CredentialsService
 
 logger = logging.getLogger(__name__)
@@ -85,6 +90,8 @@ async def auth_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account pending activation. An active member must activate your account before you can sign in.",
         )
+    await record_last_login(db, user.id)
+    await db.refresh(user)
     access_token = create_access_token(subject=user.id)
     return Token(
         access_token=access_token,

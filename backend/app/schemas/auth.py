@@ -1,5 +1,7 @@
 """Pydantic schemas for user registration, login, and token responses."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -8,6 +10,14 @@ class UserCreate(BaseModel):
 
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=2048)
+
+
+class UserCreateAdmin(BaseModel):
+    """Payload for creating a new user (by an active user)."""
+
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=2048)
+    is_active: bool = False
 
 
 class UserLogin(BaseModel):
@@ -23,6 +33,7 @@ class UserOut(BaseModel):
     id: int
     email: str
     is_active: bool = True
+    last_login_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
