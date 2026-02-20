@@ -19,6 +19,7 @@ class GitHubConnector(BaseConnector):
         self._token = token
         self._repos = repos
         self._rate_limit_logged = False  # Only log once per sync when sync limit is hit
+        self._github_rate_limit_low_logged = False  # Only log once when crossing below pause threshold
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
@@ -51,9 +52,18 @@ class GitHubConnector(BaseConnector):
 
         self._rate_limiter.update_from_github_headers(remaining, reset_timestamp, limit)
 
-        # Log when approaching limit (for visibility)
-        if remaining is not None and remaining < 100:
-            logger.warning(f"GitHub API rate limit low: {remaining} remaining")
+        # Log once when we cross below the pause threshold (avoids log spam; rate limiter will pause)
+        pause = self._rate_limiter.github_pause_threshold
+        if remaining is not None:
+            if remaining < pause:
+                if not self._github_rate_limit_low_logged:
+                    logger.warning(
+                        f"GitHub API rate limit low: {remaining} remaining (pause threshold={pause}); "
+                        "sync will pause until reset if it drops further."
+                    )
+                    self._github_rate_limit_low_logged = True
+            else:
+                self._github_rate_limit_low_logged = False
 
     @property
     def name(self) -> str:

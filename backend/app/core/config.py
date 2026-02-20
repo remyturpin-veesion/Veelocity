@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     )
     rate_limit_max_per_hour: int = 4000  # Max API calls per hour (GitHub limit is 5000)
     rate_limit_delay_ms: int = 100  # Delay between API calls in milliseconds
+    # GitHub API: start throttling when remaining drops below this
+    rate_limit_github_throttle_threshold: int = 300
+    # GitHub API: pause sync and wait for reset when remaining drops below this
+    rate_limit_github_pause_threshold: int = 100
 
     # Greptile bot login (the GitHub username used by Greptile for PR reviews)
     greptile_bot_login: str = "greptile[bot]"

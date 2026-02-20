@@ -263,9 +263,13 @@ def get_rate_limiter() -> RateLimiter:
             max_calls_per_sync=settings.rate_limit_max_per_sync,
             max_calls_per_hour=settings.rate_limit_max_per_hour,
             delay_between_calls=settings.rate_limit_delay_ms / 1000.0,
+            github_throttle_threshold=settings.rate_limit_github_throttle_threshold,
+            github_pause_threshold=settings.rate_limit_github_pause_threshold,
         )
         logger.info(
             f"Rate limiter initialized: {settings.rate_limit_max_per_sync}/sync, "
-            f"{settings.rate_limit_max_per_hour}/hour, {settings.rate_limit_delay_ms}ms delay"
+            f"{settings.rate_limit_max_per_hour}/hour, {settings.rate_limit_delay_ms}ms delay, "
+            f"GitHub throttle below {settings.rate_limit_github_throttle_threshold}, "
+            f"pause below {settings.rate_limit_github_pause_threshold}"
         )
     return _rate_limiter
