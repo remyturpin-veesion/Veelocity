@@ -61,6 +61,7 @@ All variables are set in `infra/docker/.env`. The table below documents every va
 |----------|-------------|---------|
 | `POSTGRES_PASSWORD` | PostgreSQL password | `a-strong-random-password` |
 | `VEELOCITY_ENCRYPTION_KEY` | Fernet key for encrypting API credentials stored in DB | See generation command below |
+| `JWT_SECRET_KEY` | Secret for signing JWT access tokens (user login). **Must** be a long random value in production | See generation command below |
 
 Generate the encryption key:
 
@@ -72,6 +73,12 @@ Or without Python installed:
 
 ```bash
 docker run --rm python:3.11-slim python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Generate the JWT secret:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 ### Database
@@ -91,6 +98,17 @@ docker run --rm python:3.11-slim python -c "from cryptography.fernet import Fern
 | `DEPLOYMENT_PATTERNS` | `deploy,release,publish` | Comma-separated patterns to identify deployment workflows |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Backend URL baked into the frontend at build time |
 | `CORS_ALLOWED_ORIGINS` | — | Production: comma-separated origins (e.g. `https://your-domain.com`); leave empty to allow all |
+
+### GitHub OAuth (optional)
+
+If you want "Connect with GitHub" in Settings, set these (see [GitHub OAuth setup](guides/github-oauth-setup.md)):
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App client ID |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret |
+| `OAUTH_BACKEND_BASE_URL` | Public URL of the backend (e.g. `https://api.veelocity.example.com`) |
+| `OAUTH_FRONTEND_REDIRECT_URL` | URL to redirect after OAuth (e.g. `https://veelocity.example.com`) |
 
 ### Rate limiting (optional)
 

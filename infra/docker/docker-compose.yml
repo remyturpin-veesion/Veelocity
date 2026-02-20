@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veelocity}:${POSTGRES_PASSWORD:-veelocity}@postgres:5432/${POSTGRES_DB:-veelocity}
       DEBUG: ${DEBUG:-true}
       VEELOCITY_ENCRYPTION_KEY: ${VEELOCITY_ENCRYPTION_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production-use-secrets-token-urlsafe-32}
       DEPLOYMENT_PATTERNS: ${DEPLOYMENT_PATTERNS:-deploy,release,publish}
       RATE_LIMIT_MAX_PER_SYNC: ${RATE_LIMIT_MAX_PER_SYNC:-500}
       RATE_LIMIT_MAX_PER_HOUR: ${RATE_LIMIT_MAX_PER_HOUR:-4000}
