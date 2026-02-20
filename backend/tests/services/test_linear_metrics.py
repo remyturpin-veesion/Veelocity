@@ -1,11 +1,18 @@
 """Tests for Linear metrics service."""
 
+from collections import namedtuple
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.metrics.linear_metrics import LinearMetricsService
+
+# Row-like object for get_issues_completed issues list (attribute access)
+_IssuesRow = namedtuple(
+    "_IssuesRow",
+    "id identifier title url assignee_name project_name labels created_at completed_at team_name",
+)
 
 
 def _make_mock_db(
@@ -59,6 +66,29 @@ def _make_mock_db(
         elif "started_at" in stmt_str and "completed_at" in stmt_str:
             result.scalar = MagicMock(return_value=None)
             result.all = MagicMock(return_value=started_completed_rows)
+        elif (
+            "linear_teams" in stmt_str
+            and "linear_issues" in stmt_str
+            and "order by" in stmt_str
+        ):
+            # get_issues_completed issues list (detail rows with attribute access)
+            issues_rows = [
+                _IssuesRow(
+                    i + 1,
+                    f"ISS-{i+1}",
+                    f"Title {i+1}",
+                    "https://example.com/",
+                    "Assignee",
+                    "Project",
+                    "a,b",
+                    d.replace(hour=8, minute=0, second=0, microsecond=0) if d else d,
+                    d,
+                    "Team",
+                )
+                for i, d in enumerate(completed_dates)
+            ]
+            result.scalar = MagicMock(return_value=None)
+            result.all = MagicMock(return_value=issues_rows)
         else:
             result.scalar = MagicMock(return_value=None)
             result.all = MagicMock(return_value=[(d,) for d in completed_dates])

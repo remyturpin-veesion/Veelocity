@@ -110,7 +110,7 @@ export function TeamScreen() {
   const [sortKey, setSortKey] = useState<SortKey>('prs_merged');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  const developers: Developer[] = data?.developers ?? [];
+  const developers = useMemo<Developer[]>(() => data?.developers ?? [], [data?.developers]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {

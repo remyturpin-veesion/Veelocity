@@ -84,22 +84,6 @@ function MetricCell({ snap }: { snap: SentryWeekSnapshot | null }) {
   );
 }
 
-function CurrentCell({ project }: { project: SentryProjectTrend }) {
-  return (
-    <td className="sentry-trends__cell sentry-trends__cell--current">
-      <span className="sentry-trends__errors sentry-trends__errors--now">
-        {formatNum(project.current.events_24h)}
-        <span className="sentry-trends__period-label"> /24h</span>
-      </span>
-      <span className="sentry-trends__errors">
-        {formatNum(project.current.events_7d)}
-        <span className="sentry-trends__period-label"> /7d</span>
-      </span>
-      <span className="sentry-trends__issues">{project.current.open_issues_count} issues</span>
-    </td>
-  );
-}
-
 function SortableHeader({
   col,
   label,
@@ -158,7 +142,7 @@ export function SentryTrendsScreen() {
     }
   };
 
-  const projects = data?.projects ?? [];
+  const projects = useMemo(() => data?.projects ?? [], [data?.projects]);
 
   const displayed = useMemo(() => {
     let list = [...projects];
