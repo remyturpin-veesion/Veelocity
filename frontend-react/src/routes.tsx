@@ -1,6 +1,9 @@
 import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { AuthGuard } from '@/components/AuthGuard.js';
 import { ShellLayout } from '@/components/ShellLayout.js';
+import { LoginScreen } from '@/screens/LoginScreen.js';
+import { RegisterScreen } from '@/screens/RegisterScreen.js';
 
 // Lazy-load screens to reduce initial bundle and memory (helps avoid "Aw, Snap!" / Error code: 5)
 const DashboardScreen = lazy(() => import('@/screens/DashboardScreen.js').then((m) => ({ default: m.DashboardScreen })));
@@ -35,9 +38,15 @@ const LinearBacklogScreen = lazy(() => import('@/screens/metrics/LinearBacklogSc
 const LinearTimeInStateScreen = lazy(() => import('@/screens/metrics/LinearTimeInStateScreen.js').then((m) => ({ default: m.LinearTimeInStateScreen })));
 
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginScreen /> },
+  { path: '/register', element: <RegisterScreen /> },
   {
     path: '/',
-    element: <ShellLayout />,
+    element: (
+      <AuthGuard>
+        <ShellLayout />
+      </AuthGuard>
+    ),
     children: [
       { index: true, element: <DashboardScreen /> },
       { path: 'dora', element: <DoraScreen /> },

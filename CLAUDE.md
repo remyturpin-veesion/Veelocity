@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Veelocity is a single-user developer analytics platform measuring DORA metrics and development performance. It syncs data from GitHub, GitHub Actions, Linear, Cursor, and Greptile to provide insights on deployment frequency, lead time, PR review time, cycle time, and throughput.
 
 **Key characteristics:**
-- Single-user tool (no authentication, no user/org models)
+- User accounts with email/password; JWT auth protects all API routes except `/api/v1/auth/*` and `/api/v1/health`
 - GitHub & Linear credentials stored encrypted in the database (Settings UI); only encryption key in `.env`
 - Python 3.11+ backend with FastAPI + PostgreSQL
 - React frontend (Vite, TypeScript, web) in `frontend-react/`
@@ -78,13 +78,17 @@ Three `.env` file locations depending on dev mode:
 
 ## Architecture
 
-### No Authentication
-Single-user tool. No User/Organization models, no JWT, no sessions.
+### User & Authentication
+- **User model:** `app/models/user.py` — email (unique), password_hash, created_at.
+- **Auth endpoints:** `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`. GitHub OAuth remains at `/api/v1/auth/github` for Settings.
+- **Security:** Passwords hashed with bcrypt (passlib). JWT access tokens (HS256) via `JWT_SECRET_KEY`; set in `.env` (required in production).
+- **Protection:** All API routes except auth and health require `Authorization: Bearer <token>`. Dependency `get_current_user` in `app/core/deps.py`.
 
 ### Credentials Management
 GitHub and Linear API keys are stored encrypted in the database. Configure them in the app via **Settings** (gear icon). The backend does not read these from `.env`.
 
 - **Encryption:** Set `VEELOCITY_ENCRYPTION_KEY` in `.env` (Fernet key, base64). Generate with: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Without it, the Settings UI cannot save API keys.
+- **JWT:** Set `JWT_SECRET_KEY` in `.env` for user login (e.g. `python -c "import secrets; print(secrets.token_urlsafe(32))"`). Default in code is a placeholder; use a strong secret in production.
 - **GitHub:** API key and repos (comma-separated `owner/repo1,owner/repo2`) — set in Settings.
 - **Linear:** API key (Linear → Settings → API) and optional workspace name — set in Settings.
 - **Sync:** `DEPLOYMENT_PATTERNS` (comma-separated: "deploy,release,publish") remains in `.env`.

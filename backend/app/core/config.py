@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     # CORS: comma-separated origins (e.g. https://veelocity.example.com). If empty, allow all (dev-friendly).
     cors_allowed_origins: str = ""
 
+    # JWT auth (required for user login). Use a long random secret in production.
+    # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    jwt_secret_key: str = Field(
+        default="change-me-in-production-use-secrets-token-urlsafe-32",
+        validation_alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
 
 settings = Settings()
 

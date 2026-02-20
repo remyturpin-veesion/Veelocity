@@ -1,4 +1,5 @@
 from app.models.app_settings import AppSettings
+from app.models.user import User
 from app.models.cursor import (
     CursorDau,
     CursorDailyUsage,
@@ -22,6 +23,7 @@ from app.models.sync import SyncState
 
 __all__ = [
     "AppSettings",
+    "User",
     "Repository",
     "PullRequest",
     "PRReview",

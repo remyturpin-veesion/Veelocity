@@ -1,11 +1,15 @@
 """Tests for export API endpoints."""
 
-import pytest
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.main import app
+from app.models.user import User
 
 
 async def _mock_get_db():
@@ -13,10 +17,23 @@ async def _mock_get_db():
     yield AsyncMock()
 
 
+def _mock_user():
+    return User(
+        id=1,
+        email="test@example.com",
+        password_hash="",
+        created_at=datetime.utcnow(),
+    )
+
+
 @pytest.fixture
 async def client():
     """Async test client for FastAPI app."""
     app.dependency_overrides[get_db] = _mock_get_db
+    async def _override_get_current_user():
+        return _mock_user()
+
+    app.dependency_overrides[get_current_user] = _override_get_current_user
     try:
         async with AsyncClient(
             transport=ASGITransport(app=app),
@@ -25,6 +42,7 @@ async def client():
             yield ac
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio

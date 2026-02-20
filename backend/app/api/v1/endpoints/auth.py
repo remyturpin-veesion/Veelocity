@@ -1,17 +1,22 @@
-"""GitHub OAuth: authorize redirect and callback to store access token."""
+"""User auth (register, login, me) and GitHub OAuth (authorize redirect and callback)."""
 
 import logging
 import secrets
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.encryption import encryption_available
+from app.core.security import create_access_token
+from app.schemas.auth import RegisterResponse, Token, UserCreate, UserLogin, UserOut
+from app.models.user import User
+from app.services.auth_service import authenticate_user, register_user
 from app.services.credentials import CredentialsService
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,65 @@ GITHUB_SCOPES = "repo,read:org,read:user"
 def _oauth_available() -> bool:
     return bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
 
+
+# ---- Email/password auth ----
+
+@router.post("/register", response_model=Token | RegisterResponse)
+async def auth_register(
+    body: UserCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new user account. If active (e.g. first user), returns token. Else returns message."""
+    try:
+        user = await register_user(db, body.email, body.password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    if user.is_active:
+        access_token = create_access_token(subject=user.id)
+        return Token(
+            access_token=access_token,
+            user=UserOut.model_validate(user),
+        )
+    return RegisterResponse(
+        user=UserOut.model_validate(user),
+        message="Your account has been created. An active member must activate it before you can sign in.",
+    )
+
+
+@router.post("/login", response_model=Token)
+async def auth_login(
+    body: UserLogin,
+    db: AsyncSession = Depends(get_db),
+):
+    """Authenticate with email and password. Returns access token only if user is active."""
+    user = await authenticate_user(db, body.email, body.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending activation. An active member must activate your account before you can sign in.",
+        )
+    access_token = create_access_token(subject=user.id)
+    return Token(
+        access_token=access_token,
+        user=UserOut.model_validate(user),
+    )
+
+
+@router.get("/me", response_model=UserOut)
+async def auth_me(current_user: User = Depends(get_current_user)):
+    """Return the currently authenticated user (requires Bearer token)."""
+    return UserOut.model_validate(current_user)
+
+
+# ---- GitHub OAuth (for Settings "Connect with GitHub") ----
 
 @router.get("/github/status")
 async def auth_github_status():

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth.js';
 import { useThemeStore } from '@/stores/theme.js';
 import { useTourStore } from '@/stores/tour.js';
 import { useFiltersStore, formatDateRangeDisplay, getSprintNumber, getSprintDates } from '@/stores/filters.js';
@@ -9,6 +10,7 @@ import type { DeveloperTeam } from '@/stores/developerTeams.js';
 import { RepoMultiSelector } from '@/components/RepoMultiSelector.js';
 import { LinearTeamMultiSelector } from '@/components/LinearTeamMultiSelector.js';
 import { SettingsDialog } from '@/components/SettingsDialog.js';
+import { UserManagementDialog } from '@/components/UserManagementDialog.js';
 import { getDevelopers } from '@/api/endpoints.js';
 import type { TimePeriodKey } from '@/stores/filters.js';
 
@@ -111,7 +113,13 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const hasCompletedTour = useTourStore((s) => s.hasCompletedTour);
@@ -157,6 +165,17 @@ export function AppShell({ children }: AppShellProps) {
   }, [sprintPickerOpen]);
 
   useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside, { capture: true });
+    return () => document.removeEventListener('mousedown', handleClickOutside, { capture: true });
+  }, [userMenuOpen]);
+
+  useEffect(() => {
     if (hasCompletedTour) return;
     const timer = setTimeout(() => startTour(), 600);
     return () => clearTimeout(timer);
@@ -165,6 +184,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <UserManagementDialog open={userManagementOpen} onClose={() => setUserManagementOpen(false)} />
       <div className="app-shell__sticky-header">
       <header className="app-shell__top">
         <Link to="/" className="app-shell__logo" aria-label="Veelocity home">
@@ -225,6 +245,42 @@ export function AppShell({ children }: AppShellProps) {
         >
           ⚙️
         </button>
+        <div className="app-shell__user-menu-wrap" ref={userMenuRef}>
+          <button
+            type="button"
+            className="app-shell__user-email-btn"
+            onClick={() => setUserMenuOpen((o) => !o)}
+            title={user?.email ?? ''}
+            aria-expanded={userMenuOpen}
+            aria-haspopup="true"
+          >
+            {user?.email ?? ''}
+          </button>
+          {userMenuOpen && (
+            <div className="app-shell__user-dropdown">
+              <button
+                type="button"
+                className="app-shell__user-dropdown-item"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  setUserManagementOpen(true);
+                }}
+              >
+                User management
+              </button>
+              <button
+                type="button"
+                className="app-shell__user-dropdown-item"
+                onClick={() => {
+                  logout();
+                  navigate('/login', { replace: true });
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          )}
+        </div>
       </header>
       {location.pathname !== '/data-coverage' && (
         <div className="app-shell__filters" data-tour="global-filters">

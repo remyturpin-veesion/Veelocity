@@ -1,5 +1,6 @@
 import {
   apiGet,
+  apiPatch,
   apiPost,
   apiPut,
 } from './client.js';
@@ -36,6 +37,52 @@ const prefix = '/api/v1';
 
 export async function healthCheck(): Promise<{ status: string }> {
   return apiGet(`${prefix}/health`);
+}
+
+// Auth (email/password)
+export interface AuthUser {
+  id: number;
+  email: string;
+  is_active?: boolean;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+/** Response when signup succeeds but user is not yet active (no token). */
+export interface RegisterPendingResponse {
+  user: AuthUser;
+  message: string;
+}
+
+export async function register(
+  email: string,
+  password: string
+): Promise<TokenResponse | RegisterPendingResponse> {
+  return apiPost<TokenResponse | RegisterPendingResponse>(`${prefix}/auth/register`, {
+    email,
+    password,
+  });
+}
+
+export async function login(email: string, password: string): Promise<TokenResponse> {
+  return apiPost<TokenResponse>(`${prefix}/auth/login`, { email, password });
+}
+
+export async function getMe(): Promise<AuthUser> {
+  return apiGet<AuthUser>(`${prefix}/auth/me`);
+}
+
+// User management (list, set active)
+export async function getUsers(): Promise<AuthUser[]> {
+  return apiGet<AuthUser[]>(`${prefix}/users`);
+}
+
+export async function setUserActive(userId: number, isActive: boolean): Promise<AuthUser> {
+  return apiPatch<AuthUser>(`${prefix}/users/${userId}`, { is_active: isActive });
 }
 
 type RepositoriesResponse = {
