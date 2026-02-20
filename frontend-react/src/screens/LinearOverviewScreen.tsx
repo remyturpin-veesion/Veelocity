@@ -21,13 +21,16 @@ export function LinearOverviewScreen() {
   useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const { startDate, endDate } = getStartEnd();
-  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  useFiltersStore((s) => s.teamIds);
+  useFiltersStore((s) => s.developerLogins);
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const teamIdsParam = getTeamIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['linear', 'overview', startDate, endDate, teamIdsParam],
+    queryKey: ['linear', 'overview', startDate, endDate, teamIdsParam, developerLoginsParam],
     queryFn: () =>
       getLinearOverview({
         start_date: startDate,
@@ -37,6 +40,7 @@ export function LinearOverviewScreen() {
             ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
             : undefined,
         no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
+        developer_logins: developerLoginsParam,
       }),
   });
 

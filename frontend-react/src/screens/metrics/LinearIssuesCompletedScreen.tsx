@@ -420,10 +420,13 @@ export function LinearIssuesCompletedScreen() {
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   useFiltersStore((s) => s.teamIds);
+  useFiltersStore((s) => s.developerLogins);
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const activeSprint = useFiltersStore((s) => s.activeSprint);
 
   const teamIdsParam = getTeamIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const { startDate, endDate } = getStartEnd();
   const period = getChartPeriod();
 
@@ -448,30 +451,30 @@ export function LinearIssuesCompletedScreen() {
   const allTimeEnd = new Date().toISOString().slice(0, 10);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam, period],
+    queryKey: ['metrics', 'linear', 'issues-completed', startDate, endDate, teamIdsParam, developerLoginsParam, period],
     queryFn: () =>
-      getLinearIssuesCompleted({ start_date: startDate, end_date: endDate, period, ...teamParams }),
+      getLinearIssuesCompleted({ start_date: startDate, end_date: endDate, period, ...teamParams, developer_logins: developerLoginsParam }),
   });
 
   const { data: dataN2 } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', sN2, eN2, teamIdsParam, 'day'],
+    queryKey: ['metrics', 'linear', 'issues-completed', sN2, eN2, teamIdsParam, developerLoginsParam, 'day'],
     queryFn: () =>
-      getLinearIssuesCompleted({ start_date: sN2, end_date: eN2, period: 'day', ...teamParams }),
+      getLinearIssuesCompleted({ start_date: sN2, end_date: eN2, period: 'day', ...teamParams, developer_logins: developerLoginsParam }),
     enabled: sprintN2 !== sprintN,
   });
 
   const { data: dataN1 } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', sN1, eN1, teamIdsParam, 'day'],
+    queryKey: ['metrics', 'linear', 'issues-completed', sN1, eN1, teamIdsParam, developerLoginsParam, 'day'],
     queryFn: () =>
-      getLinearIssuesCompleted({ start_date: sN1, end_date: eN1, period: 'day', ...teamParams }),
+      getLinearIssuesCompleted({ start_date: sN1, end_date: eN1, period: 'day', ...teamParams, developer_logins: developerLoginsParam }),
     enabled: sprintN1 !== sprintN,
   });
 
   const isMainQuerySprintN = activeSprint !== null && sN === startDate && eN === endDate;
   const { data: dataN } = useQuery({
-    queryKey: ['metrics', 'linear', 'issues-completed', sN, eN, teamIdsParam, 'day'],
+    queryKey: ['metrics', 'linear', 'issues-completed', sN, eN, teamIdsParam, developerLoginsParam, 'day'],
     queryFn: () =>
-      getLinearIssuesCompleted({ start_date: sN, end_date: eN, period: 'day', ...teamParams }),
+      getLinearIssuesCompleted({ start_date: sN, end_date: eN, period: 'day', ...teamParams, developer_logins: developerLoginsParam }),
     enabled: !isMainQuerySprintN,
   });
 
@@ -483,6 +486,7 @@ export function LinearIssuesCompletedScreen() {
       allTimeStart,
       allTimeEnd,
       teamIdsParam,
+      developerLoginsParam,
       'day',
     ],
     queryFn: () =>
@@ -491,6 +495,7 @@ export function LinearIssuesCompletedScreen() {
         end_date: allTimeEnd,
         period: 'day',
         ...teamParams,
+        developer_logins: developerLoginsParam,
       }),
   });
 

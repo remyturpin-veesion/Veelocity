@@ -105,21 +105,25 @@ function stripTierPrefix(description: string | undefined, category: string | und
 export function DoraBenchmarksScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const repoIds = getRepoIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
 
   // Use the same query keys as DoraScreen to share cache and ensure identical data
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, 'week'],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, 'week'],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         period: 'week',
         include_trend: true,
         include_benchmark: true,
@@ -128,12 +132,13 @@ export function DoraBenchmarksScreen() {
   });
 
   const leadTime = useQuery({
-    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getLeadTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
         include_benchmark: true,
       }),

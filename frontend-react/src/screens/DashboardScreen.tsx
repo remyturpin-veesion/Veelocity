@@ -58,34 +58,39 @@ function fmtMinutes(v: number | null | undefined): string {
 export function DashboardScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const repoIds = getRepoIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
   const chartPeriod = getChartPeriod();
 
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, chartPeriod],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         period: chartPeriod,
         include_trend: true,
       }),
     enabled: !noReposSelected,
   });
   const leadTime = useQuery({
-    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getLeadTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
       }),
     enabled: !noReposSelected,
@@ -113,24 +118,26 @@ export function DashboardScreen() {
   });
 
   const deploymentFreqChart = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, chartPeriod],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         period: chartPeriod,
       }),
     enabled: !noReposSelected,
   });
   const leadTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds, chartPeriod],
+    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds, developerLoginsParam, chartPeriod],
     queryFn: () =>
       getLeadTimeByPeriod({
         start_date: startDate,
         end_date: endDate,
         period: chartPeriod,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
       }),
     enabled: !noReposSelected,
   });

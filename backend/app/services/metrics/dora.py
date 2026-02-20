@@ -25,6 +25,18 @@ class DORAMetricsService:
     def __init__(self, db: AsyncSession):
         self._db = db
 
+    def _author_list(
+        self,
+        author_login: str | None = None,
+        author_logins: list[str] | None = None,
+    ) -> list[str] | None:
+        """Resolve to a list of author logins for filtering, or None for no filter."""
+        if author_logins is not None:
+            return author_logins
+        if author_login:
+            return [author_login]
+        return None
+
     async def get_deployment_frequency(
         self,
         start_date: datetime,
@@ -33,14 +45,16 @@ class DORAMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> dict:
         """
         Calculate deployment frequency over a period.
 
         Returns count of successful deployments grouped by period.
-        If author_login is specified, only counts deployments where the deployed commit
-        was authored by that developer.
+        If author_login/author_logins is specified, only counts deployments where the deployed commit
+        was authored by that developer(s).
         """
+        authors = self._author_list(author_login=author_login, author_logins=author_logins)
         # Get all successful deployments
         query = (
             select(WorkflowRun)
@@ -65,13 +79,13 @@ class DORAMetricsService:
         # Filter by author if specified
         deployments = []
         for run in workflow_runs:
-            if author_login:
-                # Check if the deployed commit was authored by this developer
+            if authors:
+                # Check if the deployed commit was authored by one of these developers
                 commit_result = await self._db.execute(
                     select(Commit).where(Commit.sha == run.head_sha)
                 )
                 commit = commit_result.scalar_one_or_none()
-                if commit and commit.author_login == author_login:
+                if commit and commit.author_login in authors:
                     deployments.append(run.completed_at)
             else:
                 deployments.append(run.completed_at)
@@ -192,6 +206,7 @@ class DORAMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> dict:
         """
         Calculate lead time for changes.
@@ -204,8 +219,9 @@ class DORAMetricsService:
         3. Find the first commit on that PR
         4. Lead time = deployment time - first commit time
 
-        If author_login is specified, only includes deployments of commits by that author.
+        If author_login/author_logins is specified, only includes deployments of commits by that author(s).
         """
+        authors = self._author_list(author_login=author_login, author_logins=author_logins)
         # Get successful deployments
         deploy_query = (
             select(WorkflowRun)
@@ -240,7 +256,7 @@ class DORAMetricsService:
                 continue
 
             # If filtering by author, check commit author
-            if author_login and commit.author_login != author_login:
+            if authors and commit.author_login not in authors:
                 continue
 
             # Find first commit on the PR
@@ -293,6 +309,7 @@ class DORAMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> list[dict]:
         """
         Lead time median per period (for correlation analysis).
@@ -302,7 +319,7 @@ class DORAMetricsService:
         from datetime import datetime as dt
 
         result = await self.get_lead_time_for_changes(
-            start_date, end_date, repo_id, repo_ids, author_login
+            start_date, end_date, repo_id, repo_ids, author_login, author_logins
         )
         measurements = result.get("measurements") or []
 

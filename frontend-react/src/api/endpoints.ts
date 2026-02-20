@@ -307,6 +307,26 @@ export async function getDeveloperStats(
   return apiGet(`${prefix}/developers/${encodeURIComponent(login)}`, params as Record<string, string | number>);
 }
 
+/** Distinct Linear assignee names (for developer link dropdown). */
+export async function getLinearAssignees(): Promise<{ assignees: string[] }> {
+  return apiGet(`${prefix}/developers/linear-assignees`);
+}
+
+/** Developer → Linear assignee links. */
+export async function getDeveloperLinearLinks(): Promise<{
+  links: Array<{ developer_login: string; linear_assignee_name: string }>;
+}> {
+  return apiGet(`${prefix}/developers/linear-links`);
+}
+
+/** Set or clear Linear assignee for a developer. Pass linear_assignee_name: null to remove. */
+export async function setDeveloperLinearAssignee(
+  login: string,
+  body: { linear_assignee_name: string | null }
+): Promise<{ developer_login: string; linear_assignee_name: string | null }> {
+  return apiPut(`${prefix}/developers/${encodeURIComponent(login)}/linear-assignee`, body);
+}
+
 export async function getSyncCoverage(params?: {
   repo_ids?: number[] | null;
   start_date?: string;
@@ -454,6 +474,7 @@ export async function getDeploymentFrequency(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
@@ -462,7 +483,7 @@ export async function getDeploymentFrequency(params?: {
     period: params?.period ?? 'week',
     include_trend: params?.include_trend ?? false,
     include_benchmark: params?.include_benchmark ?? false,
-  } as Record<string, string | number | boolean | number[]>);
+  } as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getLeadTime(params?: {
@@ -471,10 +492,11 @@ export async function getLeadTime(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/dora/lead-time`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/dora/lead-time`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getDeploymentReliability(params?: {
@@ -508,10 +530,11 @@ export async function getPRReviewTime(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/development/pr-review-time`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/development/pr-review-time`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getPRMergeTime(params?: {
@@ -520,10 +543,11 @@ export async function getPRMergeTime(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/development/pr-merge-time`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/development/pr-merge-time`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getCycleTime(params?: {
@@ -544,10 +568,11 @@ export async function getLeadTimeByPeriod(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
 }): Promise<{ period: string; median_hours: number }[]> {
   const data = await apiGet<{ period: string; median_hours: number }[]>(
     `${prefix}/metrics/dora/lead-time/by-period`,
-    params as Record<string, string | number>
+    params as Record<string, string | number | string[]>
   );
   return Array.isArray(data) ? data : [];
 }
@@ -572,6 +597,7 @@ export async function getThroughput(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   include_trend?: boolean;
   include_benchmark?: boolean;
 }): Promise<unknown> {
@@ -580,7 +606,7 @@ export async function getThroughput(params?: {
     period: params?.period ?? 'week',
     include_trend: params?.include_trend ?? false,
     include_benchmark: params?.include_benchmark ?? false,
-  } as Record<string, string | number | boolean | number[]>);
+  } as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getPRHealth(params?: {
@@ -589,6 +615,7 @@ export async function getPRHealth(params?: {
   repo_id?: number;
   repo_ids?: number[];
   author_login?: string;
+  author_logins?: string[];
   min_score?: number;
   max_score?: number;
   include_summary?: boolean;
@@ -596,7 +623,7 @@ export async function getPRHealth(params?: {
   return apiGet(`${prefix}/metrics/pr-health`, {
     ...params,
     include_summary: params?.include_summary ?? true,
-  } as Record<string, string | number | boolean | number[]>);
+  } as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getReviewerWorkload(params?: {
@@ -640,8 +667,9 @@ export async function getLinearOverview(params?: {
   team_ids?: number[];
   no_teams?: boolean;
   assignee_name?: string;
+  developer_logins?: string[];
 }): Promise<LinearOverview> {
-  return apiGet(`${prefix}/metrics/linear/overview`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/linear/overview`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export interface LinearCompletedIssue {
@@ -674,19 +702,21 @@ export async function getLinearIssuesCompleted(params?: {
   team_ids?: number[];
   no_teams?: boolean;
   assignee_name?: string;
+  developer_logins?: string[];
 }): Promise<LinearIssuesCompletedResponse> {
   return apiGet(`${prefix}/metrics/linear/issues-completed`, {
     ...params,
     period: params?.period ?? 'week',
-  } as Record<string, string | number | boolean | number[]>);
+  } as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getLinearBacklog(params?: {
   team_ids?: number[];
   no_teams?: boolean;
   assignee_name?: string;
+  developer_logins?: string[];
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/linear/backlog`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/linear/backlog`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getLinearTimeInState(params?: {
@@ -695,8 +725,9 @@ export async function getLinearTimeInState(params?: {
   team_ids?: number[];
   no_teams?: boolean;
   assignee_name?: string;
+  developer_logins?: string[];
 }): Promise<unknown> {
-  return apiGet(`${prefix}/metrics/linear/time-in-state`, params as Record<string, string | number | boolean | number[]>);
+  return apiGet(`${prefix}/metrics/linear/time-in-state`, params as Record<string, string | number | boolean | number[] | string[]>);
 }
 
 export async function getExportReport(params?: {

@@ -106,6 +106,7 @@ class PRHealthService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
         min_score: int | None = None,
         max_score: int | None = None,
     ) -> list[PRHealthScore]:
@@ -116,13 +117,15 @@ class PRHealthService:
             start_date: Start of period
             end_date: End of period
             repo_id: Optional repository filter
-            author_login: Optional author filter
+            author_login: Optional author filter (single)
+            author_logins: Optional author filter (multiple)
             min_score: Optional minimum score filter
             max_score: Optional maximum score filter
 
         Returns:
             List of PR health scores, sorted by score (worst first)
         """
+        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
         # Build query (eager load repository to avoid lazy load in async context)
         query = (
             select(PullRequest)
@@ -136,8 +139,8 @@ class PRHealthService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        if author_login:
-            query = query.where(PullRequest.author_login == author_login)
+        if authors:
+            query = query.where(PullRequest.author_login.in_(authors))
 
         result = await self.db.execute(query)
         prs = result.scalars().all()

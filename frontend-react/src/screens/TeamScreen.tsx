@@ -1,11 +1,92 @@
 import { Fragment, useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Select, { type StylesConfig } from 'react-select';
 import { useFiltersStore, AUTHOR_LOGIN_NONE } from '@/stores/filters.js';
-import { getDevelopers, getDeveloperStats } from '@/api/endpoints.js';
+import {
+  getDevelopers,
+  getDeveloperStats,
+  getLinearAssignees,
+  getDeveloperLinearLinks,
+  setDeveloperLinearAssignee,
+} from '@/api/endpoints.js';
 import { KpiCard } from '@/components/KpiCard.js';
 import { EmptyState } from '@/components/EmptyState.js';
 import { PageSummary } from '@/components/PageSummary.js';
 import type { Developer } from '@/types/index.js';
+
+const NONE_LABEL = '— None —';
+
+type Option = { value: string; label: string };
+
+/** Searchable dropdown for Linear assignee selection (react-select; menu portaled for correct positioning). */
+function LinearAssigneeSelect({
+  assignees,
+  value,
+  onChange,
+  disabled,
+  ariaLabel,
+}: {
+  assignees: string[];
+  value: string;
+  onChange: (linear_assignee_name: string | null) => void;
+  disabled: boolean;
+  ariaLabel: string;
+}) {
+  const options = useMemo<Option[]>(
+    () => [{ value: '', label: NONE_LABEL }, ...assignees.map((name) => ({ value: name, label: name }))],
+    [assignees]
+  );
+  const selectedOption: Option | null = value
+    ? { value, label: value }
+    : { value: '', label: NONE_LABEL };
+
+  const selectStyles: StylesConfig<Option> = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 32,
+      backgroundColor: 'var(--surface)',
+      borderColor: state.isFocused ? 'var(--primary)' : 'var(--surface-border)',
+      '&:hover': { borderColor: 'var(--primary)' },
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: 'var(--surface)',
+      border: '1px solid var(--surface-border)',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused
+        ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
+        : state.isSelected
+          ? 'color-mix(in srgb, var(--primary) 15%, transparent)'
+          : 'transparent',
+      color: 'var(--text)',
+    }),
+    singleValue: (base) => ({ ...base, color: 'var(--text)' }),
+    input: (base) => ({ ...base, color: 'var(--text)' }),
+  };
+
+  return (
+    <div className="team-table__linear-dropdown" onClick={(e) => e.stopPropagation()}>
+      <Select<Option>
+        options={options}
+        value={selectedOption}
+        onChange={(opt: Option | null) => onChange(opt && opt.value !== '' ? opt.value : null)}
+        isSearchable
+        isDisabled={disabled}
+        aria-label={ariaLabel}
+        placeholder={NONE_LABEL}
+        menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+        menuPosition="fixed"
+        menuPlacement="auto"
+        classNamePrefix="team-linear-select"
+        styles={selectStyles}
+      />
+    </div>
+  );
+}
 
 function getInitials(login: string): string {
   return login
@@ -100,10 +181,35 @@ export function TeamScreen() {
   const developerLogins = useFiltersStore((s) => s.developerLogins);
   const { startDate, endDate } = getStartEnd();
 
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['developers', startDate, endDate, repoId],
     queryFn: () => getDevelopers({ start_date: startDate, end_date: endDate, repo_id: repoId ?? undefined }),
   });
+  const { data: assigneesData } = useQuery({
+    queryKey: ['developers', 'linear-assignees'],
+    queryFn: getLinearAssignees,
+  });
+  const { data: linksData } = useQuery({
+    queryKey: ['developers', 'linear-links'],
+    queryFn: getDeveloperLinearLinks,
+  });
+  const setLinkMutation = useMutation({
+    mutationFn: ({ login, linear_assignee_name }: { login: string; linear_assignee_name: string | null }) =>
+      setDeveloperLinearAssignee(login, { linear_assignee_name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['developers', 'linear-links'] });
+    },
+  });
+
+  const assignees = useMemo(() => assigneesData?.assignees ?? [], [assigneesData?.assignees]);
+  const linkByLogin = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const l of linksData?.links ?? []) {
+      m[l.developer_login] = l.linear_assignee_name;
+    }
+    return m;
+  }, [linksData?.links]);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -221,6 +327,7 @@ export function TeamScreen() {
                       <SortIcon active={sortKey === 'comments_made'} dir={sortDir} />
                     </button>
                   </th>
+                  <th className="team-table__th team-table__th--linear">Linear assignee</th>
                   <th className="team-table__th team-table__th--expand" aria-label="Details" />
                 </tr>
               </thead>
@@ -246,13 +353,31 @@ export function TeamScreen() {
                         <td className="team-table__td team-table__td--num">{d.prs_merged}</td>
                         <td className="team-table__td team-table__td--num">{d.reviews_given}</td>
                         <td className="team-table__td team-table__td--num">{d.comments_made}</td>
+                        <td
+                          className="team-table__td team-table__td--linear"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <LinearAssigneeSelect
+                            assignees={assignees}
+                            value={linkByLogin[d.login] ?? ''}
+                            onChange={(linear_assignee_name) =>
+                              setLinkMutation.mutate({
+                                login: d.login,
+                                linear_assignee_name,
+                              })
+                            }
+                            disabled={setLinkMutation.isPending}
+                            ariaLabel={`Linear assignee for ${d.login}`}
+                          />
+                        </td>
                         <td className="team-table__td team-table__td--expand">
                           <span className={`team-table__chevron${isOpen ? ' team-table__chevron--open' : ''}`} />
                         </td>
                       </tr>
                       {isOpen && (
                         <tr className="team-table__detail-row">
-                          <td colSpan={6} className="team-table__detail-cell">
+                          <td colSpan={7} className="team-table__detail-cell">
                             <DeveloperDetail
                               login={d.login}
                               startDate={startDate}

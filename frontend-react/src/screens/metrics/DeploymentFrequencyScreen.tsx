@@ -10,22 +10,26 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 export function DeploymentFrequencyScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
   const period = getChartPeriod();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, period],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, period],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         period,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
         include_benchmark: true,
       }),

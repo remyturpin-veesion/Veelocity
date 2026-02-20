@@ -1,4 +1,5 @@
 from app.models.app_settings import AppSettings
+from app.models.developer_linear_link import DeveloperLinearLink
 from app.models.developer_team import DeveloperTeam
 from app.models.user import User
 from app.models.cursor import (
@@ -24,6 +25,7 @@ from app.models.sync import SyncState
 
 __all__ = [
     "AppSettings",
+    "DeveloperLinearLink",
     "DeveloperTeam",
     "User",
     "Repository",

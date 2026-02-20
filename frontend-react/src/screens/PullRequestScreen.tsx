@@ -16,55 +16,62 @@ import { TrendChart } from '@/components/TrendChart.js';
 export function PullRequestScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
   const period = useFiltersStore((s) => s.getChartPeriod)();
 
   const throughput = useQuery({
-    queryKey: ['metrics', 'throughput', startDate, endDate, repoIds, period],
+    queryKey: ['metrics', 'throughput', startDate, endDate, repoIds, developerLoginsParam, period],
     queryFn: () =>
       getThroughput({
         start_date: startDate,
         end_date: endDate,
         period,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
         include_benchmark: true,
       }),
     enabled: !noReposSelected,
   });
   const prReviewTime = useQuery({
-    queryKey: ['metrics', 'pr-review-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'pr-review-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getPRReviewTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
       }),
     enabled: !noReposSelected,
   });
   const prMergeTime = useQuery({
-    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getPRMergeTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
       }),
     enabled: !noReposSelected,
   });
   const prHealth = useQuery({
-    queryKey: ['metrics', 'pr-health', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'pr-health', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getPRHealth({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_summary: true,
       }),
     enabled: !noReposSelected,

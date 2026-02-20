@@ -3828,6 +3828,26 @@ button {
   width: 40px;
 }
 
+.team-table__th--linear {
+  min-width: 140px;
+}
+
+.team-table__td--linear {
+  vertical-align: middle;
+}
+
+.team-table__linear-dropdown {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.team-table__linear-dropdown .team-linear-select__control {
+  border-radius: 6px;
+  font: inherit;
+}
+
 .team-table__sort-btn {
   display: inline-flex;
   align-items: center;

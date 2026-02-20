@@ -157,23 +157,27 @@ function RecommendationRow({ r }: { r: Recommendation }) {
 export function DoraScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const getChartPeriod = useFiltersStore((s) => s.getChartPeriod);
   const getRepoIdsForApi = useFiltersStore((s) => s.getRepoIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const repoIds = getRepoIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
   const chartPeriod = getChartPeriod();
 
   // Week-based query for the KPI card (matches DORA benchmark definitions)
   const deploymentFreqWeekly = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, 'week'],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, 'week'],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         period: 'week',
         include_trend: true,
         include_benchmark: true,
@@ -183,12 +187,13 @@ export function DoraScreen() {
 
   // Chart-period query for the trend chart
   const deploymentFreq = useQuery({
-    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, chartPeriod],
+    queryKey: ['metrics', 'deployment-frequency', startDate, endDate, repoIds, developerLoginsParam, chartPeriod],
     queryFn: () =>
       getDeploymentFrequency({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         period: chartPeriod,
         include_trend: true,
         include_benchmark: true,
@@ -197,12 +202,13 @@ export function DoraScreen() {
   });
 
   const leadTime = useQuery({
-    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'lead-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getLeadTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
         include_benchmark: true,
       }),
@@ -210,13 +216,14 @@ export function DoraScreen() {
   });
 
   const leadTimeByPeriod = useQuery({
-    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds, chartPeriod],
+    queryKey: ['metrics', 'lead-time-by-period', startDate, endDate, repoIds, developerLoginsParam, chartPeriod],
     queryFn: () =>
       getLeadTimeByPeriod({
         start_date: startDate,
         end_date: endDate,
         period: chartPeriod,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
       }),
     enabled: !noReposSelected,
   });

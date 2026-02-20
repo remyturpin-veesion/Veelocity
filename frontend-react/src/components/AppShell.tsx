@@ -306,7 +306,7 @@ export function AppShell({ children }: AppShellProps) {
                   <LinearTeamMultiSelector />
                 </div>
               )}
-              {!showLinearSidebar && <DevTeamSelect />}
+              <DevTeamSelect />
             </div>
             <div className="app-shell__filters-right">
             <div className="app-shell__date-range-wrap" ref={sprintPickerRef}>

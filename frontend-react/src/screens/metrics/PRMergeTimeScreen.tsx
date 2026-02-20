@@ -9,19 +9,23 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 export function PRMergeTimeScreen() {
   useFiltersStore((s) => s.dateRange);
   useFiltersStore((s) => s.repoIds);
+  useFiltersStore((s) => s.developerLogins);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const repoIds = useFiltersStore((s) => s.getRepoIdsForApi)();
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const hasNoReposSelected = useFiltersStore((s) => s.hasNoReposSelected);
   const noReposSelected = hasNoReposSelected();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoIds],
+    queryKey: ['metrics', 'pr-merge-time', startDate, endDate, repoIds, developerLoginsParam],
     queryFn: () =>
       getPRMergeTime({
         start_date: startDate,
         end_date: endDate,
         repo_ids: repoIds ?? undefined,
+        author_logins: developerLoginsParam,
         include_trend: true,
       }),
     enabled: !noReposSelected,

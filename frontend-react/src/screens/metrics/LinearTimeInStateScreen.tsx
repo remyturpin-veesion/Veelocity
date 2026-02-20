@@ -29,15 +29,18 @@ interface TimeInStateStage {
 export function LinearTimeInStateScreen() {
   useFiltersStore((s) => s.dateRange);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
-  useFiltersStore((s) => s.teamIds); // subscribe so we re-render when team filter changes
+  useFiltersStore((s) => s.teamIds);
+  useFiltersStore((s) => s.developerLogins);
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const teamIdsParam = getTeamIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const timeInStateStageIds = useFiltersStore((s) => s.timeInStateStageIds);
   const setTimeInStateStageIds = useFiltersStore((s) => s.setTimeInStateStageIds);
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam],
+    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam, developerLoginsParam],
     queryFn: () =>
       getLinearTimeInState({
         start_date: startDate,
@@ -47,6 +50,7 @@ export function LinearTimeInStateScreen() {
             ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
             : undefined,
         no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
+        developer_logins: developerLoginsParam,
       }),
   });
 

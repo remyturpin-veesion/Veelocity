@@ -117,10 +117,12 @@ interface FiltersState {
   getRepoIdsForApi: () => number[] | null;
   /** True when user selected "0 repos" — pages should show no data. */
   hasNoReposSelected: () => boolean;
-  /** Empty set = no filter (0 values). Size 1 = that author. Size > 1 = all (null). */
-  getAuthorLoginForApi: () => string | null;
-  /** Empty set = no filter (0 values). Non-empty = those team ids. */
-  getTeamIdsForApi: () => number[] | undefined;
+      /** Empty set = no filter (0 values). Size 1 = that author. Size > 1 = all (null). */
+      getAuthorLoginForApi: () => string | null;
+      /** For unified filter: undefined = no filter, [] = filter to none (e.g. "No author"), string[] = those logins. */
+      getDeveloperLoginsForApi: () => string[] | undefined;
+      /** Empty set = no filter (0 values). Non-empty = those team ids. */
+      getTeamIdsForApi: () => number[] | undefined;
   getStartEnd: () => { startDate: string; endDate: string };
   /** For charts: 'day' if date range < 2 months, else 'week'. */
   getChartPeriod: () => 'day' | 'week';
@@ -207,6 +209,14 @@ export const useFiltersStore = create<FiltersState>()(
           return login === AUTHOR_LOGIN_NONE ? AUTHOR_LOGIN_NONE : login;
         }
         return null;
+      },
+
+      getDeveloperLoginsForApi() {
+        const { developerLogins } = get();
+        if (developerLogins.size === 0) return undefined;
+        const list = Array.from(developerLogins).filter((l) => l !== AUTHOR_LOGIN_NONE);
+        if (list.length === 0) return developerLogins.has(AUTHOR_LOGIN_NONE) ? [] : undefined;
+        return list;
       },
 
       getTeamIdsForApi() {

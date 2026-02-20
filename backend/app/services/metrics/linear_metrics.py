@@ -12,6 +12,7 @@ from typing import Literal
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.developer_linear_link import DeveloperLinearLink
 from app.models.linear import (
     LinearIssue,
     LinearIssueStateTransition,
@@ -74,6 +75,57 @@ class LinearMetricsService:
             LinearIssue.assignee_name.in_(matching_assignee_names),
         )
 
+    async def resolve_developer_logins_to_assignee_names(
+        self, developer_logins: list[str] | None, use_heuristic_fallback: bool = True
+    ) -> list[str]:
+        """
+        Resolve developer (GitHub) logins to Linear assignee names.
+        Uses developer_linear_links first; optionally falls back to name-matching heuristic.
+        Returns unique list of assignee names.
+        """
+        if not developer_logins:
+            return []
+        seen: set[str] = set()
+        result: list[str] = []
+        linked_logins: set[str] = set()
+
+        # Resolve via link table
+        link_result = await self._db.execute(
+            select(DeveloperLinearLink).where(
+                DeveloperLinearLink.developer_login.in_(developer_logins)
+            )
+        )
+        for row in link_result.scalars().all():
+            linked_logins.add(row.developer_login)
+            name = row.linear_assignee_name
+            if name and name not in seen:
+                seen.add(name)
+                result.append(name)
+
+        # Optional heuristic fallback for logins without a link
+        for login in developer_logins:
+            if login in linked_logins:
+                continue
+            if use_heuristic_fallback:
+                for name in await self._get_matching_assignee_names(login):
+                    if name and name not in seen:
+                        seen.add(name)
+                        result.append(name)
+
+        return result
+
+    async def _resolve_assignee_filter(
+        self,
+        assignee_name: str | None = None,
+        assignee_names: list[str] | None = None,
+    ) -> list[str] | None:
+        """Resolve assignee filter to a list of assignee names for _assignee_filter_sync."""
+        if assignee_names is not None:
+            return assignee_names if assignee_names else []
+        if assignee_name:
+            return await self._get_matching_assignee_names(assignee_name)
+        return None
+
     async def get_issues_completed(
         self,
         start_date: datetime,
@@ -82,16 +134,15 @@ class LinearMetricsService:
         team_id: int | None = None,
         team_ids: list[int] | None = None,
         assignee_name: str | None = None,
+        assignee_names: list[str] | None = None,
     ) -> dict:
         """
         Count of issues with completed_at in the period, grouped by period.
         Also returns list of individual completed issues with details.
         """
         ids = self._team_filter(team_id, team_ids)
-        matching = (
-            await self._get_matching_assignee_names(assignee_name)
-            if assignee_name
-            else None
+        matching = await self._resolve_assignee_filter(
+            assignee_name=assignee_name, assignee_names=assignee_names
         )
 
         # Query for time-series aggregation (dates only)
@@ -187,6 +238,7 @@ class LinearMetricsService:
         team_id: int | None = None,
         team_ids: list[int] | None = None,
         assignee_name: str | None = None,
+        assignee_names: list[str] | None = None,
     ) -> dict:
         """
         Count of open issues (completed_at and canceled_at both null).
@@ -197,10 +249,8 @@ class LinearMetricsService:
             LinearIssue.canceled_at.is_(None),
         )
         ids = self._team_filter(team_id, team_ids)
-        matching = (
-            await self._get_matching_assignee_names(assignee_name)
-            if assignee_name
-            else None
+        matching = await self._resolve_assignee_filter(
+            assignee_name=assignee_name, assignee_names=assignee_names
         )
 
         # Total count
@@ -289,6 +339,7 @@ class LinearMetricsService:
         team_id: int | None = None,
         team_ids: list[int] | None = None,
         assignee_name: str | None = None,
+        assignee_names: list[str] | None = None,
     ) -> dict:
         """
         Return one card per workflow state (Todo, In Progress, etc.) in order.
@@ -300,10 +351,8 @@ class LinearMetricsService:
         """
         ids = self._team_filter(team_id, team_ids)
         ordered_states = await self._get_ordered_workflow_states(ids)
-        matching = (
-            await self._get_matching_assignee_names(assignee_name)
-            if assignee_name
-            else None
+        matching = await self._resolve_assignee_filter(
+            assignee_name=assignee_name, assignee_names=assignee_names
         )
 
         # Issue counts per state (current state)
@@ -475,6 +524,7 @@ class LinearMetricsService:
         team_id: int | None = None,
         team_ids: list[int] | None = None,
         assignee_name: str | None = None,
+        assignee_names: list[str] | None = None,
     ) -> dict:
         """
         Single response for dashboard: issues completed, backlog, time-in-state.
@@ -486,9 +536,13 @@ class LinearMetricsService:
             team_id=team_id,
             team_ids=team_ids,
             assignee_name=assignee_name,
+            assignee_names=assignee_names,
         )
         backlog = await self.get_backlog(
-            team_id=team_id, team_ids=team_ids, assignee_name=assignee_name
+            team_id=team_id,
+            team_ids=team_ids,
+            assignee_name=assignee_name,
+            assignee_names=assignee_names,
         )
         time_in_state = await self.get_time_in_state(
             start_date,
@@ -496,6 +550,7 @@ class LinearMetricsService:
             team_id=team_id,
             team_ids=team_ids,
             assignee_name=assignee_name,
+            assignee_names=assignee_names,
         )
 
         return {

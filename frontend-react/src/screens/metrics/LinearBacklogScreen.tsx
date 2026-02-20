@@ -9,13 +9,16 @@ import { SkeletonCard } from '@/components/SkeletonCard.js';
 export function LinearBacklogScreen() {
   useFiltersStore((s) => s.teamIds);
   useFiltersStore((s) => s.dateRange);
+  useFiltersStore((s) => s.developerLogins);
   const getTeamIdsForApi = useFiltersStore((s) => s.getTeamIdsForApi);
+  const getDeveloperLoginsForApi = useFiltersStore((s) => s.getDeveloperLoginsForApi);
   const getStartEnd = useFiltersStore((s) => s.getStartEnd);
   const teamIdsParam = getTeamIdsForApi();
+  const developerLoginsParam = getDeveloperLoginsForApi();
   const { startDate, endDate } = getStartEnd();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['metrics', 'linear', 'backlog', teamIdsParam],
+    queryKey: ['metrics', 'linear', 'backlog', teamIdsParam, developerLoginsParam],
     queryFn: () =>
       getLinearBacklog({
         team_ids:
@@ -23,11 +26,12 @@ export function LinearBacklogScreen() {
             ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
             : undefined,
         no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
+        developer_logins: developerLoginsParam,
       }),
   });
 
   const { data: timeInStateData } = useQuery({
-    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam],
+    queryKey: ['metrics', 'linear', 'time-in-state', startDate, endDate, teamIdsParam, developerLoginsParam],
     queryFn: () =>
       getLinearTimeInState({
         start_date: startDate,
@@ -37,6 +41,7 @@ export function LinearBacklogScreen() {
             ? teamIdsParam.filter((id) => id !== TEAM_ID_NONE)
             : undefined,
         no_teams: teamIdsParam?.length === 1 && teamIdsParam[0] === TEAM_ID_NONE,
+        developer_logins: developerLoginsParam,
       }),
   });
 

@@ -33,6 +33,7 @@ class DevelopmentMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> dict:
         """
         Calculate PR review time.
@@ -60,8 +61,9 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        if author_login:
-            query = query.where(PullRequest.author_login == author_login)
+        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        if authors:
+            query = query.where(PullRequest.author_login.in_(authors))
 
         result = await self._db.execute(query)
         rows = result.all()
@@ -102,6 +104,7 @@ class DevelopmentMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> dict:
         """
         Calculate PR merge time.
@@ -120,8 +123,9 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        if author_login:
-            query = query.where(PullRequest.author_login == author_login)
+        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        if authors:
+            query = query.where(PullRequest.author_login.in_(authors))
 
         result = await self._db.execute(query)
         prs = result.scalars().all()
@@ -295,6 +299,7 @@ class DevelopmentMetricsService:
         repo_id: int | None = None,
         repo_ids: list[int] | None = None,
         author_login: str | None = None,
+        author_logins: list[str] | None = None,
     ) -> dict:
         """
         Calculate throughput.
@@ -313,8 +318,9 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        if author_login:
-            query = query.where(PullRequest.author_login == author_login)
+        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        if authors:
+            query = query.where(PullRequest.author_login.in_(authors))
 
         result = await self._db.execute(query)
         merged_dates = [row[0] for row in result.all() if row[0]]
