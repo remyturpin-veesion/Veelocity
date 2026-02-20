@@ -61,7 +61,11 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        authors = (
+            author_logins
+            if author_logins is not None
+            else ([author_login] if author_login else None)
+        )
         if authors:
             query = query.where(PullRequest.author_login.in_(authors))
 
@@ -123,7 +127,11 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        authors = (
+            author_logins
+            if author_logins is not None
+            else ([author_login] if author_login else None)
+        )
         if authors:
             query = query.where(PullRequest.author_login.in_(authors))
 
@@ -318,7 +326,11 @@ class DevelopmentMetricsService:
         if repo_filter is not None:
             query = query.where(PullRequest.repo_id.in_(repo_filter))
 
-        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        authors = (
+            author_logins
+            if author_logins is not None
+            else ([author_login] if author_login else None)
+        )
         if authors:
             query = query.where(PullRequest.author_login.in_(authors))
 

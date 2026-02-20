@@ -54,7 +54,9 @@ class DORAMetricsService:
         If author_login/author_logins is specified, only counts deployments where the deployed commit
         was authored by that developer(s).
         """
-        authors = self._author_list(author_login=author_login, author_logins=author_logins)
+        authors = self._author_list(
+            author_login=author_login, author_logins=author_logins
+        )
         # Get all successful deployments
         query = (
             select(WorkflowRun)
@@ -221,7 +223,9 @@ class DORAMetricsService:
 
         If author_login/author_logins is specified, only includes deployments of commits by that author(s).
         """
-        authors = self._author_list(author_login=author_login, author_logins=author_logins)
+        authors = self._author_list(
+            author_login=author_login, author_logins=author_logins
+        )
         # Get successful deployments
         deploy_query = (
             select(WorkflowRun)

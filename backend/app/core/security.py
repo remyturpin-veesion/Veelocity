@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 
+
 # Pre-hash with SHA-256 so bcrypt never sees >72 bytes; allows arbitrary password length.
 def _sha256_digest(password: str) -> bytes:
     return hashlib.sha256(password.encode("utf-8")).digest()
@@ -28,7 +29,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(digest, hashed_password.encode("utf-8"))
 
 
-def create_access_token(subject: str | int, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    subject: str | int, expires_delta: timedelta | None = None
+) -> str:
     """Create a JWT access token. Subject is typically the user id."""
     if expires_delta is None:
         expires_delta = timedelta(minutes=settings.jwt_access_token_expire_minutes)

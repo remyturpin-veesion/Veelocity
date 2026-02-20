@@ -48,6 +48,7 @@ def _oauth_available() -> bool:
 
 # ---- Email/password auth ----
 
+
 @router.post("/register", response_model=Token | RegisterResponse)
 async def auth_register(
     body: UserCreate,
@@ -124,6 +125,7 @@ async def auth_change_password(
 
 
 # ---- GitHub OAuth (for Settings "Connect with GitHub") ----
+
 
 @router.get("/github/status")
 async def auth_github_status():

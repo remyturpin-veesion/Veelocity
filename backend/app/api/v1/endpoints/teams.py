@@ -18,7 +18,9 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 
 
 def _to_response(team: DeveloperTeam) -> DeveloperTeamResponse:
-    return DeveloperTeamResponse(id=str(team.id), name=team.name, members=team.members or [])
+    return DeveloperTeamResponse(
+        id=str(team.id), name=team.name, members=team.members or []
+    )
 
 
 @router.get("", response_model=DeveloperTeamsListResponse)

@@ -15,9 +15,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     """Load a user by email (case-insensitive)."""
-    result = await db.execute(
-        select(User).where(User.email == email.strip().lower())
-    )
+    result = await db.execute(select(User).where(User.email == email.strip().lower()))
     return result.scalar_one_or_none()
 
 
@@ -64,9 +62,7 @@ async def create_user(
     return user
 
 
-async def authenticate_user(
-    db: AsyncSession, email: str, password: str
-) -> User | None:
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
     """Verify credentials and return the user, or None if invalid. Does not check is_active."""
     user = await get_user_by_email(db, email)
     if user is None:
@@ -103,7 +99,9 @@ async def delete_user(db: AsyncSession, user_id: int) -> bool:
     return True
 
 
-async def set_user_active(db: AsyncSession, user_id: int, is_active: bool) -> User | None:
+async def set_user_active(
+    db: AsyncSession, user_id: int, is_active: bool
+) -> User | None:
     """Set is_active for a user. Returns the user or None if not found."""
     user = await get_user_by_id(db, user_id)
     if user is None:

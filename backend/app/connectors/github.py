@@ -19,7 +19,9 @@ class GitHubConnector(BaseConnector):
         self._token = token
         self._repos = repos
         self._rate_limit_logged = False  # Only log once per sync when sync limit is hit
-        self._github_rate_limit_low_logged = False  # Only log once when crossing below pause threshold
+        self._github_rate_limit_low_logged = (
+            False  # Only log once when crossing below pause threshold
+        )
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={

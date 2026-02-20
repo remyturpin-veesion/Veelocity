@@ -125,7 +125,11 @@ class PRHealthService:
         Returns:
             List of PR health scores, sorted by score (worst first)
         """
-        authors = author_logins if author_logins is not None else ([author_login] if author_login else None)
+        authors = (
+            author_logins
+            if author_logins is not None
+            else ([author_login] if author_login else None)
+        )
         # Build query (eager load repository to avoid lazy load in async context)
         query = (
             select(PullRequest)

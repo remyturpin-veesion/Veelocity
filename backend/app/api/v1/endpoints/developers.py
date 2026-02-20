@@ -108,7 +108,10 @@ async def get_linear_links(db: AsyncSession = Depends(get_db)):
     List developer → Linear assignee links for the Team UI.
     """
     result = await db.execute(
-        select(DeveloperLinearLink.developer_login, DeveloperLinearLink.linear_assignee_name)
+        select(
+            DeveloperLinearLink.developer_login,
+            DeveloperLinearLink.linear_assignee_name,
+        )
     )
     links = [
         {"developer_login": row[0], "linear_assignee_name": row[1]}
@@ -134,9 +137,11 @@ async def set_developer_linear_assignee(
     Pass linear_assignee_name: null to remove the link.
     """
     if body.linear_assignee_name is None or body.linear_assignee_name.strip() == "":
-        await db.execute(delete(DeveloperLinearLink).where(
-            DeveloperLinearLink.developer_login == login
-        ))
+        await db.execute(
+            delete(DeveloperLinearLink).where(
+                DeveloperLinearLink.developer_login == login
+            )
+        )
         await db.commit()
         return {"developer_login": login, "linear_assignee_name": None}
     name = body.linear_assignee_name.strip()
