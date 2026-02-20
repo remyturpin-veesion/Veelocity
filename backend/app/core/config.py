@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     sentry_dsn: str | None = None
     sentry_environment: str = "development"  # e.g. development, staging, production
 
+    # CORS: comma-separated origins (e.g. https://veelocity.example.com). If empty, allow all (dev-friendly).
+    cors_allowed_origins: str = ""
+
 
 settings = Settings()
 

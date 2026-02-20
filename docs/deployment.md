@@ -1,6 +1,8 @@
 # Veelocity — Production Deployment Guide
 
-This guide covers deploying Veelocity in production using Docker Compose. Adapt to your infrastructure as needed (Kubernetes, cloud services, etc.).
+This guide covers deploying Veelocity in production using Docker Compose. **All app configuration** (GitHub, Linear, Cursor, Greptile) is done in the app via **Settings** (gear icon) after deploy.
+
+**veelocity.tooling.veesion.io:** [deployment-veelocity-tooling-veesion-io.md](deployment-veelocity-tooling-veesion-io.md)
 
 ## Architecture Overview
 
@@ -85,40 +87,18 @@ docker run --rm python:3.11-slim python -c "from cryptography.fernet import Fern
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEBUG` | `false` | Enable debug mode (set to `false` in production) |
+| `DEBUG` | `false` | Set to `false` in production |
 | `DEPLOYMENT_PATTERNS` | `deploy,release,publish` | Comma-separated patterns to identify deployment workflows |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Backend URL baked into the frontend at build time |
+| `CORS_ALLOWED_ORIGINS` | — | Production: comma-separated origins (e.g. `https://your-domain.com`); leave empty to allow all |
 
-### Rate Limiting
+### Rate limiting (optional)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RATE_LIMIT_MAX_PER_SYNC` | `500` | Max GitHub API calls per sync session |
+| `RATE_LIMIT_MAX_PER_SYNC` | `500` | Max GitHub API calls per sync |
 | `RATE_LIMIT_MAX_PER_HOUR` | `4000` | Max GitHub API calls per hour |
 | `RATE_LIMIT_DELAY_MS` | `100` | Delay between API calls (ms) |
-
-### GitHub OAuth (Optional)
-
-Enables the "Connect with GitHub" button in Settings (alternative to manually entering a Personal Access Token).
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GITHUB_OAUTH_CLIENT_ID` | — | GitHub OAuth App client ID |
-| `GITHUB_OAUTH_CLIENT_SECRET` | — | GitHub OAuth App client secret |
-| `OAUTH_BACKEND_BASE_URL` | `http://localhost:8000` | Backend URL for OAuth callback |
-| `OAUTH_FRONTEND_REDIRECT_URL` | `http://localhost:5173` | Frontend URL for post-OAuth redirect |
-
-See [docs/guides/github-oauth-setup.md](guides/github-oauth-setup.md) for setup instructions.
-
-### Sentry (Optional)
-
-Error reporting to Sentry (e.g. self-hosted at https://sentry.tooling.veesion.io). Get the DSN from your Sentry project: **Project → Client Keys (DSN)**. Leave unset to disable.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SENTRY_DSN` | — | Backend: DSN for error reporting (optional) |
-| `SENTRY_ENVIRONMENT` | `development` | Backend: environment name (e.g. `production`) |
-| `VITE_SENTRY_DSN` | — | Frontend: DSN (baked at build time; optional) |
 
 ## Health Checks
 
@@ -188,10 +168,7 @@ veelocity.example.com {
 }
 ```
 
-When using a reverse proxy:
-- Set `VITE_API_BASE_URL` to your public URL (e.g., `https://veelocity.example.com`)
-- Set `OAUTH_BACKEND_BASE_URL` and `OAUTH_FRONTEND_REDIRECT_URL` to the public URL
-- The frontend's CORS is currently set to allow all origins; restrict in production by updating `app/main.py`
+When using a reverse proxy, set `VITE_API_BASE_URL` to your public URL and `CORS_ALLOWED_ORIGINS` to that origin.
 
 ## Updating
 

@@ -92,9 +92,14 @@ async def log_unhandled_exception(request, exc: Exception):
 
 
 # CORS middleware for frontend access
+_origins = (
+    [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+    if settings.cors_allowed_origins
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to specific origins
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
