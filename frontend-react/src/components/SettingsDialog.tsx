@@ -6,13 +6,9 @@ import { GitHubRepoMultiSelect } from '@/components/GitHubRepoMultiSelect.js';
 const SETTINGS_CATEGORY_IDS = ['github', 'cursor', 'greptile', 'sentry', 'linear'] as const;
 type SettingsCategoryId = (typeof SETTINGS_CATEGORY_IDS)[number];
 
-const defaultExpanded: Record<SettingsCategoryId, boolean> = {
-  github: false,
-  cursor: false,
-  greptile: false,
-  sentry: false,
-  linear: false,
-};
+const defaultExpanded: Record<SettingsCategoryId, boolean> = Object.fromEntries(
+  SETTINGS_CATEGORY_IDS.map((id) => [id, false])
+) as Record<SettingsCategoryId, boolean>;
 
 interface SettingsDialogProps {
   open: boolean;
@@ -54,13 +50,16 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [isDragging, setIsDragging] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const expandAll = () => setExpandedSections({ github: true, cursor: true, greptile: true, sentry: true, linear: true });
+  const expandAll = () =>
+    setExpandedSections(Object.fromEntries(SETTINGS_CATEGORY_IDS.map((id) => [id, true])) as Record<SettingsCategoryId, boolean>);
   const collapseAll = () => setExpandedSections({ ...defaultExpanded });
   const toggleSection = (id: SettingsCategoryId) =>
     setExpandedSections((prev) => ({ ...prev, [id]: !prev[id] }));
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; dialogX: number; dialogY: number } | null>(null);
   const setDraggingRef = useRef(setIsDragging);
-  setDraggingRef.current = setIsDragging;
+  useEffect(() => {
+    setDraggingRef.current = setIsDragging;
+  }, [setIsDragging]);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0 || !dialogRef.current) return;
@@ -72,8 +71,10 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   useEffect(() => {
     if (!open) {
+      /* eslint-disable react-hooks/set-state-in-effect -- reset drag state when dialog closes */
       setDialogPosition(null);
       setIsDragging(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       dragStartRef.current = null;
       return;
     }
@@ -99,7 +100,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   useEffect(() => {
     if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state when dialog opens
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when dialog opens
     setError(null);
     setLoading(true);
     Promise.all([getSettings(), getGitHubOAuthStatus()])
@@ -131,7 +132,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     if (connected === '1' || oauthError) {
       const newUrl = window.location.pathname + window.location.hash;
       window.history.replaceState(null, '', newUrl);
-      /* eslint-disable react-hooks/set-state-in-effect -- Intentional: handle OAuth redirect params on dialog open */
+      /* eslint-disable react-hooks/set-state-in-effect -- handle OAuth redirect params on dialog open */
       if (oauthError === 'not_configured') {
         setError('GitHub OAuth is not configured on the server (missing client ID/secret).');
       } else if (oauthError === 'encryption_required') {

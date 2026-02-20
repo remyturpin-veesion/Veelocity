@@ -196,8 +196,8 @@ veelocity/
 │   ├── docker-compose.yml      # Development
 │   └── docker-compose.prod.yml # Production
 ├── docs/
-│   ├── deployment.md
-│   ├── deployment-veelocity-tooling-veesion-io.md
+│   ├── deployment.md           # Production guide + example runbook
+│   ├── SRE_DEPLOYMENT_HANDOFF.md
 │   ├── SECOPS_CHECKLIST.md
 │   ├── SECURITY_AUDIT_SECRETS.md
 │   ├── greptile-indexing-flow.md

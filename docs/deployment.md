@@ -2,7 +2,15 @@
 
 This guide covers deploying Veelocity in production using Docker Compose. **All app configuration** (GitHub, Linear, Cursor, Greptile) is done in the app via **Settings** (gear icon) after deploy.
 
-**veelocity.tooling.veesion.io:** [deployment-veelocity-tooling-veesion-io.md](deployment-veelocity-tooling-veesion-io.md)
+**Deployment docs in this repo:**
+
+| Doc | Purpose |
+|-----|--------|
+| **deployment.md** (this file) | Full production guide + [example runbook](#example-runbook-veelocitytoolingveesionio) |
+| [SRE_DEPLOYMENT_HANDOFF.md](SRE_DEPLOYMENT_HANDOFF.md) | Package for requesting a new deployment from SRE (Notion form) |
+| [SECOPS_CHECKLIST.md](SECOPS_CHECKLIST.md) | Security checklist before/after deploy |
+
+---
 
 ## Architecture Overview
 
@@ -233,6 +241,81 @@ docker compose -f infra/docker/docker-compose.prod.yml exec backend /bin/bash
 
 - Verify `VITE_API_BASE_URL` is set to the correct backend URL
 - This value is baked in at **build time** — if you change it, rebuild the frontend: `docker compose -f infra/docker/docker-compose.prod.yml up -d --build frontend`
+
+## Example runbook: veelocity.tooling.veesion.io
+
+Short runbook for **https://veelocity.tooling.veesion.io/**. For architecture, backups, and troubleshooting see the sections above.
+
+### Target and prerequisites
+
+| Item | Value |
+|------|--------|
+| **Public URL** | https://veelocity.tooling.veesion.io/ |
+| **Stack** | Docker Compose (PostgreSQL + Backend + Frontend), reverse proxy for TLS |
+
+- Docker Engine 24+ and Docker Compose v2
+- DNS: `veelocity.tooling.veesion.io` → server (or LB)
+- Reverse proxy with TLS (e.g. Caddy, Traefik)
+- Secrets: `POSTGRES_PASSWORD`, `VEELOCITY_ENCRYPTION_KEY`, `JWT_SECRET_KEY`
+
+### Environment (infra/docker/.env)
+
+Create from `infra/docker/.env.example` and set:
+
+```bash
+POSTGRES_USER=veelocity
+POSTGRES_PASSWORD=<strong-password>
+POSTGRES_DB=veelocity
+POSTGRES_PORT=5432
+DEBUG=false
+
+# Generate: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+VEELOCITY_ENCRYPTION_KEY=<your-fernet-key>
+# Generate: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+JWT_SECRET_KEY=<your-jwt-secret>
+
+# Public URL (same host for app and API)
+VITE_API_BASE_URL=https://veelocity.tooling.veesion.io
+CORS_ALLOWED_ORIGINS=https://veelocity.tooling.veesion.io
+```
+
+`VITE_API_BASE_URL` is baked at build time; after changing it, rebuild the frontend.
+
+### Reverse proxy (Caddy)
+
+```caddyfile
+veelocity.tooling.veesion.io {
+    handle /api/* {
+        reverse_proxy localhost:8000
+    }
+    handle {
+        reverse_proxy localhost:80
+    }
+}
+```
+
+### Deploy and verify
+
+```bash
+git clone <repo-url> veelocity && cd veelocity
+cp infra/docker/.env.example infra/docker/.env
+# Edit infra/docker/.env with the values above
+
+docker compose -f infra/docker/docker-compose.prod.yml --env-file infra/docker/.env up -d --build
+```
+
+- `curl -s https://veelocity.tooling.veesion.io/api/v1/health` → `{"status":"healthy"}`
+- Open https://veelocity.tooling.veesion.io/ → Settings (gear) → configure GitHub, Linear, etc.
+
+### Checklist
+
+- [ ] DNS: `veelocity.tooling.veesion.io` → server
+- [ ] Reverse proxy: TLS, `/api/*` → backend, `/` → frontend
+- [ ] `infra/docker/.env`: `POSTGRES_PASSWORD`, `VEELOCITY_ENCRYPTION_KEY`, `JWT_SECRET_KEY`, `VITE_API_BASE_URL`, `CORS_ALLOWED_ORIGINS`, `DEBUG=false`
+- [ ] Run compose with `--env-file infra/docker/.env`
+- [ ] Health check and configure data sources in **Settings**
+
+---
 
 ## API Documentation
 

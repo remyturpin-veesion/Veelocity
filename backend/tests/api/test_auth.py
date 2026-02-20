@@ -84,7 +84,10 @@ async def test_register_duplicate_email_returns_400(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_returns_token(client: AsyncClient):
     """POST /api/v1/auth/login returns token for valid credentials."""
-    with patch("app.api.v1.endpoints.auth.authenticate_user", new_callable=AsyncMock) as mock_auth:
+    with (
+        patch("app.api.v1.endpoints.auth.authenticate_user", new_callable=AsyncMock) as mock_auth,
+        patch("app.api.v1.endpoints.auth.record_last_login", new_callable=AsyncMock),
+    ):
         mock_user = User(
             id=1,
             email="login@example.com",

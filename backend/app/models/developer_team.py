@@ -1,6 +1,6 @@
 """Developer team model: named groups of GitHub logins, shared across all users."""
 
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
