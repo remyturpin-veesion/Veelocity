@@ -8,13 +8,6 @@ import { TOUR_GROUPS, getGroupOffset, TOTAL_TOUR_STEPS } from '@/tour/tourSteps.
 /** ms to wait after navigation for lazy-loaded screens to render */
 const MOUNT_DELAY_MS = 600;
 
-interface TooltipData {
-  groupOffset: number;
-  isLastGroup: boolean;
-  isDark: boolean;
-  groupIndex: number;
-}
-
 export function GuidedTour() {
   const isRunning = useTourStore((s) => s.isRunning);
   const groupIndex = useTourStore((s) => s.groupIndex);
@@ -40,6 +33,8 @@ export function GuidedTour() {
   useEffect(() => {
     if (!isRunning || !group) return;
 
+    // Intentionally reset ready when deps change so we re-wait after navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync ready with route + delay
     setReady(false);
     if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
 
@@ -93,12 +88,8 @@ export function GuidedTour() {
     [groupIndex, setGroupIndex, setStepIndex, markCompleted],
   );
 
-  // Keep a ref of current values so the stable tooltip component can read them at render time.
-  const tooltipDataRef = useRef<TooltipData>({ groupOffset: 0, isLastGroup: false, isDark: false, groupIndex: 0 });
-  tooltipDataRef.current = { groupOffset, isLastGroup, isDark, groupIndex };
-
-  // Create the tooltip component once (stable identity) — reads live values via the ref.
-  const [Tooltip] = useState(() =>
+  // Tooltip component that closes over current values (no ref mutation during render).
+  const Tooltip = useCallback(
     function CustomTooltip({
       backProps,
       closeProps,
@@ -110,7 +101,6 @@ export function GuidedTour() {
       step,
       tooltipProps,
     }: TooltipRenderProps) {
-      const { groupOffset, isLastGroup, isDark } = tooltipDataRef.current;
       const globalStep = groupOffset + index + 1;
       const isAbsoluteLastStep = isLastGroup && isLastStep;
 
@@ -229,6 +219,7 @@ export function GuidedTour() {
         </div>
       );
     },
+    [groupOffset, isLastGroup, isDark],
   );
 
   if (!isRunning || !group || !ready) return null;

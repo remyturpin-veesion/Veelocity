@@ -2,7 +2,15 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -66,7 +74,9 @@ class SentryProjectSnapshot(Base):
 
     __tablename__ = "sentry_project_snapshots"
     __table_args__ = (
-        UniqueConstraint("project_id", "snapshot_date", name="uq_sentry_snapshot_project_date"),
+        UniqueConstraint(
+            "project_id", "snapshot_date", name="uq_sentry_snapshot_project_date"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

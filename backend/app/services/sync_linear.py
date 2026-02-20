@@ -266,7 +266,9 @@ class SyncLinearService:
             return 0
 
         linear_ids = [row.linear_id for row in rows]
-        logger.info("Linear backfill: fetching labels/project for %d issues", len(linear_ids))
+        logger.info(
+            "Linear backfill: fetching labels/project for %d issues", len(linear_ids)
+        )
 
         issues_data = await self._connector.fetch_issues_by_ids(linear_ids)
         fetched_map = {d["linear_id"]: d for d in issues_data}

@@ -149,7 +149,9 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
 
     # Load all projects
     result = await db.execute(
-        select(SentryProject).where(SentryProject.org_slug == org).order_by(SentryProject.slug)
+        select(SentryProject)
+        .where(SentryProject.org_slug == org)
+        .order_by(SentryProject.slug)
     )
     all_projects = list(result.scalars().all())
     if not all_projects:
@@ -183,10 +185,7 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
     for target in week_targets:
         # Check if any project is missing a snapshot for this window
         needs_backfill = any(
-            not any(
-                abs((d - target).days) <= 3
-                for d in snaps_index.get(p.id, {})
-            )
+            not any(abs((d - target).days) <= 3 for d in snaps_index.get(p.id, {}))
             for p in all_projects
         )
         if not needs_backfill:
@@ -197,7 +196,10 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
         try:
             async with httpx.AsyncClient(
                 base_url=base.rstrip("/"),
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
                 timeout=20.0,
             ) as client:
                 r = await client.get(
@@ -211,7 +213,12 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
                     },
                 )
             if r.status_code != 200:
-                logger.debug("Sentry trends backfill %s→%s: HTTP %s", window_start, window_end, r.status_code)
+                logger.debug(
+                    "Sentry trends backfill %s→%s: HTTP %s",
+                    window_start,
+                    window_end,
+                    r.status_code,
+                )
                 continue
 
             data = r.json()
@@ -255,14 +262,21 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
                 )
 
             await db.flush()
-            logger.info("Sentry trends: backfilled window %s→%s", window_start, window_end)
+            logger.info(
+                "Sentry trends: backfilled window %s→%s", window_start, window_end
+            )
         except Exception as e:
             logger.debug("Sentry trends backfill error for %s: %s", target, e)
 
     # --- Build response ---
-    def _closest_snap(proj_snaps: dict[date, SentryProjectSnapshot], target: date) -> dict[str, Any] | None:
+    def _closest_snap(
+        proj_snaps: dict[date, SentryProjectSnapshot], target: date
+    ) -> dict[str, Any] | None:
         for delta in range(0, 4):
-            for candidate in (target - timedelta(days=delta), target + timedelta(days=delta)):
+            for candidate in (
+                target - timedelta(days=delta),
+                target + timedelta(days=delta),
+            ):
                 if candidate in proj_snaps:
                     s = proj_snaps[candidate]
                     snap_date = s.snapshot_date
@@ -270,7 +284,11 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
                         "events_24h": s.events_24h,
                         "events_7d": s.events_7d,
                         "open_issues_count": s.open_issues_count,
-                        "snapshot_date": snap_date.isoformat() if hasattr(snap_date, "isoformat") else str(snap_date),
+                        "snapshot_date": (
+                            snap_date.isoformat()
+                            if hasattr(snap_date, "isoformat")
+                            else str(snap_date)
+                        ),
                     }
         return None
 
@@ -296,7 +314,9 @@ async def sentry_trends(db: AsyncSession = Depends(get_db)):
             if prev_val > 0:
                 pct = (curr_val - prev_val) / prev_val * 100
                 trend_pct = round(pct, 1)
-                trend_direction = "improving" if pct < -5 else ("degrading" if pct > 5 else "stable")
+                trend_direction = (
+                    "improving" if pct < -5 else ("degrading" if pct > 5 else "stable")
+                )
             elif curr_val == 0:
                 trend_direction = "stable"
                 trend_pct = 0.0

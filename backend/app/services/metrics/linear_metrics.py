@@ -154,9 +154,15 @@ class LinearMetricsService:
                     "url": row.url,
                     "assignee_name": row.assignee_name,
                     "project_name": row.project_name,
-                    "labels": [s.strip() for s in row.labels.split(",") if s.strip()] if row.labels else [],
+                    "labels": (
+                        [s.strip() for s in row.labels.split(",") if s.strip()]
+                        if row.labels
+                        else []
+                    ),
                     "team_name": row.team_name,
-                    "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+                    "completed_at": (
+                        row.completed_at.isoformat() if row.completed_at else None
+                    ),
                     "lead_time_hours": lead_time_hours,
                 }
             )
